@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 type Player = { id: number; name: string };
+type PlayerStat = { id: number; name: string; sessions: number };
 
 export default function PlayersPage() {
   const [players, setPlayers] = useState<Player[]>([]);
+  const [statsMap, setStatsMap] = useState<Record<number, number>>({});
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState("");
   const [adding, setAdding] = useState(false);
@@ -15,10 +17,38 @@ export default function PlayersPage() {
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   useEffect(() => {
-    fetch("/api/players")
-      .then((r) => r.json())
-      .then((data) => { setPlayers(data); setLoading(false); });
+    Promise.all([fetch("/api/players"), fetch("/api/stats")])
+      .then(([p, s]) => Promise.all([p.json(), s.json()]))
+      .then(([playersData, statsData]: [Player[], { players: PlayerStat[] }]) => {
+        setPlayers(playersData);
+        const map: Record<number, number> = {};
+        statsData.players.forEach((p) => { map[p.id] = p.sessions; });
+        setStatsMap(map);
+        setLoading(false);
+      });
   }, []);
+
+  // Sorted by sessions for highlights
+  const sorted = [...players].sort((a, b) => (statsMap[b.id] ?? 0) - (statsMap[a.id] ?? 0));
+
+  // Top 3: include all players sharing the 3rd-highest distinct session count
+  function getTop3(): Player[] {
+    const counts = [...new Set(sorted.map((p) => statsMap[p.id] ?? 0))].slice(0, 3);
+    return sorted.filter((p) => counts.includes(statsMap[p.id] ?? 0));
+  }
+
+  // Bottom 3: include all players sharing the 3rd-lowest distinct session count (exclude those in top3)
+  function getBottom3(): Player[] {
+    const top3Ids = new Set(getTop3().map((p) => p.id));
+    const rest = [...sorted].reverse().filter((p) => !top3Ids.has(p.id));
+    if (rest.length === 0) return [];
+    const counts = [...new Set(rest.map((p) => statsMap[p.id] ?? 0))].slice(0, 3);
+    return rest.filter((p) => counts.includes(statsMap[p.id] ?? 0));
+  }
+
+  const top3 = getTop3();
+  const bottom3 = getBottom3();
+  const showHighlights = players.length >= 4;
 
   async function addPlayer() {
     if (!newName.trim()) return;
@@ -57,12 +87,14 @@ export default function PlayersPage() {
     setDeletingId(id);
     await fetch(`/api/players/${id}`, { method: "DELETE" });
     setPlayers((prev) => prev.filter((p) => p.id !== id));
+    const newMap = { ...statsMap };
+    delete newMap[id];
+    setStatsMap(newMap);
     setDeletingId(null);
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50 to-teal-50">
-      {/* Header */}
       <div className="relative overflow-hidden bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 text-white px-5 pt-12 pb-8">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-4 right-8 text-8xl">👥</div>
@@ -80,6 +112,43 @@ export default function PlayersPage() {
       </div>
 
       <div className="px-4 py-5 max-w-lg mx-auto space-y-4">
+
+        {/* Highlights — top 3 & bottom 3 */}
+        {!loading && showHighlights && (
+          <div className="grid grid-cols-2 gap-3">
+            {/* Top 3 */}
+            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4">
+              <div className="flex items-center gap-1.5 mb-3">
+                <span className="text-base">🔥</span>
+                <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">Most Active</span>
+              </div>
+              <div className="space-y-2">
+                {top3.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-gray-800 truncate">{p.name}</span>
+                    <span className="text-xs font-bold text-emerald-600 ml-1 shrink-0">{statsMap[p.id] ?? 0}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Bottom 3 */}
+            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4">
+              <div className="flex items-center gap-1.5 mb-3">
+                <span className="text-base">💤</span>
+                <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">Least Active</span>
+              </div>
+              <div className="space-y-2">
+                {bottom3.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-gray-800 truncate">{p.name}</span>
+                    <span className="text-xs font-bold text-orange-500 ml-1 shrink-0">{statsMap[p.id] ?? 0}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Add player */}
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 space-y-3">
@@ -103,7 +172,7 @@ export default function PlayersPage() {
           </div>
         </div>
 
-        {/* Player list */}
+        {/* Full player list */}
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5">
           <h2 className="font-bold text-gray-800 mb-4">All Players</h2>
           {loading ? (
@@ -132,16 +201,10 @@ export default function PlayersPage() {
                         }}
                         className="flex-1 bg-emerald-50 border-2 border-emerald-300 rounded-2xl px-4 py-2.5 text-sm font-medium text-gray-900 focus:outline-none"
                       />
-                      <button
-                        onClick={() => saveEdit(player.id)}
-                        className="bg-emerald-500 text-white px-4 py-2.5 rounded-2xl text-sm font-bold hover:bg-emerald-600 active:scale-95 transition-all"
-                      >
+                      <button onClick={() => saveEdit(player.id)} className="bg-emerald-500 text-white px-4 py-2.5 rounded-2xl text-sm font-bold hover:bg-emerald-600 active:scale-95 transition-all">
                         Save
                       </button>
-                      <button
-                        onClick={() => setEditingId(null)}
-                        className="text-gray-400 px-3 py-2.5 rounded-2xl text-sm font-medium hover:bg-gray-100 transition-colors"
-                      >
+                      <button onClick={() => setEditingId(null)} className="text-gray-400 px-3 py-2.5 rounded-2xl text-sm font-medium hover:bg-gray-100 transition-colors">
                         ✕
                       </button>
                     </>
@@ -151,12 +214,8 @@ export default function PlayersPage() {
                         {player.name[0].toUpperCase()}
                       </div>
                       <span className="flex-1 text-sm font-semibold text-gray-800">{player.name}</span>
-                      <button
-                        onClick={() => startEdit(player)}
-                        className="text-gray-400 hover:text-emerald-600 px-2 py-1 rounded-xl text-sm transition-colors"
-                      >
-                        ✏️
-                      </button>
+                      <span className="text-xs font-bold text-gray-400">{statsMap[player.id] ?? 0} sessions</span>
+                      <button onClick={() => startEdit(player)} className="text-gray-400 hover:text-emerald-600 px-2 py-1 rounded-xl text-sm transition-colors">✏️</button>
                       <button
                         onClick={() => deletePlayer(player.id)}
                         disabled={deletingId === player.id}

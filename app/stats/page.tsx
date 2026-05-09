@@ -11,17 +11,19 @@ const MEDAL: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
 export default function StatsPage() {
   const [stats, setStats] = useState<PlayerStat[]>([]);
   const [venues, setVenues] = useState<VenueStat[]>([]);
+  const [totalDays, setTotalDays] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([fetch("/api/stats"), fetch("/api/venues")])
       .then(([s, v]) => Promise.all([s.json(), v.json()]))
-      .then(([playerData, venueData]: [{ id: number; name: string; sessions: number }[], VenueStat[]]) => {
-        const ranked = playerData.map((p) => ({
+      .then(([statsData, venueData]: [{ totalDays: number; players: { id: number; name: string; sessions: number }[] }, VenueStat[]]) => {
+        const ranked = statsData.players.map((p) => ({
           ...p,
-          rank: playerData.filter((o) => o.sessions > p.sessions).length + 1,
+          rank: statsData.players.filter((o) => o.sessions > p.sessions).length + 1,
         }));
         setStats(ranked);
+        setTotalDays(statsData.totalDays);
         setVenues(venueData);
         setLoading(false);
       });
@@ -32,7 +34,6 @@ export default function StatsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      {/* Header */}
       <div className="relative overflow-hidden bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 text-white px-5 pt-12 pb-8">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-4 right-8 text-8xl">📊</div>
@@ -44,19 +45,20 @@ export default function StatsPage() {
           </Link>
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight">Stats</h1>
-            <p className="text-blue-100 text-sm mt-0.5">{stats.length} players</p>
+            <p className="text-blue-100 text-sm mt-0.5">
+              {stats.length} players · {totalDays} {totalDays === 1 ? "day" : "days"} played
+            </p>
           </div>
         </div>
       </div>
 
       <div className="px-4 py-5 max-w-lg mx-auto space-y-4">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-16 gap-3">
+          <div className="flex justify-center py-16">
             <div className="w-10 h-10 rounded-full border-4 border-blue-200 border-t-blue-500 animate-spin" />
           </div>
         ) : (
           <>
-            {/* Player leaderboard */}
             {stats.length === 0 ? (
               <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-10 text-center">
                 <div className="text-4xl mb-3">🏸</div>
@@ -95,7 +97,6 @@ export default function StatsPage() {
               </div>
             )}
 
-            {/* Venue breakdown */}
             {venues.length > 0 && (
               <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 space-y-2">
                 <h2 className="font-bold text-gray-800 px-2 pb-1">Venues</h2>
