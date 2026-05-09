@@ -28,6 +28,10 @@ export default function PlayersPage() {
       });
   }, []);
 
+  const sorted = [...players].sort((a, b) => (statsMap[b.id] ?? 0) - (statsMap[a.id] ?? 0));
+  const top3 = sorted.slice(0, 3);
+  const bottom3 = sorted.length >= 4 ? sorted.slice(-3).reverse() : [];
+
 
   async function addPlayer() {
     if (!newName.trim()) return;
@@ -91,6 +95,40 @@ export default function PlayersPage() {
       </div>
 
       <div className="px-4 py-5 max-w-lg mx-auto space-y-4">
+
+        {/* Most / Least Active */}
+        {!loading && top3.length > 0 && (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4">
+              <div className="flex items-center gap-1.5 mb-3">
+                <span>🔥</span>
+                <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">Most Active</span>
+              </div>
+              <div className="space-y-2">
+                {top3.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-gray-800 truncate">{p.name}</span>
+                    <span className="text-xs font-bold text-emerald-600 ml-1 shrink-0">{statsMap[p.id] ?? 0}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4">
+              <div className="flex items-center gap-1.5 mb-3">
+                <span>💤</span>
+                <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">Least Active</span>
+              </div>
+              <div className="space-y-2">
+                {bottom3.length > 0 ? bottom3.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-gray-800 truncate">{p.name}</span>
+                    <span className="text-xs font-bold text-orange-500 ml-1 shrink-0">{statsMap[p.id] ?? 0}</span>
+                  </div>
+                )) : <p className="text-xs text-gray-400">Not enough players yet</p>}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Add player */}
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 space-y-3">
