@@ -91,7 +91,7 @@ export default function PlayersPage() {
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && addPlayer()}
-              className="flex-1 bg-gray-50 border-2 border-transparent focus:border-emerald-300 rounded-2xl px-4 py-3 text-sm font-medium placeholder-gray-400 focus:outline-none transition-colors"
+              className="flex-1 bg-gray-50 border-2 border-transparent focus:border-emerald-300 rounded-2xl px-4 py-3 text-sm font-medium text-gray-900 placeholder-gray-400 focus:outline-none transition-colors"
             />
             <button
               onClick={addPlayer}
@@ -130,7 +130,7 @@ export default function PlayersPage() {
                           if (e.key === "Enter") saveEdit(player.id);
                           if (e.key === "Escape") setEditingId(null);
                         }}
-                        className="flex-1 bg-emerald-50 border-2 border-emerald-300 rounded-2xl px-4 py-2.5 text-sm font-medium focus:outline-none"
+                        className="flex-1 bg-emerald-50 border-2 border-emerald-300 rounded-2xl px-4 py-2.5 text-sm font-medium text-gray-900 focus:outline-none"
                       />
                       <button
                         onClick={() => saveEdit(player.id)}

@@ -126,7 +126,7 @@ export default function Home() {
             type="date"
             value={selectedDate}
             onChange={(e) => handleDateChange(e.target.value)}
-            className="w-full bg-gray-50 border-2 border-transparent focus:border-emerald-300 rounded-2xl px-4 py-3 text-sm font-medium focus:outline-none transition-colors"
+            className="w-full bg-gray-50 border-2 border-transparent focus:border-emerald-300 rounded-2xl px-4 py-3 text-sm font-medium text-gray-900 focus:outline-none transition-colors"
           />
           {!isToday && (
             <p className="text-xs text-orange-500 font-medium">
@@ -147,7 +147,7 @@ export default function Home() {
             value={venue}
             onChange={(e) => setVenue(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && startOrUpdateSession()}
-            className="w-full bg-gray-50 border-2 border-transparent focus:border-emerald-300 rounded-2xl px-4 py-3 text-sm font-medium placeholder-gray-400 focus:outline-none transition-colors"
+            className="w-full bg-gray-50 border-2 border-transparent focus:border-emerald-300 rounded-2xl px-4 py-3 text-sm font-medium text-gray-900 placeholder-gray-400 focus:outline-none transition-colors"
           />
           <button
             onClick={startOrUpdateSession}
