@@ -1,0 +1,32 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Player {
+  id         Int          @id @default(autoincrement())
+  name       String       @unique
+  createdAt  DateTime     @default(now())
+  attendance Attendance[]
+}
+
+model Session {
+  id         Int          @id @default(autoincrement())
+  date       DateTime     @unique @db.Date
+  venue      String       @default("")
+  createdAt  DateTime     @default(now())
+  attendance Attendance[]
+}
+
+model Attendance {
+  id        Int     @id @default(autoincrement())
+  player    Player  @relation(fields: [playerId], references: [id])
+  playerId  Int
+  session   Session @relation(fields: [sessionId], references: [id])
+  sessionId Int
+
+  @@unique([playerId, sessionId])
+}
