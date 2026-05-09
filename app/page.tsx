@@ -5,15 +5,14 @@ import Link from "next/link";
 
 type Player = { id: number; name: string };
 type Session = { id: number; venue: string; date: string; attendance: { player: Player }[] };
+type VenueSuggestion = { venue: string; count: number };
 
 function toDateInput(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
 function formatDisplay(dateStr: string) {
-  const d = new Date(dateStr);
-  const today = toDateInput(new Date());
-  if (dateStr === today) return new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const d = new Date(dateStr + "T00:00:00");
   return d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 }
 
@@ -24,26 +23,40 @@ export default function Home() {
   const [session, setSession] = useState<Session | null>(null);
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [venue, setVenue] = useState("");
+  const [venueSuggestions, setVenueSuggestions] = useState<VenueSuggestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingVenue, setSavingVenue] = useState(false);
   const [toggling, setToggling] = useState<Set<number>>(new Set());
+  const [entryMade, setEntryMade] = useState(false);
 
   const isToday = selectedDate === todayStr;
   const attendeeIds = new Set(session?.attendance.map((a) => a.player.id) ?? []);
+  const showAttendance = (session !== null) && entryMade;
+
+  // Filter suggestions based on current input
+  const filteredSuggestions = venue.trim()
+    ? venueSuggestions.filter((s) =>
+        s.venue.toLowerCase().includes(venue.toLowerCase()) && s.venue !== venue
+      )
+    : venueSuggestions;
 
   async function loadSession(date: string) {
     setLoading(true);
     setVenue("");
     setSession(null);
+    setEntryMade(false);
     const res = await fetch(`/api/sessions?date=${date}`);
     const s = await res.json();
     setSession(s);
     if (s?.venue) setVenue(s.venue);
+    // If session already exists for this date, show attendance directly
+    if (s) setEntryMade(true);
     setLoading(false);
   }
 
   useEffect(() => {
     fetch("/api/players").then((r) => r.json()).then(setPlayers);
+    fetch("/api/venues").then((r) => r.json()).then(setVenueSuggestions);
     loadSession(todayStr);
   }, []);
 
@@ -62,6 +75,9 @@ export default function Home() {
     });
     const updated = await res.json();
     setSession(updated);
+    setEntryMade(true);
+    // Refresh venue suggestions
+    fetch("/api/venues").then((r) => r.json()).then(setVenueSuggestions);
     setSavingVenue(false);
   }
 
@@ -95,7 +111,7 @@ export default function Home() {
         <div className="relative">
           <h1 className="text-4xl font-extrabold tracking-tight">Baddy</h1>
           <p className="text-emerald-100 mt-1 text-sm font-medium">{formatDisplay(selectedDate)}</p>
-          {session && (
+          {session && entryMade && (
             <div className="mt-3 inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-semibold">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
               {session.venue} · {session.attendance.length} present
@@ -129,9 +145,7 @@ export default function Home() {
             className="w-full bg-gray-50 border-2 border-transparent focus:border-emerald-300 rounded-2xl px-4 py-3 text-sm font-medium text-gray-900 focus:outline-none transition-colors"
           />
           {!isToday && (
-            <p className="text-xs text-orange-500 font-medium">
-              Editing a past date
-            </p>
+            <p className="text-xs text-orange-500 font-medium">Editing a past or future date</p>
           )}
         </div>
 
@@ -141,39 +155,51 @@ export default function Home() {
             <span className="text-lg">📍</span>
             <h2 className="font-bold text-gray-800">Venue</h2>
           </div>
-          <input
-            type="text"
-            placeholder="Where are you playing?"
-            value={venue}
-            onChange={(e) => setVenue(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && startOrUpdateSession()}
-            className="w-full bg-gray-50 border-2 border-transparent focus:border-emerald-300 rounded-2xl px-4 py-3 text-sm font-medium text-gray-900 placeholder-gray-400 focus:outline-none transition-colors"
-          />
+          <div className="space-y-2">
+            <input
+              type="text"
+              placeholder="Where are you playing?"
+              value={venue}
+              onChange={(e) => setVenue(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && startOrUpdateSession()}
+              className="w-full bg-gray-50 border-2 border-transparent focus:border-emerald-300 rounded-2xl px-4 py-3 text-sm font-medium text-gray-900 placeholder-gray-400 focus:outline-none transition-colors"
+            />
+            {/* Venue suggestions */}
+            {filteredSuggestions.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {filteredSuggestions.map((s) => (
+                  <button
+                    key={s.venue}
+                    onClick={() => setVenue(s.venue)}
+                    className="px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-emerald-100 hover:text-emerald-700 transition-colors"
+                  >
+                    {s.venue}
+                    <span className="ml-1 text-gray-400">{s.count}×</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <button
             onClick={startOrUpdateSession}
             disabled={savingVenue || !venue.trim()}
             className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-3.5 rounded-2xl font-bold text-sm shadow-lg shadow-emerald-200 disabled:opacity-40 disabled:shadow-none hover:from-emerald-600 hover:to-teal-600 active:scale-[0.98] transition-all"
           >
-            {savingVenue ? "Saving..." : session ? "✓ Update Venue" : "Start Session →"}
+            {savingVenue ? "Saving..." : session ? "Make Entry" : "Start Session →"}
           </button>
-          {session && (
-            <p className="text-center text-xs text-gray-400">
-              {session.attendance.length} present
-            </p>
-          )}
         </div>
 
-        {/* Attendance card */}
+        {/* Attendance card — only shown after entry is made */}
         {loading ? (
           <div className="flex justify-center py-8">
             <div className="w-8 h-8 rounded-full border-4 border-emerald-200 border-t-emerald-500 animate-spin" />
           </div>
-        ) : session ? (
+        ) : showAttendance ? (
           <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-lg">✅</span>
-                <h2 className="font-bold text-gray-800">Attendance</h2>
+                <h2 className="font-bold text-gray-800">Who played?</h2>
               </div>
               <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full">
                 <span className="font-bold text-sm">{attendeeIds.size}</span>
@@ -223,12 +249,12 @@ export default function Home() {
               </div>
             )}
           </div>
-        ) : (
+        ) : !session ? (
           <div className="bg-white/60 rounded-3xl border-2 border-dashed border-gray-200 p-8 text-center text-gray-400">
             <div className="text-3xl mb-2">🏸</div>
-            <p className="text-sm font-medium">Set a venue above to start this session</p>
+            <p className="text-sm font-medium">Enter a venue and tap "Start Session" to mark attendance</p>
           </div>
-        )}
+        ) : null}
 
         {/* Nav */}
         <div className="grid grid-cols-3 gap-3">
