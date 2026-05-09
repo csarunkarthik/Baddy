@@ -13,22 +13,56 @@ type Session = {
 
 export default function HistoryPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<number | null>(null);
+  const [toggling, setToggling] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    fetch("/api/history")
-      .then((r) => r.json())
-      .then((data) => { setSessions(data); setLoading(false); });
+    Promise.all([fetch("/api/history"), fetch("/api/players")])
+      .then(([h, p]) => Promise.all([h.json(), p.json()]))
+      .then(([historyData, playersData]) => {
+        setSessions(historyData);
+        setPlayers(playersData);
+        setLoading(false);
+      });
   }, []);
 
+  function isToday(dateStr: string) {
+    return new Date().toDateString() === new Date(dateStr).toDateString();
+  }
+
   function formatDate(dateStr: string) {
+    if (isToday(dateStr)) return "Today";
     const d = new Date(dateStr);
-    const isToday = new Date().toDateString() === d.toDateString();
-    if (isToday) return "Today";
     return d.toLocaleDateString("en-GB", {
       weekday: "short", day: "numeric", month: "short", year: "numeric",
     });
+  }
+
+  async function toggleAttendance(sessionId: number, playerId: number, present: boolean) {
+    const key = `${sessionId}-${playerId}`;
+    if (toggling.has(key)) return;
+    setToggling((prev) => new Set(prev).add(key));
+
+    setSessions((prev) =>
+      prev.map((s) => {
+        if (s.id !== sessionId) return s;
+        const player = players.find((p) => p.id === playerId)!;
+        const attendance = present
+          ? [...s.attendance, { player }]
+          : s.attendance.filter((a) => a.player.id !== playerId);
+        return { ...s, attendance };
+      })
+    );
+
+    await fetch(`/api/sessions/${sessionId}/attendance`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ playerId, present }),
+    });
+
+    setToggling((prev) => { const n = new Set(prev); n.delete(key); return n; });
   }
 
   return (
@@ -40,12 +74,12 @@ export default function HistoryPage() {
           <div className="absolute -bottom-4 -left-4 w-32 h-32 rounded-full bg-white" />
         </div>
         <div className="relative flex items-start gap-3">
-          <Link href="/" className="mt-1 w-9 h-9 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors text-white font-bold">
+          <Link href="/" className="mt-1 w-9 h-9 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors font-bold">
             ←
           </Link>
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight">History</h1>
-            <p className="text-orange-100 text-sm mt-0.5">{sessions.length} sessions recorded</p>
+            <p className="text-orange-100 text-sm mt-0.5">{sessions.length} sessions · tap to edit</p>
           </div>
         </div>
       </div>
@@ -54,7 +88,6 @@ export default function HistoryPage() {
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <div className="w-10 h-10 rounded-full border-4 border-orange-200 border-t-orange-500 animate-spin" />
-            <span className="text-orange-500 text-sm font-medium">Loading history...</span>
           </div>
         ) : sessions.length === 0 ? (
           <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-10 text-center">
@@ -64,50 +97,73 @@ export default function HistoryPage() {
         ) : (
           sessions.map((s) => {
             const isOpen = expanded === s.id;
-            const count = s.attendance.length;
+            const attendeeIds = new Set(s.attendance.map((a) => a.player.id));
+            const today = isToday(s.date);
+
             return (
               <div
                 key={s.id}
-                className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden transition-shadow hover:shadow-md"
+                className={`bg-white rounded-3xl shadow-sm overflow-hidden transition-shadow hover:shadow-md ${today ? "ring-2 ring-emerald-300" : "border border-gray-100"}`}
               >
                 <button
                   onClick={() => setExpanded(isOpen ? null : s.id)}
                   className="w-full flex items-center justify-between px-5 py-4 text-left"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-orange-100 to-pink-100 flex items-center justify-center text-lg shrink-0">
-                      🏸
+                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-lg shrink-0 ${today ? "bg-emerald-100" : "bg-gradient-to-br from-orange-100 to-pink-100"}`}>
+                      {today ? "🟢" : "🏸"}
                     </div>
                     <div>
-                      <p className="font-bold text-gray-800 text-sm">{formatDate(s.date)}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-gray-800 text-sm">{formatDate(s.date)}</p>
+                        {today && <span className="text-xs bg-emerald-100 text-emerald-700 font-bold px-2 py-0.5 rounded-full">Live</span>}
+                      </div>
                       <p className="text-xs text-gray-400 mt-0.5 font-medium">{s.venue || "No venue"}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="bg-gradient-to-r from-orange-400 to-pink-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-sm">
-                      {count} {count === 1 ? "player" : "players"}
+                    <span className={`text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-sm ${today ? "bg-emerald-500" : "bg-gradient-to-r from-orange-400 to-pink-500"}`}>
+                      {s.attendance.length} {s.attendance.length === 1 ? "player" : "players"}
                     </span>
-                    <span className={`text-gray-300 text-xs transition-transform ${isOpen ? "rotate-180" : ""}`}>▼</span>
+                    <span className={`text-gray-300 text-xs transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}>▼</span>
                   </div>
                 </button>
 
                 {isOpen && (
-                  <div className="px-5 pb-5 border-t border-gray-50 pt-3">
-                    {s.attendance.length === 0 ? (
-                      <p className="text-sm text-gray-400 italic">No one marked for this session</p>
+                  <div className="px-5 pb-5 border-t border-gray-50 pt-4 space-y-2">
+                    <p className="text-xs text-gray-400 font-medium mb-3">Tap to toggle attendance</p>
+                    {players.length === 0 ? (
+                      <p className="text-sm text-gray-400">No players registered yet</p>
                     ) : (
-                      <div className="flex flex-wrap gap-2">
-                        {s.attendance
-                          .sort((a, b) => a.player.name.localeCompare(b.player.name))
-                          .map((a) => (
-                            <span
-                              key={a.player.id}
-                              className="bg-gradient-to-r from-orange-50 to-pink-50 border border-orange-100 text-orange-700 text-xs font-semibold px-3 py-1.5 rounded-full"
-                            >
-                              {a.player.name}
+                      players.map((player) => {
+                        const present = attendeeIds.has(player.id);
+                        const busy = toggling.has(`${s.id}-${player.id}`);
+                        return (
+                          <button
+                            key={player.id}
+                            onClick={() => toggleAttendance(s.id, player.id, !present)}
+                            disabled={busy}
+                            className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl transition-all active:scale-[0.98] ${
+                              present
+                                ? "bg-emerald-50 border-2 border-emerald-200"
+                                : "bg-gray-50 border-2 border-transparent hover:border-gray-200"
+                            }`}
+                          >
+                            <span className={`text-sm font-semibold ${present ? "text-emerald-800" : "text-gray-400"}`}>
+                              {player.name}
                             </span>
-                          ))}
-                      </div>
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${
+                              present ? "bg-emerald-500" : "bg-white border-2 border-gray-200"
+                            }`}>
+                              {busy ? (
+                                <div className="w-3 h-3 rounded-full border-2 border-emerald-300 border-t-white animate-spin" />
+                              ) : present ? (
+                                <span className="text-white text-xs font-bold">✓</span>
+                              ) : null}
+                            </div>
+                          </button>
+                        );
+                      })
                     )}
                   </div>
                 )}

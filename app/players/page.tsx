@@ -1,0 +1,178 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+
+type Player = { id: number; name: string };
+
+export default function PlayersPage() {
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [newName, setNewName] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch("/api/players")
+      .then((r) => r.json())
+      .then((data) => { setPlayers(data); setLoading(false); });
+  }, []);
+
+  async function addPlayer() {
+    if (!newName.trim()) return;
+    setAdding(true);
+    const res = await fetch("/api/players", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newName.trim() }),
+    });
+    const player = await res.json();
+    setPlayers((prev) => [...prev, player].sort((a, b) => a.name.localeCompare(b.name)));
+    setNewName("");
+    setAdding(false);
+  }
+
+  function startEdit(player: Player) {
+    setEditingId(player.id);
+    setEditName(player.name);
+  }
+
+  async function saveEdit(id: number) {
+    if (!editName.trim()) return;
+    const res = await fetch(`/api/players/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: editName.trim() }),
+    });
+    const updated = await res.json();
+    setPlayers((prev) =>
+      prev.map((p) => (p.id === id ? updated : p)).sort((a, b) => a.name.localeCompare(b.name))
+    );
+    setEditingId(null);
+  }
+
+  async function deletePlayer(id: number) {
+    setDeletingId(id);
+    await fetch(`/api/players/${id}`, { method: "DELETE" });
+    setPlayers((prev) => prev.filter((p) => p.id !== id));
+    setDeletingId(null);
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50 to-teal-50">
+      {/* Header */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 text-white px-5 pt-12 pb-8">
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-4 right-8 text-8xl">👥</div>
+          <div className="absolute -bottom-4 -left-4 w-32 h-32 rounded-full bg-white" />
+        </div>
+        <div className="relative flex items-start gap-3">
+          <Link href="/" className="mt-1 w-9 h-9 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors font-bold">
+            ←
+          </Link>
+          <div>
+            <h1 className="text-3xl font-extrabold tracking-tight">Players</h1>
+            <p className="text-emerald-100 text-sm mt-0.5">{players.length} registered</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-4 py-5 max-w-lg mx-auto space-y-4">
+
+        {/* Add player */}
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 space-y-3">
+          <h2 className="font-bold text-gray-800">Add Player</h2>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="Name or nickname..."
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addPlayer()}
+              className="flex-1 bg-gray-50 border-2 border-transparent focus:border-emerald-300 rounded-2xl px-4 py-3 text-sm font-medium placeholder-gray-400 focus:outline-none transition-colors"
+            />
+            <button
+              onClick={addPlayer}
+              disabled={adding || !newName.trim()}
+              className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-5 py-3 rounded-2xl text-sm font-bold shadow-md shadow-emerald-200 disabled:opacity-40 disabled:shadow-none hover:from-emerald-600 hover:to-teal-600 active:scale-95 transition-all"
+            >
+              {adding ? "..." : "+ Add"}
+            </button>
+          </div>
+        </div>
+
+        {/* Player list */}
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5">
+          <h2 className="font-bold text-gray-800 mb-4">All Players</h2>
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <div className="w-8 h-8 rounded-full border-4 border-emerald-200 border-t-emerald-500 animate-spin" />
+            </div>
+          ) : players.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              <div className="text-4xl mb-2">👤</div>
+              <p className="text-sm">No players yet — add one above</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {players.map((player) => (
+                <div key={player.id} className="flex items-center gap-3">
+                  {editingId === player.id ? (
+                    <>
+                      <input
+                        autoFocus
+                        type="text"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") saveEdit(player.id);
+                          if (e.key === "Escape") setEditingId(null);
+                        }}
+                        className="flex-1 bg-emerald-50 border-2 border-emerald-300 rounded-2xl px-4 py-2.5 text-sm font-medium focus:outline-none"
+                      />
+                      <button
+                        onClick={() => saveEdit(player.id)}
+                        className="bg-emerald-500 text-white px-4 py-2.5 rounded-2xl text-sm font-bold hover:bg-emerald-600 active:scale-95 transition-all"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => setEditingId(null)}
+                        className="text-gray-400 px-3 py-2.5 rounded-2xl text-sm font-medium hover:bg-gray-100 transition-colors"
+                      >
+                        ✕
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-emerald-100 to-teal-100 flex items-center justify-center text-sm font-bold text-emerald-700 shrink-0">
+                        {player.name[0].toUpperCase()}
+                      </div>
+                      <span className="flex-1 text-sm font-semibold text-gray-800">{player.name}</span>
+                      <button
+                        onClick={() => startEdit(player)}
+                        className="text-gray-400 hover:text-emerald-600 px-2 py-1 rounded-xl text-sm transition-colors"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        onClick={() => deletePlayer(player.id)}
+                        disabled={deletingId === player.id}
+                        className="text-gray-300 hover:text-red-400 px-2 py-1 rounded-xl text-sm transition-colors disabled:opacity-40"
+                      >
+                        🗑️
+                      </button>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+      </div>
+    </div>
+  );
+}
