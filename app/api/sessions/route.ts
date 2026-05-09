@@ -7,11 +7,12 @@ function parseDate(dateStr: string) {
   return d;
 }
 
-// GET session for a given date (?date=YYYY-MM-DD), defaults to today
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const dateParam = searchParams.get("date");
-  const date = dateParam ? parseDate(dateParam) : (() => { const d = new Date(); d.setHours(0,0,0,0); return d; })();
+  const date = dateParam
+    ? parseDate(dateParam)
+    : (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; })();
 
   const session = await prisma.session.findUnique({
     where: { date },
@@ -21,17 +22,33 @@ export async function GET(req: Request) {
   return NextResponse.json(session);
 }
 
-// POST — create or update a session for a given date
+// Save session + attendance atomically
 export async function POST(req: Request) {
-  const { venue, date: dateParam } = await req.json();
-  const date = dateParam ? parseDate(dateParam) : (() => { const d = new Date(); d.setHours(0,0,0,0); return d; })();
+  const { venue, date: dateParam, playerIds } = await req.json();
+  const date = dateParam
+    ? parseDate(dateParam)
+    : (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; })();
 
   const session = await prisma.session.upsert({
     where: { date },
     update: { venue },
     create: { date, venue },
+    select: { id: true, date: true, venue: true },
+  });
+
+  if (Array.isArray(playerIds)) {
+    await prisma.attendance.deleteMany({ where: { sessionId: session.id } });
+    if (playerIds.length > 0) {
+      await prisma.attendance.createMany({
+        data: playerIds.map((playerId: number) => ({ playerId, sessionId: session.id })),
+      });
+    }
+  }
+
+  const updated = await prisma.session.findUnique({
+    where: { id: session.id },
     include: { attendance: { include: { player: true } } },
   });
 
-  return NextResponse.json(session);
+  return NextResponse.json(updated);
 }

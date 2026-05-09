@@ -20,43 +20,44 @@ export default function Home() {
   const todayStr = toDateInput(new Date());
 
   const [players, setPlayers] = useState<Player[]>([]);
-  const [session, setSession] = useState<Session | null>(null);
+  const [venueSuggestions, setVenueSuggestions] = useState<VenueSuggestion[]>([]);
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [venue, setVenue] = useState("");
-  const [venueSuggestions, setVenueSuggestions] = useState<VenueSuggestion[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
-  const [savingVenue, setSavingVenue] = useState(false);
-  const [toggling, setToggling] = useState<Set<number>>(new Set());
-  const [entryMade, setEntryMade] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   const isToday = selectedDate === todayStr;
-  const attendeeIds = new Set(session?.attendance.map((a) => a.player.id) ?? []);
-  const showAttendance = (session !== null) && entryMade;
+  const venueReady = venue.trim().length > 0;
 
-  // Filter suggestions based on current input
   const filteredSuggestions = venue.trim()
-    ? venueSuggestions.filter((s) =>
-        s.venue.toLowerCase().includes(venue.toLowerCase()) && s.venue !== venue
-      )
+    ? venueSuggestions.filter((s) => s.venue.toLowerCase().includes(venue.toLowerCase()) && s.venue !== venue)
     : venueSuggestions;
 
   async function loadSession(date: string) {
     setLoading(true);
     setVenue("");
-    setSession(null);
-    setEntryMade(false);
+    setSelectedIds(new Set());
+    setSaved(false);
     const res = await fetch(`/api/sessions?date=${date}`);
-    const s = await res.json();
-    setSession(s);
-    if (s?.venue) setVenue(s.venue);
-    // If session already exists for this date, show attendance directly
-    if (s) setEntryMade(true);
+    const s: Session | null = await res.json();
+    if (s) {
+      setVenue(s.venue);
+      setSelectedIds(new Set(s.attendance.map((a) => a.player.id)));
+      setSaved(true);
+    }
     setLoading(false);
   }
 
   useEffect(() => {
-    fetch("/api/players").then((r) => r.json()).then(setPlayers);
-    fetch("/api/venues").then((r) => r.json()).then(setVenueSuggestions);
+    Promise.all([
+      fetch("/api/players").then((r) => r.json()),
+      fetch("/api/venues").then((r) => r.json()),
+    ]).then(([p, v]) => {
+      setPlayers(p);
+      setVenueSuggestions(v);
+    });
     loadSession(todayStr);
   }, []);
 
@@ -65,39 +66,30 @@ export default function Home() {
     loadSession(date);
   }
 
-  async function startOrUpdateSession() {
-    if (!venue.trim()) return;
-    setSavingVenue(true);
-    const res = await fetch("/api/sessions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ venue: venue.trim(), date: selectedDate }),
+  function togglePlayer(id: number) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
     });
-    const updated = await res.json();
-    setSession(updated);
-    setEntryMade(true);
-    // Refresh venue suggestions
-    fetch("/api/venues").then((r) => r.json()).then(setVenueSuggestions);
-    setSavingVenue(false);
+    setSaved(false);
   }
 
-  async function toggleAttendance(playerId: number, present: boolean) {
-    if (!session || toggling.has(playerId)) return;
-    setToggling((prev) => new Set(prev).add(playerId));
-    setSession((prev) => {
-      if (!prev) return prev;
-      const player = players.find((p) => p.id === playerId)!;
-      const attendance = present
-        ? [...prev.attendance, { player }]
-        : prev.attendance.filter((a) => a.player.id !== playerId);
-      return { ...prev, attendance };
-    });
-    await fetch(`/api/sessions/${session.id}/attendance`, {
+  async function makeEntry() {
+    if (!venue.trim()) return;
+    setSaving(true);
+    await fetch("/api/sessions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ playerId, present }),
+      body: JSON.stringify({
+        venue: venue.trim(),
+        date: selectedDate,
+        playerIds: [...selectedIds],
+      }),
     });
-    setToggling((prev) => { const n = new Set(prev); n.delete(playerId); return n; });
+    fetch("/api/venues").then((r) => r.json()).then(setVenueSuggestions);
+    setSaving(false);
+    setSaved(true);
   }
 
   return (
@@ -111,10 +103,10 @@ export default function Home() {
         <div className="relative">
           <h1 className="text-4xl font-extrabold tracking-tight">Baddy</h1>
           <p className="text-emerald-100 mt-1 text-sm font-medium">{formatDisplay(selectedDate)}</p>
-          {session && entryMade && (
+          {saved && venue && (
             <div className="mt-3 inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-semibold">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
-              {session.venue} · {session.attendance.length} present
+              {venue} · {selectedIds.size} present
             </div>
           )}
         </div>
@@ -122,7 +114,7 @@ export default function Home() {
 
       <div className="px-4 py-5 max-w-lg mx-auto space-y-4">
 
-        {/* Date picker */}
+        {/* Date */}
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -144,117 +136,109 @@ export default function Home() {
             onChange={(e) => handleDateChange(e.target.value)}
             className="w-full bg-gray-50 border-2 border-transparent focus:border-emerald-300 rounded-2xl px-4 py-3 text-sm font-medium text-gray-900 focus:outline-none transition-colors"
           />
-          {!isToday && (
-            <p className="text-xs text-orange-500 font-medium">Editing a past or future date</p>
-          )}
+          {!isToday && <p className="text-xs text-orange-500 font-medium">Editing a past or future date</p>}
         </div>
 
-        {/* Venue card */}
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 space-y-4">
+        {/* Venue */}
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 space-y-3">
           <div className="flex items-center gap-2">
             <span className="text-lg">📍</span>
             <h2 className="font-bold text-gray-800">Venue</h2>
           </div>
-          <div className="space-y-2">
-            <input
-              type="text"
-              placeholder="Where are you playing?"
-              value={venue}
-              onChange={(e) => setVenue(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && startOrUpdateSession()}
-              className="w-full bg-gray-50 border-2 border-transparent focus:border-emerald-300 rounded-2xl px-4 py-3 text-sm font-medium text-gray-900 placeholder-gray-400 focus:outline-none transition-colors"
-            />
-            {/* Venue suggestions */}
-            {filteredSuggestions.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {filteredSuggestions.map((s) => (
-                  <button
-                    key={s.venue}
-                    onClick={() => setVenue(s.venue)}
-                    className="px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-emerald-100 hover:text-emerald-700 transition-colors"
-                  >
-                    {s.venue}
-                    <span className="ml-1 text-gray-400">{s.count}×</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <button
-            onClick={startOrUpdateSession}
-            disabled={savingVenue || !venue.trim()}
-            className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-3.5 rounded-2xl font-bold text-sm shadow-lg shadow-emerald-200 disabled:opacity-40 disabled:shadow-none hover:from-emerald-600 hover:to-teal-600 active:scale-[0.98] transition-all"
-          >
-            {savingVenue ? "Saving..." : session ? "Make Entry" : "Start Session →"}
-          </button>
+          <input
+            type="text"
+            placeholder="Where are you playing?"
+            value={venue}
+            onChange={(e) => { setVenue(e.target.value); setSaved(false); }}
+            className="w-full bg-gray-50 border-2 border-transparent focus:border-emerald-300 rounded-2xl px-4 py-3 text-sm font-medium text-gray-900 placeholder-gray-400 focus:outline-none transition-colors"
+          />
+          {filteredSuggestions.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {filteredSuggestions.map((s) => (
+                <button
+                  key={s.venue}
+                  onClick={() => { setVenue(s.venue); setSaved(false); }}
+                  className="px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-emerald-100 hover:text-emerald-700 transition-colors"
+                >
+                  {s.venue} <span className="text-gray-400">{s.count}×</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Attendance card — only shown after entry is made */}
+        {/* Player selection — appears once venue is typed */}
         {loading ? (
           <div className="flex justify-center py-8">
             <div className="w-8 h-8 rounded-full border-4 border-emerald-200 border-t-emerald-500 animate-spin" />
           </div>
-        ) : showAttendance ? (
+        ) : venueReady ? (
           <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-lg">✅</span>
+                <span className="text-lg">👥</span>
                 <h2 className="font-bold text-gray-800">Who played?</h2>
               </div>
               <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full">
-                <span className="font-bold text-sm">{attendeeIds.size}</span>
+                <span className="font-bold text-sm">{selectedIds.size}</span>
                 <span className="text-xs text-emerald-500">/ {players.length}</span>
               </div>
             </div>
 
             {players.length === 0 ? (
-              <div className="text-center py-8 text-gray-400">
-                <div className="text-4xl mb-2">👤</div>
+              <div className="text-center py-6 text-gray-400">
+                <div className="text-3xl mb-2">👤</div>
                 <p className="text-sm">No players yet</p>
-                <Link href="/players" className="text-emerald-500 font-semibold text-sm mt-1 inline-block">
-                  Add players →
-                </Link>
+                <Link href="/players" className="text-emerald-500 font-semibold text-sm mt-1 inline-block">Add players →</Link>
               </div>
             ) : (
-              <div className="space-y-1">
-                {players.map((player) => {
-                  const present = attendeeIds.has(player.id);
-                  const busy = toggling.has(player.id);
-                  return (
-                    <button
-                      key={player.id}
-                      onClick={() => toggleAttendance(player.id, !present)}
-                      disabled={busy}
-                      className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all active:scale-[0.98] ${
-                        present
-                          ? "bg-emerald-50 border-2 border-emerald-200"
-                          : "bg-gray-50 border-2 border-transparent hover:border-gray-200"
-                      }`}
-                    >
-                      <span className={`text-sm font-semibold ${present ? "text-emerald-800" : "text-gray-500"}`}>
-                        {player.name}
-                      </span>
-                      <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${
-                        present ? "bg-emerald-500 shadow-md shadow-emerald-200" : "bg-white border-2 border-gray-200"
-                      }`}>
-                        {busy ? (
-                          <div className="w-3 h-3 rounded-full border-2 border-emerald-300 border-t-white animate-spin" />
-                        ) : present ? (
-                          <span className="text-white text-xs font-bold">✓</span>
-                        ) : null}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+              <>
+                <div className="space-y-1">
+                  {players.map((player) => {
+                    const selected = selectedIds.has(player.id);
+                    return (
+                      <button
+                        key={player.id}
+                        onClick={() => togglePlayer(player.id)}
+                        className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all active:scale-[0.98] ${
+                          selected
+                            ? "bg-emerald-50 border-2 border-emerald-200"
+                            : "bg-gray-50 border-2 border-transparent hover:border-gray-200"
+                        }`}
+                      >
+                        <span className={`text-sm font-semibold ${selected ? "text-emerald-800" : "text-gray-500"}`}>
+                          {player.name}
+                        </span>
+                        <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${
+                          selected ? "bg-emerald-500 shadow-md shadow-emerald-200" : "bg-white border-2 border-gray-200"
+                        }`}>
+                          {selected && <span className="text-white text-xs font-bold">✓</span>}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  onClick={makeEntry}
+                  disabled={saving}
+                  className={`w-full py-4 rounded-2xl font-bold text-sm transition-all active:scale-[0.98] ${
+                    saved
+                      ? "bg-emerald-50 text-emerald-600 border-2 border-emerald-200"
+                      : "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-200 hover:from-emerald-600 hover:to-teal-600"
+                  } disabled:opacity-50`}
+                >
+                  {saving ? "Saving..." : saved ? `✓ Saved · ${selectedIds.size} players` : `Make Entry →`}
+                </button>
+              </>
             )}
           </div>
-        ) : !session ? (
+        ) : (
           <div className="bg-white/60 rounded-3xl border-2 border-dashed border-gray-200 p-8 text-center text-gray-400">
             <div className="text-3xl mb-2">🏸</div>
-            <p className="text-sm font-medium">Enter a venue and tap "Start Session" to mark attendance</p>
+            <p className="text-sm font-medium">Enter a venue to select players</p>
           </div>
-        ) : null}
+        )}
 
         {/* Nav */}
         <div className="grid grid-cols-3 gap-3">
