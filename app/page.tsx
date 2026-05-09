@@ -7,13 +7,16 @@ type Player = { id: number; name: string };
 type Session = { id: number; venue: string; date: string; attendance: { player: Player }[] };
 type VenueSuggestion = { venue: string; count: number };
 
+const IST = "Asia/Kolkata";
+
 function toDateInput(d: Date) {
-  return d.toISOString().slice(0, 10);
+  // Use IST locale to get YYYY-MM-DD in Indian time
+  return d.toLocaleDateString("en-CA", { timeZone: IST });
 }
 
 function formatDisplay(dateStr: string) {
-  const d = new Date(dateStr + "T00:00:00");
-  return d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const d = new Date(dateStr + "T00:00:00Z");
+  return d.toLocaleDateString("en-GB", { timeZone: IST, weekday: "long", day: "numeric", month: "long", year: "numeric" });
 }
 
 export default function Home() {

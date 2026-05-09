@@ -28,15 +28,21 @@ export default function HistoryPage() {
       });
   }, []);
 
+  const IST = "Asia/Kolkata";
+
+  function toISTDateStr(dateStr: string) {
+    return new Date(dateStr + "T00:00:00Z").toLocaleDateString("en-CA", { timeZone: IST });
+  }
+
   function isToday(dateStr: string) {
-    return new Date().toDateString() === new Date(dateStr).toDateString();
+    const todayIST = new Date().toLocaleDateString("en-CA", { timeZone: IST });
+    return toISTDateStr(dateStr) === todayIST;
   }
 
   function formatDate(dateStr: string) {
     if (isToday(dateStr)) return "Today";
-    const d = new Date(dateStr);
-    return d.toLocaleDateString("en-GB", {
-      weekday: "short", day: "numeric", month: "short", year: "numeric",
+    return new Date(dateStr + "T00:00:00Z").toLocaleDateString("en-GB", {
+      timeZone: IST, weekday: "short", day: "numeric", month: "short", year: "numeric",
     });
   }
 
