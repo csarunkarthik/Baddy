@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 type Player = { id: number; name: string };
-type PlayerStat = { id: number; name: string; sessions: number };
+type PlayerStat = { id: number; sessions: number };
 
 export default function PlayersPage() {
   const [players, setPlayers] = useState<Player[]>([]);
@@ -28,27 +28,6 @@ export default function PlayersPage() {
       });
   }, []);
 
-  // Sorted by sessions for highlights
-  const sorted = [...players].sort((a, b) => (statsMap[b.id] ?? 0) - (statsMap[a.id] ?? 0));
-
-  // Top 3: include all players sharing the 3rd-highest distinct session count
-  function getTop3(): Player[] {
-    const counts = [...new Set(sorted.map((p) => statsMap[p.id] ?? 0))].slice(0, 3);
-    return sorted.filter((p) => counts.includes(statsMap[p.id] ?? 0));
-  }
-
-  // Bottom 3: include all players sharing the 3rd-lowest distinct session count (exclude those in top3)
-  function getBottom3(): Player[] {
-    const top3Ids = new Set(getTop3().map((p) => p.id));
-    const rest = [...sorted].reverse().filter((p) => !top3Ids.has(p.id));
-    if (rest.length === 0) return [];
-    const counts = [...new Set(rest.map((p) => statsMap[p.id] ?? 0))].slice(0, 3);
-    return rest.filter((p) => counts.includes(statsMap[p.id] ?? 0));
-  }
-
-  const top3 = getTop3();
-  const bottom3 = getBottom3();
-  const showHighlights = players.length >= 4;
 
   async function addPlayer() {
     if (!newName.trim()) return;
@@ -112,43 +91,6 @@ export default function PlayersPage() {
       </div>
 
       <div className="px-4 py-5 max-w-lg mx-auto space-y-4">
-
-        {/* Highlights — top 3 & bottom 3 */}
-        {!loading && showHighlights && (
-          <div className="grid grid-cols-2 gap-3">
-            {/* Top 3 */}
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4">
-              <div className="flex items-center gap-1.5 mb-3">
-                <span className="text-base">🔥</span>
-                <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">Most Active</span>
-              </div>
-              <div className="space-y-2">
-                {top3.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-gray-800 truncate">{p.name}</span>
-                    <span className="text-xs font-bold text-emerald-600 ml-1 shrink-0">{statsMap[p.id] ?? 0}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Bottom 3 */}
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4">
-              <div className="flex items-center gap-1.5 mb-3">
-                <span className="text-base">💤</span>
-                <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">Least Active</span>
-              </div>
-              <div className="space-y-2">
-                {bottom3.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-gray-800 truncate">{p.name}</span>
-                    <span className="text-xs font-bold text-orange-500 ml-1 shrink-0">{statsMap[p.id] ?? 0}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Add player */}
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 space-y-3">

@@ -122,6 +122,44 @@ export default function StatsPage() {
                 ))}
               </div>
             )}
+
+            {/* Most Active / Least Active */}
+            {stats.length >= 4 && (() => {
+              const top3 = stats.slice(0, 3);
+              const bottom3 = [...stats].slice(-3).reverse();
+              return (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4">
+                    <div className="flex items-center gap-1.5 mb-3">
+                      <span>🔥</span>
+                      <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">Most Active</span>
+                    </div>
+                    <div className="space-y-2">
+                      {top3.map((p) => (
+                        <div key={p.id} className="flex items-center justify-between">
+                          <span className="text-sm font-semibold text-gray-800 truncate">{p.name}</span>
+                          <span className="text-xs font-bold text-emerald-600 ml-1 shrink-0">{p.sessions}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4">
+                    <div className="flex items-center gap-1.5 mb-3">
+                      <span>💤</span>
+                      <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">Least Active</span>
+                    </div>
+                    <div className="space-y-2">
+                      {bottom3.map((p) => (
+                        <div key={p.id} className="flex items-center justify-between">
+                          <span className="text-sm font-semibold text-gray-800 truncate">{p.name}</span>
+                          <span className="text-xs font-bold text-orange-500 ml-1 shrink-0">{p.sessions}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </>
         )}
       </div>
