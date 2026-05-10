@@ -30,18 +30,15 @@ export default function HistoryPage() {
 
   const IST = "Asia/Kolkata";
 
-  function toISTDateStr(dateStr: string) {
-    return new Date(dateStr + "T00:00:00Z").toLocaleDateString("en-CA", { timeZone: IST });
-  }
-
   function isToday(dateStr: string) {
     const todayIST = new Date().toLocaleDateString("en-CA", { timeZone: IST });
-    return toISTDateStr(dateStr) === todayIST;
+    const sessionIST = new Date(dateStr).toLocaleDateString("en-CA", { timeZone: IST });
+    return todayIST === sessionIST;
   }
 
   function formatDate(dateStr: string) {
     if (isToday(dateStr)) return "Today";
-    return new Date(dateStr + "T00:00:00Z").toLocaleDateString("en-GB", {
+    return new Date(dateStr).toLocaleDateString("en-GB", {
       timeZone: IST, weekday: "short", day: "numeric", month: "short", year: "numeric",
     });
   }
