@@ -35,8 +35,7 @@ export async function GET(req: Request) {
       const [id1, id2] = key.split("-").map(Number);
       return { player1: playerMap.get(id1)!, player2: playerMap.get(id2)!, count };
     })
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 5);
+    .sort((a, b) => b.count - a.count);
 
   return NextResponse.json(buddies);
 }

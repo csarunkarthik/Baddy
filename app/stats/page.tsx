@@ -129,19 +129,20 @@ export default function StatsPage() {
 
             {/* Buddy scores */}
             {buddies.length > 0 && (
-              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 space-y-3">
-                <h2 className="font-bold text-gray-800 px-2 pb-1">🤝 Buddy Score</h2>
-                {buddies.map((b, i) => (
-                  <div key={i} className="flex items-center gap-3 px-2">
-                    <span className="text-xs font-bold text-gray-400 w-4 shrink-0">{i + 1}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-800 truncate">
-                        {b.player1} <span className="text-gray-400">&</span> {b.player2}
-                      </p>
+              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4">
+                <h2 className="font-bold text-gray-800 px-2 pb-2">🤝 Buddy Score</h2>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-0">
+                  {buddies.map((b, i) => (
+                    <div key={i} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
+                      <span className="text-xs text-gray-700 truncate min-w-0 mr-1">
+                        <span className="font-semibold">{b.player1}</span>
+                        <span className="text-gray-400"> &amp; </span>
+                        <span className="font-semibold">{b.player2}</span>
+                      </span>
+                      <span className="text-xs font-extrabold text-purple-600 shrink-0">{b.count}×</span>
                     </div>
-                    <span className="text-sm font-extrabold text-purple-600 shrink-0">{b.count} sessions</span>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
 
