@@ -6,7 +6,21 @@ import Link from "next/link";
 
 type PlayerStat = { id: number; name: string; sessions: number; percentage: number; rank: number };
 type VenueStat = { venue: string; count: number };
-type Buddy = { player1: string; player2: string; count: number };
+type BuddyData = {
+  players: { id: number; name: string }[];
+  matrix: Record<number, Record<number, number>>;
+  totalDays: number;
+};
+
+function makeAbbr(players: { id: number; name: string }[]) {
+  const result: Record<number, string> = {};
+  players.forEach((p) => {
+    const init = p.name[0].toUpperCase();
+    const hasDup = players.some((o) => o.id !== p.id && o.name[0].toUpperCase() === init);
+    result[p.id] = hasDup ? p.name.slice(0, 2).toUpperCase() : init;
+  });
+  return result;
+}
 
 const MEDAL: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
 
@@ -15,7 +29,7 @@ export default function StatsPage() {
   const [year, setYear] = useState(currentYear);
   const [stats, setStats] = useState<PlayerStat[]>([]);
   const [venues, setVenues] = useState<VenueStat[]>([]);
-  const [buddies, setBuddies] = useState<Buddy[]>([]);
+  const [buddyData, setBuddyData] = useState<BuddyData | null>(null);
   const [totalDays, setTotalDays] = useState(0);
   const [availableYears, setAvailableYears] = useState<number[]>([currentYear]);
   const [loading, setLoading] = useState(true);
@@ -36,7 +50,7 @@ export default function StatsPage() {
     setTotalDays(statsData.totalDays);
     setAvailableYears(statsData.availableYears.length ? statsData.availableYears : [currentYear]);
     setVenues(await venuesRes.json());
-    setBuddies(await buddiesRes.json());
+    setBuddyData(await buddiesRes.json());
     setLoading(false);
   }
 
@@ -127,24 +141,50 @@ export default function StatsPage() {
               </div>
             )}
 
-            {/* Buddy scores */}
-            {buddies.length > 0 && (
-              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4">
-                <h2 className="font-bold text-gray-800 px-2 pb-2">🤝 Buddy Score</h2>
-                <div className="grid grid-cols-2 gap-x-3 gap-y-0">
-                  {buddies.map((b, i) => (
-                    <div key={i} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
-                      <span className="text-xs text-gray-700 truncate min-w-0 mr-1">
-                        <span className="font-semibold">{b.player1}</span>
-                        <span className="text-gray-400"> &amp; </span>
-                        <span className="font-semibold">{b.player2}</span>
-                      </span>
-                      <span className="text-xs font-extrabold text-purple-600 shrink-0">{b.count}×</span>
-                    </div>
-                  ))}
+            {/* Buddy scores matrix */}
+            {buddyData && buddyData.players.length > 1 && (() => {
+              const abbr = makeAbbr(buddyData.players);
+              return (
+                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4">
+                  <h2 className="font-bold text-gray-800 pb-2">🤝 Buddy Score</h2>
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse" style={{ fontSize: 11 }}>
+                      <thead>
+                        <tr>
+                          <th className="w-5" />
+                          {buddyData.players.map((p) => (
+                            <th key={p.id} className="text-center font-bold text-gray-400 pb-1" style={{ minWidth: 26 }}>
+                              {abbr[p.id]}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {buddyData.players.map((row) => (
+                          <tr key={row.id}>
+                            <td className="font-bold text-gray-400 pr-1 text-right whitespace-nowrap">{abbr[row.id]}</td>
+                            {buddyData.players.map((col) => {
+                              if (row.id === col.id) {
+                                return <td key={col.id} className="text-center text-gray-200 py-0.5">·</td>;
+                              }
+                              const count = buddyData.matrix[row.id]?.[col.id] ?? 0;
+                              const pct = buddyData.totalDays > 0 ? Math.round((count / buddyData.totalDays) * 100) : 0;
+                              return (
+                                <td key={col.id} className="text-center font-semibold py-0.5 rounded"
+                                  style={{ color: pct > 0 ? `rgba(109,40,217,${Math.max(0.35, pct / 100)})` : "#d1d5db" }}>
+                                  {pct > 0 ? pct : "–"}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="text-center text-gray-400 pt-1.5" style={{ fontSize: 10 }}>% of {buddyData.totalDays} sessions played together</p>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Venues */}
             {venues.length > 0 && (
