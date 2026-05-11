@@ -88,6 +88,27 @@ export default function HistoryPage() {
       </div>
 
       <div className="px-4 py-5 max-w-lg mx-auto space-y-3">
+
+        {/* Nav */}
+        <div className="grid grid-cols-4 gap-3">
+          <Link href="/" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-4 flex flex-col items-center gap-2 hover:shadow-md transition-all active:scale-95">
+            <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-emerald-200">🏸</div>
+            <span className="text-xs font-bold text-gray-700">Home</span>
+          </Link>
+          <Link href="/players" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-4 flex flex-col items-center gap-2 hover:shadow-md transition-all active:scale-95">
+            <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-emerald-200">👥</div>
+            <span className="text-xs font-bold text-gray-700">Players</span>
+          </Link>
+          <Link href="/stats" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-4 flex flex-col items-center gap-2 hover:shadow-md transition-all active:scale-95">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-blue-200">📊</div>
+            <span className="text-xs font-bold text-gray-700">Stats</span>
+          </Link>
+          <Link href="/feed" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-4 flex flex-col items-center gap-2 hover:shadow-md transition-all active:scale-95">
+            <div className="w-10 h-10 bg-gradient-to-br from-violet-400 to-fuchsia-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-violet-200">💬</div>
+            <span className="text-xs font-bold text-gray-700">Feed</span>
+          </Link>
+        </div>
+
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <div className="w-10 h-10 rounded-full border-4 border-orange-200 border-t-orange-500 animate-spin" />

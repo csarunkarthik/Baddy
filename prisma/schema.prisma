@@ -30,3 +30,20 @@ model Attendance {
 
   @@unique([playerId, sessionId])
 }
+
+model Post {
+  id        Int       @id @default(autoincrement())
+  content   String
+  author    String
+  createdAt DateTime  @default(now())
+  comments  Comment[]
+}
+
+model Comment {
+  id        Int      @id @default(autoincrement())
+  postId    Int
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  content   String
+  author    String
+  createdAt DateTime @default(now())
+}

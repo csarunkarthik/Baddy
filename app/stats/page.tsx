@@ -3,31 +3,49 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
-type PlayerStat = { id: number; name: string; sessions: number; rank: number };
+
+type PlayerStat = { id: number; name: string; sessions: number; percentage: number; rank: number };
 type VenueStat = { venue: string; count: number };
+type Buddy = { player1: string; player2: string; count: number };
 
 const MEDAL: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
 
 export default function StatsPage() {
+  const currentYear = new Date().getFullYear();
+  const [year, setYear] = useState(currentYear);
   const [stats, setStats] = useState<PlayerStat[]>([]);
   const [venues, setVenues] = useState<VenueStat[]>([]);
+  const [buddies, setBuddies] = useState<Buddy[]>([]);
   const [totalDays, setTotalDays] = useState(0);
+  const [availableYears, setAvailableYears] = useState<number[]>([currentYear]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    Promise.all([fetch("/api/stats"), fetch("/api/venues")])
-      .then(([s, v]) => Promise.all([s.json(), v.json()]))
-      .then(([statsData, venueData]: [{ totalDays: number; players: { id: number; name: string; sessions: number }[] }, VenueStat[]]) => {
-        const ranked = statsData.players.map((p) => ({
-          ...p,
-          rank: statsData.players.filter((o) => o.sessions > p.sessions).length + 1,
-        }));
-        setStats(ranked);
-        setTotalDays(statsData.totalDays);
-        setVenues(venueData);
-        setLoading(false);
-      });
-  }, []);
+  async function loadStats(y: number) {
+    setLoading(true);
+    const [statsRes, venuesRes, buddiesRes] = await Promise.all([
+      fetch(`/api/stats?year=${y}`),
+      fetch(`/api/venues`),
+      fetch(`/api/buddies?year=${y}`),
+    ]);
+    const statsData = await statsRes.json();
+    const ranked = statsData.players.map((p: Omit<PlayerStat, "rank">) => ({
+      ...p,
+      rank: statsData.players.filter((o: Omit<PlayerStat, "rank">) => o.sessions > p.sessions).length + 1,
+    }));
+    setStats(ranked);
+    setTotalDays(statsData.totalDays);
+    setAvailableYears(statsData.availableYears.length ? statsData.availableYears : [currentYear]);
+    setVenues(await venuesRes.json());
+    setBuddies(await buddiesRes.json());
+    setLoading(false);
+  }
+
+  useEffect(() => { loadStats(year); }, []);
+
+  function handleYearChange(y: number) {
+    setYear(y);
+    loadStats(y);
+  }
 
   const max = stats[0]?.sessions ?? 1;
   const maxVenue = venues[0]?.count ?? 1;
@@ -40,15 +58,25 @@ export default function StatsPage() {
           <div className="absolute -bottom-4 -left-4 w-32 h-32 rounded-full bg-white" />
         </div>
         <div className="relative flex items-start gap-3">
-          <Link href="/" className="mt-1 w-9 h-9 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors font-bold">
-            ←
-          </Link>
-          <div>
+          <Link href="/" className="mt-1 w-9 h-9 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors font-bold">←</Link>
+          <div className="flex-1">
             <h1 className="text-3xl font-extrabold tracking-tight">Stats</h1>
-            <p className="text-blue-100 text-sm mt-0.5">
-              {stats.length} players · {totalDays} {totalDays === 1 ? "day" : "days"} played
-            </p>
+            <p className="text-blue-100 text-sm mt-0.5">{stats.length} players · {totalDays} {totalDays === 1 ? "day" : "days"} played</p>
           </div>
+        </div>
+        {/* Year selector */}
+        <div className="relative mt-4 flex gap-2 flex-wrap">
+          {availableYears.map((y) => (
+            <button
+              key={y}
+              onClick={() => handleYearChange(y)}
+              className={`px-4 py-1.5 rounded-full text-sm font-bold transition-all ${
+                y === year ? "bg-white text-indigo-600" : "bg-white/20 text-white hover:bg-white/30"
+              }`}
+            >
+              {y}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -59,25 +87,26 @@ export default function StatsPage() {
           </div>
         ) : (
           <>
+            {/* Player leaderboard */}
             {stats.length === 0 ? (
               <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-10 text-center">
                 <div className="text-4xl mb-3">🏸</div>
-                <p className="text-gray-400 text-sm font-medium">No data yet — start a session first</p>
+                <p className="text-gray-400 text-sm font-medium">No sessions in {year} yet</p>
               </div>
             ) : (
               <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 space-y-2">
-                <h2 className="font-bold text-gray-800 px-2 pb-1">Players</h2>
+                <h2 className="font-bold text-gray-800 px-2 pb-1">Players · {year}</h2>
                 {stats.map((p) => (
                   <div key={p.id} className="flex items-center gap-3 p-2">
                     <span className="w-8 text-center text-lg shrink-0">
                       {MEDAL[p.rank] ?? <span className="text-xs text-gray-400 font-bold">{p.rank}</span>}
                     </span>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center justify-between mb-1">
                         <span className="text-sm font-bold text-gray-800 truncate">{p.name}</span>
-                        <div className="flex items-center gap-1.5 ml-2 shrink-0">
+                        <div className="flex items-center gap-2 ml-2 shrink-0">
+                          <span className="text-xs font-bold text-indigo-500">{p.percentage}%</span>
                           <span className="text-sm font-extrabold text-blue-600">{p.sessions}</span>
-                          <span className="text-xs text-gray-400">sessions</span>
                         </div>
                       </div>
                       <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
@@ -94,9 +123,29 @@ export default function StatsPage() {
                     </div>
                   </div>
                 ))}
+                <p className="text-center text-xs text-gray-400 pt-1">% = sessions attended out of {totalDays} total</p>
               </div>
             )}
 
+            {/* Buddy scores */}
+            {buddies.length > 0 && (
+              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 space-y-3">
+                <h2 className="font-bold text-gray-800 px-2 pb-1">🤝 Buddy Score</h2>
+                {buddies.map((b, i) => (
+                  <div key={i} className="flex items-center gap-3 px-2">
+                    <span className="text-xs font-bold text-gray-400 w-4 shrink-0">{i + 1}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-800 truncate">
+                        {b.player1} <span className="text-gray-400">&</span> {b.player2}
+                      </p>
+                    </div>
+                    <span className="text-sm font-extrabold text-purple-600 shrink-0">{b.count} sessions</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Venues */}
             {venues.length > 0 && (
               <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 space-y-2">
                 <h2 className="font-bold text-gray-800 px-2 pb-1">Venues</h2>
@@ -112,19 +161,35 @@ export default function StatsPage() {
                         </div>
                       </div>
                       <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-gradient-to-r from-indigo-400 to-purple-500"
-                          style={{ width: `${Math.max(4, (v.count / maxVenue) * 100)}%` }}
-                        />
+                        <div className="h-full rounded-full bg-gradient-to-r from-indigo-400 to-purple-500"
+                          style={{ width: `${Math.max(4, (v.count / maxVenue) * 100)}%` }} />
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-
           </>
         )}
+        {/* Nav */}
+        <div className="grid grid-cols-4 gap-3 pt-1">
+          <Link href="/players" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-4 flex flex-col items-center gap-2 hover:shadow-md transition-all active:scale-95">
+            <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-emerald-200">👥</div>
+            <span className="text-xs font-bold text-gray-700">Players</span>
+          </Link>
+          <Link href="/" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-4 flex flex-col items-center gap-2 hover:shadow-md transition-all active:scale-95">
+            <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-emerald-200">🏸</div>
+            <span className="text-xs font-bold text-gray-700">Home</span>
+          </Link>
+          <Link href="/history" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-4 flex flex-col items-center gap-2 hover:shadow-md transition-all active:scale-95">
+            <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-pink-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-orange-200">📅</div>
+            <span className="text-xs font-bold text-gray-700">History</span>
+          </Link>
+          <Link href="/feed" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-4 flex flex-col items-center gap-2 hover:shadow-md transition-all active:scale-95">
+            <div className="w-10 h-10 bg-gradient-to-br from-violet-400 to-fuchsia-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-violet-200">💬</div>
+            <span className="text-xs font-bold text-gray-700">Feed</span>
+          </Link>
+        </div>
       </div>
     </div>
   );
