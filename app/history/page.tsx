@@ -17,6 +17,7 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<number | null>(null);
   const [toggling, setToggling] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     Promise.all([fetch("/api/history"), fetch("/api/players")])
@@ -66,6 +67,20 @@ export default function HistoryPage() {
     });
 
     setToggling((prev) => { const n = new Set(prev); n.delete(key); return n; });
+  }
+
+  async function deleteSession(sessionId: number, dateStr: string) {
+    if (deleting.has(sessionId)) return;
+    const ok = window.confirm(`Delete the session on ${formatDate(dateStr)}? This removes all its attendance and cannot be undone.`);
+    if (!ok) return;
+
+    setDeleting((prev) => new Set(prev).add(sessionId));
+    const res = await fetch(`/api/sessions/${sessionId}`, { method: "DELETE" });
+    if (res.ok) {
+      setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+      setExpanded((prev) => (prev === sessionId ? null : prev));
+    }
+    setDeleting((prev) => { const n = new Set(prev); n.delete(sessionId); return n; });
   }
 
   return (
@@ -155,7 +170,23 @@ export default function HistoryPage() {
 
                 {isOpen && (
                   <div className="px-5 pb-5 border-t border-gray-50 pt-4 space-y-2">
-                    <p className="text-xs text-gray-400 font-medium mb-3">Tap to toggle attendance</p>
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-xs text-gray-400 font-medium">Tap to toggle attendance</p>
+                      <button
+                        onClick={() => deleteSession(s.id, s.date)}
+                        disabled={deleting.has(s.id)}
+                        className="text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 active:scale-95 disabled:opacity-50 px-3 py-1.5 rounded-full transition-all flex items-center gap-1"
+                      >
+                        {deleting.has(s.id) ? (
+                          <>
+                            <span className="w-3 h-3 rounded-full border-2 border-rose-300 border-t-rose-600 animate-spin" />
+                            Deleting…
+                          </>
+                        ) : (
+                          <>🗑 Delete session</>
+                        )}
+                      </button>
+                    </div>
                     {players.length === 0 ? (
                       <p className="text-sm text-gray-400">No players registered yet</p>
                     ) : (
