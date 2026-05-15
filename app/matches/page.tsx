@@ -129,6 +129,54 @@ export default function MatchesPage() {
       .sort((a, b) => b.wins - a.wins || b.winPct - a.winPct || a.name.localeCompare(b.name));
   }, [data]);
 
+  const allMatchesDone = !!data && data.matches.length > 0 && data.matches.every((m) => m.winner !== null);
+  const mvps = useMemo(() => {
+    if (!allMatchesDone || sessionWins.length === 0) return [] as WinStat[];
+    const top = sessionWins[0];
+    return sessionWins.filter((s) => s.wins === top.wins && s.winPct === top.winPct);
+  }, [allMatchesDone, sessionWins]);
+
+  function buildShareText() {
+    if (!data) return "";
+    const lines: string[] = [];
+    const date = formatDisplay(data.session.date);
+    const venue = data.session.venue ? ` · ${data.session.venue}` : "";
+    lines.push(`🏸 Baddy · ${date}${venue}`);
+    const playedCount = data.matches.filter((m) => m.winner).length;
+    lines.push(`${playedCount}/${data.matches.length} matches played`);
+    if (mvps.length > 0) {
+      const names = mvps.map((p) => p.name).join(", ");
+      lines.push(`🥇 MVP: ${names} (${mvps[0].wins}W · ${mvps[0].winPct}%)`);
+    }
+    if (sessionWins.length > 0) {
+      lines.push("");
+      lines.push("Top wins:");
+      for (const s of sessionWins.slice(0, 5)) {
+        lines.push(`• ${s.name} — ${s.wins}W / ${s.played}P (${s.winPct}%)`);
+      }
+    }
+    return lines.join("\n");
+  }
+
+  function shareOnWhatsApp() {
+    const text = buildShareText();
+    if (!text) return;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+  }
+
+  const [copied, setCopied] = useState(false);
+  async function copyShareText() {
+    const text = buildShareText();
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setError("Couldn't copy — long-press the share button to copy manually.");
+    }
+  }
+
   async function saveConfig(patch: Partial<{ totalMatches: number; bamHariKid: boolean; arunDeepKid: boolean }>) {
     if (!data) return;
     await fetch(`/api/sessions/${data.session.id}/matches/config`, {
@@ -555,12 +603,55 @@ export default function MatchesPage() {
               </div>
             )}
 
+            {/* MVP of the Day */}
+            {allMatchesDone && mvps.length > 0 && (
+              <div className="relative overflow-hidden rounded-3xl shadow-lg shadow-amber-200 p-5 bg-gradient-to-br from-yellow-400 via-amber-500 to-orange-500 text-white">
+                <div className="absolute -top-4 -right-2 text-7xl opacity-15 select-none">🏆</div>
+                <div className="relative">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-yellow-50/90">
+                    {mvps.length > 1 ? "Co-MVPs of the day" : "MVP of the day"}
+                  </p>
+                  <div className="mt-1 flex items-baseline gap-2 flex-wrap">
+                    {mvps.map((p, i) => (
+                      <span key={p.id} className="text-2xl font-extrabold tracking-tight">
+                        {p.name}{i < mvps.length - 1 ? "," : ""}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-sm font-semibold text-yellow-50">
+                    {mvps[0].wins}W · {mvps[0].played}P · {mvps[0].winPct}% win-rate
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Today's wins */}
             {data.matches.length > 0 && (
               <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5">
-                <h2 className="font-bold text-gray-800 text-sm mb-3 flex items-center gap-2">
-                  🥇 Today&apos;s wins
-                </h2>
+                <div className="flex items-center justify-between mb-3 gap-2">
+                  <h2 className="font-bold text-gray-800 text-sm flex items-center gap-2">
+                    🥇 Today&apos;s wins
+                  </h2>
+                  {sessionWins.length > 0 && (
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={shareOnWhatsApp}
+                        className="text-xs font-bold text-white bg-emerald-500 hover:bg-emerald-600 active:scale-95 px-3 py-1.5 rounded-full transition-all flex items-center gap-1"
+                        title="Share on WhatsApp"
+                      >
+                        <span>📤</span>
+                        <span>WhatsApp</span>
+                      </button>
+                      <button
+                        onClick={copyShareText}
+                        className="text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 active:scale-95 px-3 py-1.5 rounded-full transition-all"
+                        title="Copy summary to clipboard"
+                      >
+                        {copied ? "✓ Copied" : "📋"}
+                      </button>
+                    </div>
+                  )}
+                </div>
                 {sessionWins.length === 0 ? (
                   <p className="text-xs text-gray-400">No completed matches yet — tap a team to mark the winner.</p>
                 ) : (

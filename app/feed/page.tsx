@@ -45,6 +45,8 @@ export default function FeedPage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
+    const saved = typeof window !== "undefined" ? window.localStorage.getItem("feedAuthor") : null;
+    if (saved) setAuthor(saved);
     Promise.all([fetch("/api/posts"), fetch("/api/players")])
       .then(([p, pl]) => Promise.all([p.json(), pl.json()]))
       .then(([postsData, playersData]) => {
@@ -53,6 +55,11 @@ export default function FeedPage() {
         setLoading(false);
       });
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (author) window.localStorage.setItem("feedAuthor", author);
+  }, [author]);
 
   async function submitPost() {
     if (!content.trim() || !author.trim()) return;
