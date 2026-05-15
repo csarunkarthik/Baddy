@@ -244,22 +244,26 @@ export default function Home() {
         )}
 
         {/* Nav */}
-        <div className="grid grid-cols-4 gap-3">
-          <Link href="/players" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-4 flex flex-col items-center gap-2 hover:shadow-md hover:border-emerald-200 transition-all active:scale-95">
-            <div className="w-11 h-11 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-2xl flex items-center justify-center text-xl shadow-lg shadow-emerald-200">👥</div>
-            <span className="text-xs font-bold text-gray-700 group-hover:text-emerald-700 transition-colors">Players</span>
+        <div className="grid grid-cols-5 gap-2">
+          <Link href="/players" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md hover:border-emerald-200 transition-all active:scale-95">
+            <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-2xl flex items-center justify-center text-lg shadow-lg shadow-emerald-200">👥</div>
+            <span className="text-[10px] font-bold text-gray-700 group-hover:text-emerald-700 transition-colors">Players</span>
           </Link>
-          <Link href="/stats" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-4 flex flex-col items-center gap-2 hover:shadow-md hover:border-emerald-200 transition-all active:scale-95">
-            <div className="w-11 h-11 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-2xl flex items-center justify-center text-xl shadow-lg shadow-blue-200">📊</div>
-            <span className="text-xs font-bold text-gray-700 group-hover:text-emerald-700 transition-colors">Stats</span>
+          <Link href="/stats" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md hover:border-emerald-200 transition-all active:scale-95">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-2xl flex items-center justify-center text-lg shadow-lg shadow-blue-200">📊</div>
+            <span className="text-[10px] font-bold text-gray-700 group-hover:text-emerald-700 transition-colors">Stats</span>
           </Link>
-          <Link href="/history" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-4 flex flex-col items-center gap-2 hover:shadow-md hover:border-emerald-200 transition-all active:scale-95">
-            <div className="w-11 h-11 bg-gradient-to-br from-orange-400 to-pink-500 rounded-2xl flex items-center justify-center text-xl shadow-lg shadow-orange-200">📅</div>
-            <span className="text-xs font-bold text-gray-700 group-hover:text-emerald-700 transition-colors">History</span>
+          <Link href="/history" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md hover:border-emerald-200 transition-all active:scale-95">
+            <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-pink-500 rounded-2xl flex items-center justify-center text-lg shadow-lg shadow-orange-200">📅</div>
+            <span className="text-[10px] font-bold text-gray-700 group-hover:text-emerald-700 transition-colors">History</span>
           </Link>
-          <Link href="/feed" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-4 flex flex-col items-center gap-2 hover:shadow-md hover:border-emerald-200 transition-all active:scale-95">
-            <div className="w-11 h-11 bg-gradient-to-br from-violet-400 to-fuchsia-500 rounded-2xl flex items-center justify-center text-xl shadow-lg shadow-violet-200">💬</div>
-            <span className="text-xs font-bold text-gray-700 group-hover:text-emerald-700 transition-colors">Feed</span>
+          <Link href="/matches" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md hover:border-emerald-200 transition-all active:scale-95">
+            <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-rose-500 rounded-2xl flex items-center justify-center text-lg shadow-lg shadow-amber-200">🏆</div>
+            <span className="text-[10px] font-bold text-gray-700 group-hover:text-emerald-700 transition-colors">Matches</span>
+          </Link>
+          <Link href="/feed" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md hover:border-emerald-200 transition-all active:scale-95">
+            <div className="w-10 h-10 bg-gradient-to-br from-violet-400 to-fuchsia-500 rounded-2xl flex items-center justify-center text-lg shadow-lg shadow-violet-200">💬</div>
+            <span className="text-[10px] font-bold text-gray-700 group-hover:text-emerald-700 transition-colors">Feed</span>
           </Link>
         </div>
 

@@ -7,18 +7,50 @@ datasource db {
 }
 
 model Player {
-  id         Int          @id @default(autoincrement())
-  name       String       @unique
-  createdAt  DateTime     @default(now())
-  attendance Attendance[]
+  id           Int           @id @default(autoincrement())
+  name         String        @unique
+  createdAt    DateTime      @default(now())
+  attendance   Attendance[]
+  matchPlayers MatchPlayer[]
 }
 
 model Session {
-  id         Int          @id @default(autoincrement())
-  date       DateTime     @unique @db.Date
-  venue      String       @default("")
-  createdAt  DateTime     @default(now())
-  attendance Attendance[]
+  id           Int          @id @default(autoincrement())
+  date         DateTime     @unique @db.Date
+  venue        String       @default("")
+  createdAt    DateTime     @default(now())
+  totalMatches Int          @default(15)
+  bamHariKid   Boolean      @default(false)
+  arunDeepKid  Boolean      @default(false)
+  attendance   Attendance[]
+  matches      Match[]
+}
+
+model Match {
+  id           Int           @id @default(autoincrement())
+  session      Session       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId    Int
+  matchNumber  Int
+  winner       String?
+  createdAt    DateTime      @default(now())
+  participants MatchPlayer[]
+
+  @@unique([sessionId, matchNumber])
+  @@index([sessionId])
+}
+
+model MatchPlayer {
+  id       Int    @id @default(autoincrement())
+  match    Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  matchId  Int
+  player   Player @relation(fields: [playerId], references: [id])
+  playerId Int
+  team     String
+  position Int
+
+  @@unique([matchId, playerId])
+  @@index([playerId])
+  @@index([matchId])
 }
 
 model Attendance {
