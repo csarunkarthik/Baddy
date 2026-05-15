@@ -1,8 +1,22 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export async function GET() {
+function yearBounds(year: number) {
+  return {
+    gte: new Date(`${year}-01-01T00:00:00Z`),
+    lt: new Date(`${year + 1}-01-01T00:00:00Z`),
+  };
+}
+
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const yearParam = searchParams.get("year");
+  const where = yearParam
+    ? { match: { session: { date: yearBounds(parseInt(yearParam)) } } }
+    : undefined;
+
   const rows = await prisma.matchPlayer.findMany({
+    where,
     include: { match: true, player: true },
   });
 

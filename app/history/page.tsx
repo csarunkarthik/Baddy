@@ -105,22 +105,26 @@ export default function HistoryPage() {
       <div className="px-4 py-5 max-w-lg mx-auto space-y-3">
 
         {/* Nav */}
-        <div className="grid grid-cols-4 gap-3">
-          <Link href="/" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-4 flex flex-col items-center gap-2 hover:shadow-md transition-all active:scale-95">
+        <div className="grid grid-cols-5 gap-2">
+          <Link href="/" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
             <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-emerald-200">🏸</div>
-            <span className="text-xs font-bold text-gray-700">Home</span>
+            <span className="text-[10px] font-bold text-gray-700">Home</span>
           </Link>
-          <Link href="/players" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-4 flex flex-col items-center gap-2 hover:shadow-md transition-all active:scale-95">
+          <Link href="/players" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
             <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-emerald-200">👥</div>
-            <span className="text-xs font-bold text-gray-700">Players</span>
+            <span className="text-[10px] font-bold text-gray-700">Players</span>
           </Link>
-          <Link href="/stats" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-4 flex flex-col items-center gap-2 hover:shadow-md transition-all active:scale-95">
+          <Link href="/stats" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
             <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-blue-200">📊</div>
-            <span className="text-xs font-bold text-gray-700">Stats</span>
+            <span className="text-[10px] font-bold text-gray-700">Stats</span>
           </Link>
-          <Link href="/feed" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-4 flex flex-col items-center gap-2 hover:shadow-md transition-all active:scale-95">
+          <Link href="/matches" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
+            <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-rose-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-amber-200">🏆</div>
+            <span className="text-[10px] font-bold text-gray-700">Matches</span>
+          </Link>
+          <Link href="/feed" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
             <div className="w-10 h-10 bg-gradient-to-br from-violet-400 to-fuchsia-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-violet-200">💬</div>
-            <span className="text-xs font-bold text-gray-700">Feed</span>
+            <span className="text-[10px] font-bold text-gray-700">Feed</span>
           </Link>
         </div>
 

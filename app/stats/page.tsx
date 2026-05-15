@@ -6,6 +6,7 @@ import Link from "next/link";
 
 type PlayerStat = { id: number; name: string; sessions: number; percentage: number; rank: number };
 type VenueStat = { venue: string; count: number };
+type WinStat = { id: number; name: string; wins: number; played: number; winPct: number };
 type BuddyData = {
   players: { id: number; name: string }[];
   matrix: Record<number, Record<number, number>>;
@@ -29,6 +30,7 @@ export default function StatsPage() {
   const [year, setYear] = useState(currentYear);
   const [stats, setStats] = useState<PlayerStat[]>([]);
   const [venues, setVenues] = useState<VenueStat[]>([]);
+  const [wins, setWins] = useState<Record<number, WinStat>>({});
   const [buddyData, setBuddyData] = useState<BuddyData | null>(null);
   const [totalDays, setTotalDays] = useState(0);
   const [availableYears, setAvailableYears] = useState<number[]>([currentYear]);
@@ -36,10 +38,11 @@ export default function StatsPage() {
 
   async function loadStats(y: number) {
     setLoading(true);
-    const [statsRes, venuesRes, buddiesRes] = await Promise.all([
+    const [statsRes, venuesRes, buddiesRes, winsRes] = await Promise.all([
       fetch(`/api/stats?year=${y}`),
       fetch(`/api/venues`),
       fetch(`/api/buddies?year=${y}`),
+      fetch(`/api/stats/wins?year=${y}`),
     ]);
     const statsData = await statsRes.json();
     const ranked = statsData.players.map((p: Omit<PlayerStat, "rank">) => ({
@@ -51,6 +54,8 @@ export default function StatsPage() {
     setAvailableYears(statsData.availableYears.length ? statsData.availableYears : [currentYear]);
     setVenues(await venuesRes.json());
     setBuddyData(await buddiesRes.json());
+    const winsArr: WinStat[] = winsRes.ok ? await winsRes.json() : [];
+    setWins(Object.fromEntries(winsArr.map((w) => [w.id, w])));
     setLoading(false);
   }
 
@@ -110,7 +115,9 @@ export default function StatsPage() {
             ) : (
               <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 space-y-2">
                 <h2 className="font-bold text-gray-800 px-2 pb-1">Players · {year}</h2>
-                {stats.map((p) => (
+                {stats.map((p) => {
+                  const w = wins[p.id];
+                  return (
                   <div key={p.id} className="flex items-center gap-3 p-2">
                     <span className="w-8 text-center text-lg shrink-0">
                       {MEDAL[p.rank] ?? <span className="text-xs text-gray-400 font-bold">{p.rank}</span>}
@@ -122,6 +129,11 @@ export default function StatsPage() {
                           <span className="text-xs font-bold text-indigo-500">{p.percentage}%</span>
                           <span className="text-sm font-extrabold text-blue-600">{p.sessions}</span>
                         </div>
+                      </div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[11px] font-semibold text-gray-400">
+                          🏆 {w && w.played > 0 ? `${w.wins}W · ${w.winPct}%` : "—"}
+                        </span>
                       </div>
                       <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
                         <div
@@ -136,8 +148,9 @@ export default function StatsPage() {
                       </div>
                     </div>
                   </div>
-                ))}
-                <p className="text-center text-xs text-gray-400 pt-1">% = sessions attended out of {totalDays} total</p>
+                  );
+                })}
+                <p className="text-center text-xs text-gray-400 pt-1">% = sessions attended · 🏆 = wins / win-rate in {year}</p>
               </div>
             )}
 
@@ -213,22 +226,26 @@ export default function StatsPage() {
           </>
         )}
         {/* Nav */}
-        <div className="grid grid-cols-4 gap-3 pt-1">
-          <Link href="/players" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-4 flex flex-col items-center gap-2 hover:shadow-md transition-all active:scale-95">
-            <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-emerald-200">👥</div>
-            <span className="text-xs font-bold text-gray-700">Players</span>
-          </Link>
-          <Link href="/" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-4 flex flex-col items-center gap-2 hover:shadow-md transition-all active:scale-95">
+        <div className="grid grid-cols-5 gap-2 pt-1">
+          <Link href="/" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
             <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-emerald-200">🏸</div>
-            <span className="text-xs font-bold text-gray-700">Home</span>
+            <span className="text-[10px] font-bold text-gray-700">Home</span>
           </Link>
-          <Link href="/history" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-4 flex flex-col items-center gap-2 hover:shadow-md transition-all active:scale-95">
+          <Link href="/players" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
+            <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-emerald-200">👥</div>
+            <span className="text-[10px] font-bold text-gray-700">Players</span>
+          </Link>
+          <Link href="/history" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
             <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-pink-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-orange-200">📅</div>
-            <span className="text-xs font-bold text-gray-700">History</span>
+            <span className="text-[10px] font-bold text-gray-700">History</span>
           </Link>
-          <Link href="/feed" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-4 flex flex-col items-center gap-2 hover:shadow-md transition-all active:scale-95">
+          <Link href="/matches" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
+            <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-rose-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-amber-200">🏆</div>
+            <span className="text-[10px] font-bold text-gray-700">Matches</span>
+          </Link>
+          <Link href="/feed" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
             <div className="w-10 h-10 bg-gradient-to-br from-violet-400 to-fuchsia-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-violet-200">💬</div>
-            <span className="text-xs font-bold text-gray-700">Feed</span>
+            <span className="text-[10px] font-bold text-gray-700">Feed</span>
           </Link>
         </div>
       </div>
