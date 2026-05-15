@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { isSessionLocked } from "@/lib/locking";
 
 type Player = { id: number; name: string };
 type Session = {
@@ -142,6 +143,7 @@ export default function HistoryPage() {
             const isOpen = expanded === s.id;
             const attendeeIds = new Set(s.attendance.map((a) => a.player.id));
             const today = isToday(s.date);
+            const locked = isSessionLocked(s.date);
 
             return (
               <div
@@ -154,12 +156,13 @@ export default function HistoryPage() {
                 >
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-lg shrink-0 ${today ? "bg-emerald-100" : "bg-gradient-to-br from-orange-100 to-pink-100"}`}>
-                      {today ? "🟢" : "🏸"}
+                      {today ? "🟢" : locked ? "🔒" : "🏸"}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
                         <p className="font-bold text-gray-800 text-sm">{formatDate(s.date)}</p>
                         {today && <span className="text-xs bg-emerald-100 text-emerald-700 font-bold px-2 py-0.5 rounded-full">Live</span>}
+                        {locked && <span className="text-xs bg-amber-100 text-amber-700 font-bold px-2 py-0.5 rounded-full">Locked</span>}
                       </div>
                       <p className="text-xs text-gray-400 mt-0.5 font-medium">{s.venue || "No venue"}</p>
                     </div>
@@ -175,21 +178,25 @@ export default function HistoryPage() {
                 {isOpen && (
                   <div className="px-5 pb-5 border-t border-gray-50 pt-4 space-y-2">
                     <div className="flex items-center justify-between mb-3">
-                      <p className="text-xs text-gray-400 font-medium">Tap to toggle attendance</p>
-                      <button
-                        onClick={() => deleteSession(s.id, s.date)}
-                        disabled={deleting.has(s.id)}
-                        className="text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 active:scale-95 disabled:opacity-50 px-3 py-1.5 rounded-full transition-all flex items-center gap-1"
-                      >
-                        {deleting.has(s.id) ? (
-                          <>
-                            <span className="w-3 h-3 rounded-full border-2 border-rose-300 border-t-rose-600 animate-spin" />
-                            Deleting…
-                          </>
-                        ) : (
-                          <>🗑 Delete session</>
-                        )}
-                      </button>
+                      <p className="text-xs text-gray-400 font-medium">
+                        {locked ? "Read-only — locked 2 days after the session date." : "Tap to toggle attendance"}
+                      </p>
+                      {!locked && (
+                        <button
+                          onClick={() => deleteSession(s.id, s.date)}
+                          disabled={deleting.has(s.id)}
+                          className="text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 active:scale-95 disabled:opacity-50 px-3 py-1.5 rounded-full transition-all flex items-center gap-1"
+                        >
+                          {deleting.has(s.id) ? (
+                            <>
+                              <span className="w-3 h-3 rounded-full border-2 border-rose-300 border-t-rose-600 animate-spin" />
+                              Deleting…
+                            </>
+                          ) : (
+                            <>🗑 Delete session</>
+                          )}
+                        </button>
+                      )}
                     </div>
                     {players.length === 0 ? (
                       <p className="text-sm text-gray-400">No players registered yet</p>
@@ -200,13 +207,13 @@ export default function HistoryPage() {
                         return (
                           <button
                             key={player.id}
-                            onClick={() => toggleAttendance(s.id, player.id, !present)}
-                            disabled={busy}
+                            onClick={() => !locked && toggleAttendance(s.id, player.id, !present)}
+                            disabled={busy || locked}
                             className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl transition-all active:scale-[0.98] ${
                               present
                                 ? "bg-emerald-50 border-2 border-emerald-200"
                                 : "bg-gray-50 border-2 border-transparent hover:border-gray-200"
-                            }`}
+                            } ${locked ? "cursor-default opacity-90" : ""}`}
                           >
                             <span className={`text-sm font-semibold ${present ? "text-emerald-800" : "text-gray-400"}`}>
                               {player.name}

@@ -12,6 +12,9 @@ type BuddyData = {
   matrix: Record<number, Record<number, number>>;
   totalDays: number;
 };
+type BestPartnerRow = { playerId: number; playerName: string; partnerName: string; wins: number; played: number; winPct: number };
+type TopDuo = { p1: string; p2: string; wins: number; played: number; winPct: number };
+type BestPartnersData = { perPlayer: BestPartnerRow[]; topDuos: TopDuo[] };
 
 function makeAbbr(players: { id: number; name: string }[]) {
   const result: Record<number, string> = {};
@@ -32,17 +35,19 @@ export default function StatsPage() {
   const [venues, setVenues] = useState<VenueStat[]>([]);
   const [wins, setWins] = useState<Record<number, WinStat>>({});
   const [buddyData, setBuddyData] = useState<BuddyData | null>(null);
+  const [partners, setPartners] = useState<BestPartnersData>({ perPlayer: [], topDuos: [] });
   const [totalDays, setTotalDays] = useState(0);
   const [availableYears, setAvailableYears] = useState<number[]>([currentYear]);
   const [loading, setLoading] = useState(true);
 
   async function loadStats(y: number) {
     setLoading(true);
-    const [statsRes, venuesRes, buddiesRes, winsRes] = await Promise.all([
+    const [statsRes, venuesRes, buddiesRes, winsRes, partnersRes] = await Promise.all([
       fetch(`/api/stats?year=${y}`),
       fetch(`/api/venues`),
       fetch(`/api/buddies?year=${y}`),
       fetch(`/api/stats/wins?year=${y}`),
+      fetch(`/api/stats/best-partners?year=${y}`),
     ]);
     const statsData = await statsRes.json();
     const ranked = statsData.players.map((p: Omit<PlayerStat, "rank">) => ({
@@ -56,6 +61,10 @@ export default function StatsPage() {
     setBuddyData(await buddiesRes.json());
     const winsArr: WinStat[] = winsRes.ok ? await winsRes.json() : [];
     setWins(Object.fromEntries(winsArr.map((w) => [w.id, w])));
+    const partnersData: BestPartnersData = partnersRes.ok
+      ? await partnersRes.json()
+      : { perPlayer: [], topDuos: [] };
+    setPartners(partnersData);
     setLoading(false);
   }
 
@@ -242,6 +251,61 @@ export default function StatsPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+            {/* Best Partners */}
+            {(partners.topDuos.length > 0 || partners.perPlayer.length > 0) && (
+              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 space-y-5">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🤝</span>
+                  <h2 className="font-bold text-gray-800 text-sm">Best partnerships</h2>
+                  <span className="text-[10px] text-gray-400 font-semibold ml-auto">min 2 together</span>
+                </div>
+
+                {partners.topDuos.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Top duos</p>
+                    <div className="space-y-1.5">
+                      {partners.topDuos.map((d, i) => (
+                        <div
+                          key={`${d.p1}-${d.p2}`}
+                          className="flex items-center justify-between px-3 py-2 rounded-xl bg-gray-50 text-xs"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-[10px] font-bold text-gray-400 w-5 shrink-0">{i + 1}.</span>
+                            <span className="font-semibold text-gray-800 truncate">
+                              {d.p1} <span className="text-gray-400">+</span> {d.p2}
+                            </span>
+                          </div>
+                          <span className="font-bold text-emerald-600 shrink-0 whitespace-nowrap">
+                            {d.wins}W/{d.played}P <span className="text-gray-400 ml-1">{d.winPct}%</span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {partners.perPlayer.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Each player&apos;s best partner</p>
+                    <div className="space-y-1.5">
+                      {partners.perPlayer.map((r) => (
+                        <div
+                          key={r.playerId}
+                          className="flex items-center justify-between px-3 py-2 rounded-xl bg-gray-50 text-xs"
+                        >
+                          <span className="font-semibold text-gray-800 truncate pr-2">
+                            {r.playerName} <span className="text-gray-400">→</span> {r.partnerName}
+                          </span>
+                          <span className="font-bold text-emerald-600 shrink-0 whitespace-nowrap">
+                            {r.wins}W/{r.played}P <span className="text-gray-400 ml-1">{r.winPct}%</span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </>

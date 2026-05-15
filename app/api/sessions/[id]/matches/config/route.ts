@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { isSessionLocked, LOCK_MESSAGE } from "@/lib/locking";
 
 export async function PATCH(
   req: Request,
@@ -10,6 +11,18 @@ export async function PATCH(
   if (!Number.isFinite(sessionId)) {
     return NextResponse.json({ error: "Invalid session id" }, { status: 400 });
   }
+
+  const existing = await prisma.session.findUnique({
+    where: { id: sessionId },
+    select: { date: true },
+  });
+  if (!existing) {
+    return NextResponse.json({ error: "Session not found" }, { status: 404 });
+  }
+  if (isSessionLocked(existing.date)) {
+    return NextResponse.json({ error: LOCK_MESSAGE }, { status: 423 });
+  }
+
   const body = await req.json();
   const data: { totalMatches?: number; bamHariKid?: boolean; arunDeepKid?: boolean } = {};
   if (typeof body.totalMatches === "number") {

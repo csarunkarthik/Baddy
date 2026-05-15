@@ -1,5 +1,18 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { isSessionLocked, LOCK_MESSAGE } from "@/lib/locking";
+
+async function loadMatchAndCheckLock(matchId: number) {
+  const m = await prisma.match.findUnique({
+    where: { id: matchId },
+    select: { id: true, session: { select: { date: true } } },
+  });
+  if (!m) return { error: NextResponse.json({ error: "Match not found" }, { status: 404 }) };
+  if (isSessionLocked(m.session.date)) {
+    return { error: NextResponse.json({ error: LOCK_MESSAGE }, { status: 423 }) };
+  }
+  return { error: null };
+}
 
 export async function PATCH(
   req: Request,
@@ -10,6 +23,10 @@ export async function PATCH(
   if (!Number.isFinite(matchId)) {
     return NextResponse.json({ error: "Invalid match id" }, { status: 400 });
   }
+
+  const lock = await loadMatchAndCheckLock(matchId);
+  if (lock.error) return lock.error;
+
   const body = await req.json();
 
   // Winner toggle
@@ -89,6 +106,10 @@ export async function DELETE(
   if (!Number.isFinite(matchId)) {
     return NextResponse.json({ error: "Invalid match id" }, { status: 400 });
   }
+
+  const lock = await loadMatchAndCheckLock(matchId);
+  if (lock.error) return lock.error;
+
   await prisma.match.delete({ where: { id: matchId } });
   return NextResponse.json({ ok: true });
 }

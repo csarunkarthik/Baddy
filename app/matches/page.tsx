@@ -19,6 +19,7 @@ type SessionInfo = {
   totalMatches: number;
   bamHariKid: boolean;
   arunDeepKid: boolean;
+  locked: boolean;
   attending: Player[];
 };
 type MatchesPayload = {
@@ -62,6 +63,10 @@ export default function MatchesPage() {
 
   const [editingMatchId, setEditingMatchId] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState<{ a1: number; a2: number; b1: number; b2: number } | null>(null);
+
+  const [addCount, setAddCount] = useState<number>(4);
+
+  const locked = !!data?.session.locked;
 
   async function load(dateStr: string) {
     setLoading(true);
@@ -129,12 +134,65 @@ export default function MatchesPage() {
       .sort((a, b) => b.wins - a.wins || b.winPct - a.winPct || a.name.localeCompare(b.name));
   }, [data]);
 
+  const sessionWinsByPct = useMemo(() => {
+    return [...sessionWins].sort(
+      (a, b) => b.winPct - a.winPct || b.wins - a.wins || a.name.localeCompare(b.name)
+    );
+  }, [sessionWins]);
+
   const allMatchesDone = !!data && data.matches.length > 0 && data.matches.every((m) => m.winner !== null);
   const mvps = useMemo(() => {
     if (!allMatchesDone || sessionWins.length === 0) return [] as WinStat[];
     const top = sessionWins[0];
     return sessionWins.filter((s) => s.wins === top.wins && s.winPct === top.winPct);
   }, [allMatchesDone, sessionWins]);
+
+  // Most Improved: player whose today win% is most above their pre-today career win%.
+  // Requires they've played ≥2 today AND had prior history. Career = winStats minus today.
+  const mostImproved = useMemo(() => {
+    if (!data || sessionWins.length === 0 || winStats.length === 0) return null;
+    let best: { name: string; todayPct: number; priorPct: number; delta: number } | null = null;
+    for (const s of sessionWins) {
+      if (s.played < 2) continue;
+      const career = winStats.find((w) => w.id === s.id);
+      if (!career) continue;
+      const priorPlayed = career.played - s.played;
+      const priorWins = career.wins - s.wins;
+      if (priorPlayed < 2) continue; // need real prior history
+      const priorPct = Math.round((priorWins / priorPlayed) * 1000) / 10;
+      const delta = Math.round((s.winPct - priorPct) * 10) / 10;
+      if (delta <= 0) continue;
+      if (!best || delta > best.delta) {
+        best = { name: s.name, todayPct: s.winPct, priorPct, delta };
+      }
+    }
+    return best;
+  }, [data, sessionWins, winStats]);
+
+  // Today's Best Synergy: pair of teammates with most wins together today.
+  // Ties broken by highest win%, then by alphabetical names.
+  const todaySynergy = useMemo(() => {
+    if (!data) return [] as { p1: string; p2: string; wins: number; played: number; pct: number }[];
+    type Acc = { p1Id: number; p2Id: number; p1: string; p2: string; wins: number; played: number };
+    const byPair = new Map<string, Acc>();
+    function add(a: Player, b: Player, won: boolean) {
+      const [low, high] = a.id < b.id ? [a, b] : [b, a];
+      const key = `${low.id}-${high.id}`;
+      const cur = byPair.get(key) ?? { p1Id: low.id, p2Id: high.id, p1: low.name, p2: high.name, wins: 0, played: 0 };
+      cur.played += 1;
+      if (won) cur.wins += 1;
+      byPair.set(key, cur);
+    }
+    for (const m of data.matches) {
+      if (!m.winner) continue;
+      if (m.teamA.length === 2) add(m.teamA[0], m.teamA[1], m.winner === "A");
+      if (m.teamB.length === 2) add(m.teamB[0], m.teamB[1], m.winner === "B");
+    }
+    return Array.from(byPair.values())
+      .map((p) => ({ p1: p.p1, p2: p.p2, wins: p.wins, played: p.played, pct: p.played ? Math.round((p.wins / p.played) * 1000) / 10 : 0 }))
+      .filter((p) => p.wins > 0)
+      .sort((a, b) => b.wins - a.wins || b.pct - a.pct || a.p1.localeCompare(b.p1) || a.p2.localeCompare(b.p2));
+  }, [data]);
 
   function buildShareText() {
     if (!data) return "";
@@ -148,11 +206,26 @@ export default function MatchesPage() {
       const names = mvps.map((p) => p.name).join(", ");
       lines.push(`🥇 MVP: ${names} (${mvps[0].wins}W · ${mvps[0].winPct}%)`);
     }
+    if (mostImproved) {
+      lines.push(`📈 Most Improved: ${mostImproved.name} — ${mostImproved.todayPct}% today (was ${mostImproved.priorPct}%)`);
+    }
     if (sessionWins.length > 0) {
       lines.push("");
-      lines.push("Top wins:");
+      lines.push("🏆 By wins:");
       for (const s of sessionWins.slice(0, 5)) {
-        lines.push(`• ${s.name} — ${s.wins}W / ${s.played}P (${s.winPct}%)`);
+        lines.push(`• ${s.name} — ${s.wins}W / ${s.played}P`);
+      }
+      lines.push("");
+      lines.push("🎯 By win %:");
+      for (const s of sessionWinsByPct.slice(0, 5)) {
+        lines.push(`• ${s.name} — ${s.winPct}% (${s.wins}W/${s.played}P)`);
+      }
+    }
+    if (todaySynergy.length > 0) {
+      lines.push("");
+      lines.push("🤝 Best pairings:");
+      for (const s of todaySynergy.slice(0, 3)) {
+        lines.push(`• ${s.p1} + ${s.p2} — ${s.wins}W/${s.played}P (${s.pct}%)`);
       }
     }
     return lines.join("\n");
@@ -236,6 +309,25 @@ export default function MatchesPage() {
     if (!window.confirm("Delete this match?")) return;
     await fetch(`/api/matches/${matchId}`, { method: "DELETE" });
     load(selectedDate);
+  }
+
+  async function addMatches() {
+    if (!data) return;
+    const n = Math.max(1, Math.min(50, Math.floor(addCount)));
+    setBusy(true);
+    setError(null);
+    const res = await fetch(`/api/sessions/${data.session.id}/matches/add`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ count: n }),
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      setError(j.error || "Couldn't add fixtures");
+    } else {
+      await load(selectedDate);
+    }
+    setBusy(false);
   }
 
   function startEdit(m: Match) {
@@ -359,6 +451,13 @@ export default function MatchesPage() {
           />
         </div>
 
+        {locked && (
+          <div className="rounded-2xl border border-amber-300 bg-amber-50 text-amber-800 px-4 py-3 text-xs font-semibold flex items-start gap-2">
+            <span className="text-base leading-tight">🔒</span>
+            <span>This session is locked — entries can only be edited within 2 days of the match date.</span>
+          </div>
+        )}
+
         {loading ? (
           <div className="flex justify-center py-16">
             <div className="w-10 h-10 rounded-full border-4 border-amber-200 border-t-amber-500 animate-spin" />
@@ -397,93 +496,130 @@ export default function MatchesPage() {
                 </div>
               )}
 
-              <div className="pt-2 border-t border-gray-100 space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <label className="text-sm font-semibold text-gray-700">Total matches</label>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        const n = Math.max(1, totalMatchesDraft - 1);
-                        setTotalMatchesDraft(n);
-                        saveConfig({ totalMatches: n });
-                      }}
-                      className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 font-bold text-gray-700"
-                    >
-                      −
-                    </button>
-                    <input
-                      type="number"
-                      min={1}
-                      max={50}
-                      value={totalMatchesDraft}
-                      onChange={(e) => setTotalMatchesDraft(Math.max(1, Math.min(50, parseInt(e.target.value) || 1)))}
-                      onBlur={() => saveConfig({ totalMatches: totalMatchesDraft })}
-                      className="w-14 text-center bg-gray-50 border-2 border-transparent focus:border-amber-300 rounded-xl py-1.5 text-sm font-bold text-gray-800 focus:outline-none"
-                    />
-                    <button
-                      onClick={() => {
-                        const n = Math.min(50, totalMatchesDraft + 1);
-                        setTotalMatchesDraft(n);
-                        saveConfig({ totalMatches: n });
-                      }}
-                      className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 font-bold text-gray-700"
-                    >
-                      +
-                    </button>
+              {!locked && (
+                <div className="pt-2 border-t border-gray-100 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <label className="text-sm font-semibold text-gray-700">Total matches</label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          const n = Math.max(1, totalMatchesDraft - 1);
+                          setTotalMatchesDraft(n);
+                          saveConfig({ totalMatches: n });
+                        }}
+                        className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 font-bold text-gray-700"
+                      >
+                        −
+                      </button>
+                      <input
+                        type="number"
+                        min={1}
+                        max={50}
+                        value={totalMatchesDraft}
+                        onChange={(e) => setTotalMatchesDraft(Math.max(1, Math.min(50, parseInt(e.target.value) || 1)))}
+                        onBlur={() => saveConfig({ totalMatches: totalMatchesDraft })}
+                        className="w-14 text-center bg-gray-50 border-2 border-transparent focus:border-amber-300 rounded-xl py-1.5 text-sm font-bold text-gray-800 focus:outline-none"
+                      />
+                      <button
+                        onClick={() => {
+                          const n = Math.min(50, totalMatchesDraft + 1);
+                          setTotalMatchesDraft(n);
+                          saveConfig({ totalMatches: n });
+                        }}
+                        className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 font-bold text-gray-700"
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
-                </div>
 
-                {visibleCouples.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-xs text-gray-400 font-semibold">Kid present? (couple can&apos;t play same match)</p>
-                    {visibleCouples.map((c) => {
-                      const flag = c.key === "bamHari" ? bamHariKidDraft : arunDeepKidDraft;
-                      return (
+                  {visibleCouples.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-gray-400 font-semibold">Kid present? (couple can&apos;t play same match)</p>
+                      {visibleCouples.map((c) => {
+                        const flag = c.key === "bamHari" ? bamHariKidDraft : arunDeepKidDraft;
+                        return (
+                          <button
+                            key={c.key}
+                            onClick={() => {
+                              const next = !flag;
+                              if (c.key === "bamHari") setBamHariKidDraft(next);
+                              else setArunDeepKidDraft(next);
+                              saveConfig(c.key === "bamHari" ? { bamHariKid: next } : { arunDeepKid: next });
+                            }}
+                            className={`w-full flex items-center justify-between px-4 py-2.5 rounded-2xl transition-all active:scale-[0.98] ${
+                              flag ? "bg-rose-50 border-2 border-rose-200" : "bg-gray-50 border-2 border-transparent"
+                            }`}
+                          >
+                            <span className={`text-sm font-semibold ${flag ? "text-rose-800" : "text-gray-500"}`}>
+                              👶 {c.label}
+                            </span>
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center ${flag ? "bg-rose-500" : "bg-white border-2 border-gray-200"}`}>
+                              {flag && <span className="text-white text-xs font-bold">✓</span>}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <button
+                    onClick={generate}
+                    disabled={!canGenerate || busy}
+                    className={`w-full py-3.5 rounded-2xl font-bold text-sm transition-all active:scale-[0.98] ${
+                      canGenerate
+                        ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-200 hover:from-amber-600 hover:to-orange-600"
+                        : "bg-gray-100 text-gray-400"
+                    } disabled:opacity-50`}
+                  >
+                    {busy
+                      ? "Working…"
+                      : !canGenerate
+                      ? "Need 4+ attending players"
+                      : data.matches.length > 0
+                      ? "🔄 Regenerate fixtures"
+                      : "🎲 Generate fixtures"}
+                  </button>
+
+                  {data.matches.length > 0 && canGenerate && (
+                    <div className="flex items-stretch gap-2 pt-1">
+                      <div className="flex items-center gap-1 bg-gray-50 rounded-2xl px-2">
                         <button
-                          key={c.key}
-                          onClick={() => {
-                            const next = !flag;
-                            if (c.key === "bamHari") setBamHariKidDraft(next);
-                            else setArunDeepKidDraft(next);
-                            saveConfig(c.key === "bamHari" ? { bamHariKid: next } : { arunDeepKid: next });
-                          }}
-                          className={`w-full flex items-center justify-between px-4 py-2.5 rounded-2xl transition-all active:scale-[0.98] ${
-                            flag ? "bg-rose-50 border-2 border-rose-200" : "bg-gray-50 border-2 border-transparent"
-                          }`}
+                          onClick={() => setAddCount(Math.max(1, addCount - 1))}
+                          className="w-7 h-7 rounded-full hover:bg-gray-200 font-bold text-gray-600"
                         >
-                          <span className={`text-sm font-semibold ${flag ? "text-rose-800" : "text-gray-500"}`}>
-                            👶 {c.label}
-                          </span>
-                          <div className={`w-6 h-6 rounded-full flex items-center justify-center ${flag ? "bg-rose-500" : "bg-white border-2 border-gray-200"}`}>
-                            {flag && <span className="text-white text-xs font-bold">✓</span>}
-                          </div>
+                          −
                         </button>
-                      );
-                    })}
-                  </div>
-                )}
+                        <input
+                          type="number"
+                          min={1}
+                          max={50}
+                          value={addCount}
+                          onChange={(e) => setAddCount(Math.max(1, Math.min(50, parseInt(e.target.value) || 1)))}
+                          className="w-10 text-center bg-transparent text-sm font-bold text-gray-800 focus:outline-none"
+                        />
+                        <button
+                          onClick={() => setAddCount(Math.min(50, addCount + 1))}
+                          className="w-7 h-7 rounded-full hover:bg-gray-200 font-bold text-gray-600"
+                        >
+                          +
+                        </button>
+                      </div>
+                      <button
+                        onClick={addMatches}
+                        disabled={busy}
+                        className="flex-1 py-2.5 rounded-2xl text-sm font-bold bg-white border-2 border-amber-300 text-amber-700 hover:bg-amber-50 active:scale-[0.98] transition-all disabled:opacity-50"
+                      >
+                        + Add {addCount} more {addCount === 1 ? "match" : "matches"}
+                      </button>
+                    </div>
+                  )}
 
-                <button
-                  onClick={generate}
-                  disabled={!canGenerate || busy}
-                  className={`w-full py-3.5 rounded-2xl font-bold text-sm transition-all active:scale-[0.98] ${
-                    canGenerate
-                      ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-200 hover:from-amber-600 hover:to-orange-600"
-                      : "bg-gray-100 text-gray-400"
-                  } disabled:opacity-50`}
-                >
-                  {busy
-                    ? "Working…"
-                    : !canGenerate
-                    ? "Need 4+ attending players"
-                    : data.matches.length > 0
-                    ? "🔄 Regenerate fixtures"
-                    : "🎲 Generate fixtures"}
-                </button>
-                {error && (
-                  <p className="text-xs text-rose-600 font-medium bg-rose-50 px-3 py-2 rounded-xl">{error}</p>
-                )}
-              </div>
+                  {error && (
+                    <p className="text-xs text-rose-600 font-medium bg-rose-50 px-3 py-2 rounded-xl">{error}</p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Matches list */}
@@ -508,20 +644,22 @@ export default function MatchesPage() {
                     <div key={m.id} className="rounded-2xl border border-gray-100 overflow-hidden bg-gray-50">
                       <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-gray-100">
                         <span className="text-xs font-bold text-gray-500">Match #{m.matchNumber}</span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => (isEditing ? (setEditingMatchId(null), setEditDraft(null)) : startEdit(m))}
-                            className="text-xs font-semibold text-indigo-600 hover:bg-indigo-50 px-2 py-1 rounded-full transition-colors"
-                          >
-                            {isEditing ? "Cancel" : "Edit"}
-                          </button>
-                          <button
-                            onClick={() => deleteMatch(m.id)}
-                            className="text-xs font-semibold text-rose-600 hover:bg-rose-50 px-2 py-1 rounded-full transition-colors"
-                          >
-                            🗑
-                          </button>
-                        </div>
+                        {!locked && (
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => (isEditing ? (setEditingMatchId(null), setEditDraft(null)) : startEdit(m))}
+                              className="text-xs font-semibold text-indigo-600 hover:bg-indigo-50 px-2 py-1 rounded-full transition-colors"
+                            >
+                              {isEditing ? "Cancel" : "Edit"}
+                            </button>
+                            <button
+                              onClick={() => deleteMatch(m.id)}
+                              className="text-xs font-semibold text-rose-600 hover:bg-rose-50 px-2 py-1 rounded-full transition-colors"
+                            >
+                              🗑
+                            </button>
+                          </div>
+                        )}
                       </div>
 
                       {(violated || droppedFromAttendance) && !isEditing && (
@@ -568,12 +706,15 @@ export default function MatchesPage() {
                             return (
                               <button
                                 key={team}
-                                onClick={() => setWinner(m.id, m.winner, team)}
+                                onClick={() => !locked && setWinner(m.id, m.winner, team)}
+                                disabled={locked}
                                 className={`px-3 py-3 text-left transition-colors ${
                                   isWinner
                                     ? "bg-emerald-50"
                                     : isLoser
                                     ? "bg-gray-50 opacity-60"
+                                    : locked
+                                    ? "cursor-default"
                                     : "hover:bg-amber-50"
                                 }`}
                               >
@@ -625,12 +766,51 @@ export default function MatchesPage() {
               </div>
             )}
 
-            {/* Today's wins */}
-            {data.matches.length > 0 && (
+            {/* Most Improved */}
+            {mostImproved && (
+              <div className="relative overflow-hidden rounded-3xl shadow-md shadow-sky-200 p-5 bg-gradient-to-br from-sky-400 via-cyan-500 to-teal-500 text-white">
+                <div className="absolute -top-3 -right-2 text-6xl opacity-15 select-none">📈</div>
+                <div className="relative">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-50/90">Most Improved today</p>
+                  <p className="mt-1 text-2xl font-extrabold tracking-tight">{mostImproved.name}</p>
+                  <p className="mt-1 text-sm font-semibold text-cyan-50">
+                    {mostImproved.todayPct}% today · up from {mostImproved.priorPct}% career
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Today's Best Synergy */}
+            {todaySynergy.length > 0 && (
               <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5">
-                <div className="flex items-center justify-between mb-3 gap-2">
+                <h2 className="font-bold text-gray-800 text-sm mb-3 flex items-center gap-2">
+                  🤝 Today&apos;s best pairings
+                </h2>
+                <div className="space-y-1.5">
+                  {todaySynergy.slice(0, 5).map((s) => (
+                    <div
+                      key={`${s.p1}-${s.p2}`}
+                      className="flex items-center justify-between px-3 py-2 rounded-xl bg-gray-50 text-xs"
+                    >
+                      <span className="font-semibold text-gray-700 truncate pr-2">
+                        {s.p1} <span className="text-gray-400">+</span> {s.p2}
+                      </span>
+                      <span className="font-bold text-emerald-600 shrink-0">
+                        {s.wins}W / {s.played}P
+                        <span className="text-gray-400 ml-2">{s.pct}%</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Today's wins — two leaderboards */}
+            {data.matches.length > 0 && (
+              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 space-y-5">
+                <div className="flex items-center justify-between gap-2">
                   <h2 className="font-bold text-gray-800 text-sm flex items-center gap-2">
-                    🥇 Today&apos;s wins
+                    🥇 Today&apos;s leaderboards
                   </h2>
                   {sessionWins.length > 0 && (
                     <div className="flex items-center gap-1.5 shrink-0">
@@ -655,15 +835,32 @@ export default function MatchesPage() {
                 {sessionWins.length === 0 ? (
                   <p className="text-xs text-gray-400">No completed matches yet — tap a team to mark the winner.</p>
                 ) : (
-                  <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 gap-y-1.5 text-xs">
-                    <div className="font-bold text-gray-400 uppercase tracking-wider">Player</div>
-                    <div className="font-bold text-gray-400 uppercase tracking-wider text-right">W</div>
-                    <div className="font-bold text-gray-400 uppercase tracking-wider text-right">P</div>
-                    <div className="font-bold text-gray-400 uppercase tracking-wider text-right">%</div>
-                    {sessionWins.map((s) => (
-                      <PlayerRow key={s.id} stat={s} />
-                    ))}
-                  </div>
+                  <>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">🏆 By wins</p>
+                      <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 gap-y-1.5 text-xs">
+                        <div className="font-bold text-gray-400 uppercase tracking-wider">Player</div>
+                        <div className="font-bold text-gray-400 uppercase tracking-wider text-right">W</div>
+                        <div className="font-bold text-gray-400 uppercase tracking-wider text-right">P</div>
+                        <div className="font-bold text-gray-400 uppercase tracking-wider text-right">%</div>
+                        {sessionWins.map((s) => (
+                          <PlayerRow key={s.id} stat={s} />
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">🎯 By win %</p>
+                      <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 gap-y-1.5 text-xs">
+                        <div className="font-bold text-gray-400 uppercase tracking-wider">Player</div>
+                        <div className="font-bold text-gray-400 uppercase tracking-wider text-right">W</div>
+                        <div className="font-bold text-gray-400 uppercase tracking-wider text-right">P</div>
+                        <div className="font-bold text-gray-400 uppercase tracking-wider text-right">%</div>
+                        {sessionWinsByPct.map((s) => (
+                          <PlayerRow key={s.id} stat={s} />
+                        ))}
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
             )}

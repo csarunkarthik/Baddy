@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { isSessionLocked, LOCK_MESSAGE } from "@/lib/locking";
 
 function todayIST() {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
@@ -26,6 +27,10 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const { venue, date: dateParam, playerIds } = await req.json();
   const date = parseDate(dateParam ?? todayIST());
+
+  if (isSessionLocked(date)) {
+    return NextResponse.json({ error: LOCK_MESSAGE }, { status: 423 });
+  }
 
   const session = await prisma.session.upsert({
     where: { date },

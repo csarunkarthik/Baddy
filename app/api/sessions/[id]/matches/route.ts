@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolveCouples } from "@/lib/couples";
+import { isSessionLocked } from "@/lib/locking";
 
 export async function GET(
   _req: Request,
@@ -50,6 +51,7 @@ export async function GET(
       totalMatches: session.totalMatches,
       bamHariKid: session.bamHariKid,
       arunDeepKid: session.arunDeepKid,
+      locked: isSessionLocked(session.date),
       attending: session.attendance
         .map((a) => ({ id: a.player.id, name: a.player.name }))
         .sort((a, b) => a.name.localeCompare(b.name)),

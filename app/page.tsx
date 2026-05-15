@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { isSessionLocked } from "@/lib/locking";
 
 type Player = { id: number; name: string };
 type Session = { id: number; venue: string; date: string; attendance: { player: Player }[] };
@@ -33,6 +34,7 @@ export default function Home() {
 
   const isToday = selectedDate === todayStr;
   const venueReady = venue.trim().length > 0;
+  const locked = isSessionLocked(selectedDate);
 
   const filteredSuggestions = venue.trim()
     ? venueSuggestions.filter((s) => s.venue.toLowerCase().includes(venue.toLowerCase()) && s.venue !== venue)
@@ -80,6 +82,7 @@ export default function Home() {
 
   async function makeEntry() {
     if (!venue.trim()) return;
+    if (locked) return;
     setSaving(true);
     await fetch("/api/sessions", {
       method: "POST",
@@ -139,7 +142,12 @@ export default function Home() {
             onChange={(e) => handleDateChange(e.target.value)}
             className="w-full bg-gray-50 border-2 border-transparent focus:border-emerald-300 rounded-2xl px-4 py-3 text-sm font-medium text-gray-900 focus:outline-none transition-colors"
           />
-          {!isToday && <p className="text-xs text-orange-500 font-medium">Editing a past or future date</p>}
+          {!isToday && !locked && <p className="text-xs text-orange-500 font-medium">Editing a past or future date</p>}
+          {locked && (
+            <p className="text-xs text-amber-700 font-semibold bg-amber-50 border border-amber-200 px-3 py-2 rounded-xl">
+              🔒 This date is locked — entries can only be made or edited within 2 days of the session.
+            </p>
+          )}
         </div>
 
         {/* Venue */}
@@ -224,14 +232,16 @@ export default function Home() {
 
                 <button
                   onClick={makeEntry}
-                  disabled={saving}
+                  disabled={saving || locked}
                   className={`w-full py-4 rounded-2xl font-bold text-sm transition-all active:scale-[0.98] ${
-                    saved
+                    locked
+                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                      : saved
                       ? "bg-emerald-50 text-emerald-600 border-2 border-emerald-200"
                       : "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-200 hover:from-emerald-600 hover:to-teal-600"
                   } disabled:opacity-50`}
                 >
-                  {saving ? "Saving..." : saved ? `✓ Saved · ${selectedIds.size} players` : `Make Entry →`}
+                  {locked ? "🔒 Date locked" : saving ? "Saving..." : saved ? `✓ Saved · ${selectedIds.size} players` : `Make Entry →`}
                 </button>
               </>
             )}
