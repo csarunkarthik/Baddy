@@ -1,16 +1,13 @@
 export type CoupleKey = "bamHari" | "arunDeep";
 
-export const COUPLES: { key: CoupleKey; names: [string, string]; label: string }[] = [
-  { key: "bamHari", names: ["Bamini", "Hari"], label: "Bamini & Hari" },
-  { key: "arunDeep", names: ["Arun", "Deepika"], label: "Arun & Deepika" },
+// Pinned by player ID so renames stay applied. Update if a player is ever
+// deleted + recreated (which assigns a new ID).
+export const COUPLES: { key: CoupleKey; playerIds: [number, number] }[] = [
+  { key: "bamHari", playerIds: [8, 9] }, // Bamini, Hari
+  { key: "arunDeep", playerIds: [2, 1] }, // Arun, Deepika
 ];
 
 type NamedPlayer = { id: number; name: string };
-
-function findByName(players: NamedPlayer[], target: string) {
-  const t = target.trim().toLowerCase();
-  return players.find((p) => p.name.trim().toLowerCase() === t);
-}
 
 export type CoupleStatus = {
   key: CoupleKey;
@@ -21,11 +18,21 @@ export type CoupleStatus = {
 };
 
 export function resolveCouples(players: NamedPlayer[], attendingIds: Set<number>): CoupleStatus[] {
-  return COUPLES.map(({ key, names, label }) => {
-    const p1 = findByName(players, names[0]);
-    const p2 = findByName(players, names[1]);
-    const bothAttending = !!(p1 && p2 && attendingIds.has(p1.id) && attendingIds.has(p2.id));
-    return { key, label, bothAttending, player1Id: p1?.id, player2Id: p2?.id };
+  const byId = new Map(players.map((p) => [p.id, p.name]));
+  return COUPLES.map(({ key, playerIds }) => {
+    const [id1, id2] = playerIds;
+    const name1 = byId.get(id1);
+    const name2 = byId.get(id2);
+    const bothExist = name1 != null && name2 != null;
+    const label = bothExist ? `${name1} & ${name2}` : "(couple)";
+    const bothAttending = bothExist && attendingIds.has(id1) && attendingIds.has(id2);
+    return {
+      key,
+      label,
+      bothAttending,
+      player1Id: bothExist ? id1 : undefined,
+      player2Id: bothExist ? id2 : undefined,
+    };
   });
 }
 
