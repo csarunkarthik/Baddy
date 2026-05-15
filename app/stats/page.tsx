@@ -115,9 +115,7 @@ export default function StatsPage() {
             ) : (
               <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 space-y-2">
                 <h2 className="font-bold text-gray-800 px-2 pb-1">Players · {year}</h2>
-                {stats.map((p) => {
-                  const w = wins[p.id];
-                  return (
+                {stats.map((p) => (
                   <div key={p.id} className="flex items-center gap-3 p-2">
                     <span className="w-8 text-center text-lg shrink-0">
                       {MEDAL[p.rank] ?? <span className="text-xs text-gray-400 font-bold">{p.rank}</span>}
@@ -129,11 +127,6 @@ export default function StatsPage() {
                           <span className="text-xs font-bold text-indigo-500">{p.percentage}%</span>
                           <span className="text-sm font-extrabold text-blue-600">{p.sessions}</span>
                         </div>
-                      </div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[11px] font-semibold text-gray-400">
-                          🏆 {w && w.played > 0 ? `${w.wins}W · ${w.winPct}%` : "—"}
-                        </span>
                       </div>
                       <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
                         <div
@@ -148,9 +141,8 @@ export default function StatsPage() {
                       </div>
                     </div>
                   </div>
-                  );
-                })}
-                <p className="text-center text-xs text-gray-400 pt-1">% = sessions attended · 🏆 = wins / win-rate in {year}</p>
+                ))}
+                <p className="text-center text-xs text-gray-400 pt-1">% = sessions attended out of {totalDays} total</p>
               </div>
             )}
 
@@ -195,6 +187,35 @@ export default function StatsPage() {
                     </table>
                   </div>
                   <p className="text-center text-gray-400 pt-1.5" style={{ fontSize: 10 }}>% of {buddyData.totalDays} sessions played together</p>
+                </div>
+              );
+            })()}
+
+            {/* Wins */}
+            {(() => {
+              const winsList = Object.values(wins)
+                .filter((w) => w.played > 0)
+                .sort((a, b) => b.wins - a.wins || b.winPct - a.winPct || a.name.localeCompare(b.name));
+              if (winsList.length === 0) return null;
+              return (
+                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 space-y-1">
+                  <h2 className="font-bold text-gray-800 px-2 pb-1 flex items-center gap-2">
+                    🏆 <span>Wins · {year}</span>
+                  </h2>
+                  <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 gap-y-1.5 px-2 py-1 text-xs">
+                    <div className="font-bold text-gray-400 uppercase tracking-wider">Player</div>
+                    <div className="font-bold text-gray-400 uppercase tracking-wider text-right">W</div>
+                    <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Played</div>
+                    <div className="font-bold text-gray-400 uppercase tracking-wider text-right">%</div>
+                    {winsList.map((w) => (
+                      <span key={w.id} className="contents">
+                        <span className="font-semibold text-gray-700 truncate">{w.name}</span>
+                        <span className="text-right font-bold text-emerald-600">{w.wins}</span>
+                        <span className="text-right text-gray-500">{w.played}</span>
+                        <span className="text-right text-gray-500">{w.winPct}%</span>
+                      </span>
+                    ))}
+                  </div>
                 </div>
               );
             })()}
