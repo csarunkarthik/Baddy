@@ -5,25 +5,31 @@ import Link from "next/link";
 
 type Player = { id: number; name: string };
 type PlayerStat = { id: number; sessions: number };
+type Badge = { key: string; label: string; emoji: string; criteria: string };
+type Milestone = { key: string; label: string; emoji: string; threshold: number; metric: string; reached: boolean };
+type PerPlayerAwards = Record<number, { trophies: Badge[]; milestones: Milestone[] }>;
 
 export default function PlayersPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [statsMap, setStatsMap] = useState<Record<number, number>>({});
+  const [awards, setAwards] = useState<PerPlayerAwards>({});
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState("");
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [expandedAwardsId, setExpandedAwardsId] = useState<number | null>(null);
 
   useEffect(() => {
-    Promise.all([fetch("/api/players"), fetch("/api/stats")])
-      .then(([p, s]) => Promise.all([p.json(), s.json()]))
-      .then(([playersData, statsData]: [Player[], { players: PlayerStat[] }]) => {
+    Promise.all([fetch("/api/players"), fetch("/api/stats"), fetch("/api/stats/awards")])
+      .then(([p, s, a]) => Promise.all([p.json(), s.json(), a.json()]))
+      .then(([playersData, statsData, awardsData]: [Player[], { players: PlayerStat[] }, { perPlayer: PerPlayerAwards }]) => {
         setPlayers(playersData);
         const map: Record<number, number> = {};
         statsData.players.forEach((p) => { map[p.id] = p.sessions; });
         setStatsMap(map);
+        setAwards(awardsData.perPlayer || {});
         setLoading(false);
       });
   }, []);
@@ -189,48 +195,94 @@ export default function PlayersPage() {
               <p className="text-sm">No players yet — add one above</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {players.map((player) => (
-                <div key={player.id} className="flex items-center gap-3">
-                  {editingId === player.id ? (
-                    <>
-                      <input
-                        autoFocus
-                        type="text"
-                        value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") saveEdit(player.id);
-                          if (e.key === "Escape") setEditingId(null);
-                        }}
-                        className="flex-1 bg-emerald-50 border-2 border-emerald-300 rounded-2xl px-4 py-2.5 text-sm font-medium text-gray-900 focus:outline-none"
-                      />
-                      <button onClick={() => saveEdit(player.id)} className="bg-emerald-500 text-white px-4 py-2.5 rounded-2xl text-sm font-bold hover:bg-emerald-600 active:scale-95 transition-all">
-                        Save
-                      </button>
-                      <button onClick={() => setEditingId(null)} className="text-gray-400 px-3 py-2.5 rounded-2xl text-sm font-medium hover:bg-gray-100 transition-colors">
-                        ✕
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-emerald-100 to-teal-100 flex items-center justify-center text-sm font-bold text-emerald-700 shrink-0">
-                        {player.name[0].toUpperCase()}
-                      </div>
-                      <span className="flex-1 text-sm font-semibold text-gray-800">{player.name}</span>
-                      <span className="text-xs font-bold text-gray-400">{statsMap[player.id] ?? 0} sessions</span>
-                      <button onClick={() => startEdit(player)} className="text-gray-400 hover:text-emerald-600 px-2 py-1 rounded-xl text-sm transition-colors">✏️</button>
+            <div className="space-y-3">
+              {players.map((player) => {
+                const pawards = awards[player.id] ?? { trophies: [], milestones: [] };
+                const hasAwards = pawards.trophies.length + pawards.milestones.length > 0;
+                const isExpanded = expandedAwardsId === player.id;
+                return (
+                  <div key={player.id} className="space-y-1.5">
+                    <div className="flex items-center gap-3">
+                      {editingId === player.id ? (
+                        <>
+                          <input
+                            autoFocus
+                            type="text"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") saveEdit(player.id);
+                              if (e.key === "Escape") setEditingId(null);
+                            }}
+                            className="flex-1 bg-emerald-50 border-2 border-emerald-300 rounded-2xl px-4 py-2.5 text-sm font-medium text-gray-900 focus:outline-none"
+                          />
+                          <button onClick={() => saveEdit(player.id)} className="bg-emerald-500 text-white px-4 py-2.5 rounded-2xl text-sm font-bold hover:bg-emerald-600 active:scale-95 transition-all">
+                            Save
+                          </button>
+                          <button onClick={() => setEditingId(null)} className="text-gray-400 px-3 py-2.5 rounded-2xl text-sm font-medium hover:bg-gray-100 transition-colors">
+                            ✕
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-emerald-100 to-teal-100 flex items-center justify-center text-sm font-bold text-emerald-700 shrink-0">
+                            {player.name[0].toUpperCase()}
+                          </div>
+                          <span className="flex-1 text-sm font-semibold text-gray-800">{player.name}</span>
+                          <span className="text-xs font-bold text-gray-400">{statsMap[player.id] ?? 0} sessions</span>
+                          <button onClick={() => startEdit(player)} className="text-gray-400 hover:text-emerald-600 px-2 py-1 rounded-xl text-sm transition-colors">✏️</button>
+                          <button
+                            onClick={() => deletePlayer(player.id)}
+                            disabled={deletingId === player.id}
+                            className="text-gray-300 hover:text-red-400 px-2 py-1 rounded-xl text-sm transition-colors disabled:opacity-40"
+                          >
+                            🗑️
+                          </button>
+                        </>
+                      )}
+                    </div>
+
+                    {hasAwards && editingId !== player.id && (
                       <button
-                        onClick={() => deletePlayer(player.id)}
-                        disabled={deletingId === player.id}
-                        className="text-gray-300 hover:text-red-400 px-2 py-1 rounded-xl text-sm transition-colors disabled:opacity-40"
+                        onClick={() => setExpandedAwardsId(isExpanded ? null : player.id)}
+                        className="ml-12 flex flex-wrap items-center gap-1 text-left w-[calc(100%-3rem)]"
                       >
-                        🗑️
+                        {pawards.trophies.map((t) => (
+                          <span key={t.key} title={`${t.label} — ${t.criteria}`} className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-50 text-base leading-none">
+                            {t.emoji}
+                          </span>
+                        ))}
+                        {pawards.milestones.map((m) => (
+                          <span key={m.key} title={m.label} className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-50 text-sm leading-none">
+                            {m.emoji}
+                          </span>
+                        ))}
+                        <span className="text-[10px] text-gray-400 font-semibold ml-1">{isExpanded ? "▴" : "▾"}</span>
                       </button>
-                    </>
-                  )}
-                </div>
-              ))}
+                    )}
+
+                    {isExpanded && hasAwards && (
+                      <div className="ml-12 pl-3 border-l-2 border-amber-200 space-y-1">
+                        {pawards.trophies.map((t) => (
+                          <div key={t.key} className="flex items-start gap-2 text-xs">
+                            <span className="shrink-0">{t.emoji}</span>
+                            <div>
+                              <span className="font-bold text-gray-800">{t.label}</span>
+                              <span className="text-gray-400"> — {t.criteria}</span>
+                            </div>
+                          </div>
+                        ))}
+                        {pawards.milestones.map((m) => (
+                          <div key={m.key} className="flex items-center gap-2 text-xs">
+                            <span className="shrink-0">{m.emoji}</span>
+                            <span className="font-semibold text-gray-600">{m.label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
