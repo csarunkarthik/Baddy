@@ -330,6 +330,28 @@ export default function MatchesPage() {
     setBusy(false);
   }
 
+  async function finishSession() {
+    if (!data) return;
+    const unmarked = data.matches.filter((m) => !m.winner).length;
+    if (unmarked === 0) return;
+    const ok = window.confirm(
+      `Finish session? This will delete ${unmarked} unmarked match${unmarked === 1 ? "" : "es"} and lock in the MVP based on the matches with winners.`
+    );
+    if (!ok) return;
+    setBusy(true);
+    setError(null);
+    const res = await fetch(`/api/sessions/${data.session.id}/matches/finish`, {
+      method: "POST",
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      setError(j.error || "Couldn't finish session");
+    } else {
+      await load(selectedDate);
+    }
+    setBusy(false);
+  }
+
   function startEdit(m: Match) {
     setEditingMatchId(m.id);
     setEditDraft({
@@ -631,6 +653,18 @@ export default function MatchesPage() {
                     {data.matches.filter((m) => m.winner).length} / {data.matches.length} played
                   </span>
                 </div>
+
+                {!locked &&
+                  data.matches.some((m) => m.winner) &&
+                  data.matches.some((m) => !m.winner) && (
+                    <button
+                      onClick={finishSession}
+                      disabled={busy}
+                      className="w-full py-2.5 rounded-2xl text-sm font-bold bg-emerald-50 border-2 border-emerald-200 text-emerald-700 hover:bg-emerald-100 active:scale-[0.98] transition-all disabled:opacity-50"
+                    >
+                      {busy ? "Working…" : "🏁 Finish session & crown MVP"}
+                    </button>
+                  )}
 
                 {data.matches.map((m) => {
                   const isEditing = editingMatchId === m.id;
