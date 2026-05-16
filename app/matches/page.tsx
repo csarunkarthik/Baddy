@@ -194,6 +194,51 @@ export default function MatchesPage() {
       .sort((a, b) => b.wins - a.wins || b.pct - a.pct || a.p1.localeCompare(b.p1) || a.p2.localeCompare(b.p2));
   }, [data]);
 
+  // Pre-match win probabilities for played fixtures, computed from each player's
+  // career win-rate EXCLUDING today (so the day's own outcomes don't bias the prior).
+  // Returns null for a match when any of the 4 players have no prior history.
+  const HIGH_IMPACT_THRESHOLD = 0.40;
+  const matchProbs = useMemo(() => {
+    const map = new Map<number, { probA: number; probB: number; winnerProb: number | null } | null>();
+    if (!data || winStats.length === 0) return map;
+
+    const priorPct = new Map<number, number>();
+    for (const career of winStats) {
+      const sToday = sessionWins.find((s) => s.id === career.id);
+      const todayWins = sToday?.wins ?? 0;
+      const todayPlayed = sToday?.played ?? 0;
+      const priorPlayed = career.played - todayPlayed;
+      const priorWins = career.wins - todayWins;
+      if (priorPlayed > 0) priorPct.set(career.id, priorWins / priorPlayed);
+    }
+
+    for (const m of data.matches) {
+      const aIds = m.teamA.map((p) => p.id);
+      const bIds = m.teamB.map((p) => p.id);
+      if (aIds.length !== 2 || bIds.length !== 2) { map.set(m.id, null); continue; }
+      if ([...aIds, ...bIds].some((id) => !priorPct.has(id))) { map.set(m.id, null); continue; }
+
+      const strA = (priorPct.get(aIds[0])! + priorPct.get(aIds[1])!) / 2;
+      const strB = (priorPct.get(bIds[0])! + priorPct.get(bIds[1])!) / 2;
+      const total = strA + strB;
+      if (total === 0) { map.set(m.id, null); continue; }
+
+      const probA = strA / total;
+      const probB = strB / total;
+      const winnerProb = m.winner === "A" ? probA : m.winner === "B" ? probB : null;
+      map.set(m.id, { probA, probB, winnerProb });
+    }
+    return map;
+  }, [data, winStats, sessionWins]);
+
+  const highImpactCount = useMemo(() => {
+    let n = 0;
+    matchProbs.forEach((v) => {
+      if (v && v.winnerProb !== null && v.winnerProb < HIGH_IMPACT_THRESHOLD) n++;
+    });
+    return n;
+  }, [matchProbs]);
+
   function buildShareText() {
     if (!data) return "";
     const lines: string[] = [];
@@ -208,6 +253,9 @@ export default function MatchesPage() {
     }
     if (mostImproved) {
       lines.push(`📈 Most Improved: ${mostImproved.name} — ${mostImproved.todayPct}% today (was ${mostImproved.priorPct}%)`);
+    }
+    if (highImpactCount > 0) {
+      lines.push(`🔥 ${highImpactCount} high-impact win${highImpactCount === 1 ? "" : "s"} (underdogs delivered)`);
     }
     if (sessionWins.length > 0) {
       lines.push("");
@@ -772,6 +820,26 @@ export default function MatchesPage() {
                           })}
                         </div>
                       )}
+
+                      {(() => {
+                        const probs = matchProbs.get(m.id);
+                        if (!probs || !m.winner || probs.winnerProb === null) return null;
+                        const a = Math.round(probs.probA * 100);
+                        const b = Math.round(probs.probB * 100);
+                        const isHighImpact = probs.winnerProb < HIGH_IMPACT_THRESHOLD;
+                        return (
+                          <>
+                            <div className="px-4 py-1.5 text-[10px] font-semibold text-gray-500 border-t border-gray-100 bg-white">
+                              Expected: A {a}% · B {b}%
+                            </div>
+                            {isHighImpact && (
+                              <div className="px-4 py-1.5 text-[11px] font-bold text-rose-700 bg-rose-50 border-t border-rose-100">
+                                🔥 High impact win — Team {m.winner} was {Math.round(probs.winnerProb * 100)}% expected
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   );
                 })}
