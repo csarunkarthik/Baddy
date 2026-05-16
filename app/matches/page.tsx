@@ -823,16 +823,17 @@ export default function MatchesPage() {
 
                       {(() => {
                         const probs = matchProbs.get(m.id);
-                        if (!probs || !m.winner || probs.winnerProb === null) return null;
+                        if (!probs) return null;
                         const a = Math.round(probs.probA * 100);
                         const b = Math.round(probs.probB * 100);
-                        const isHighImpact = probs.winnerProb < HIGH_IMPACT_THRESHOLD;
+                        const isHighImpact =
+                          m.winner !== null && probs.winnerProb !== null && probs.winnerProb < HIGH_IMPACT_THRESHOLD;
                         return (
                           <>
                             <div className="px-4 py-1.5 text-[10px] font-semibold text-gray-500 border-t border-gray-100 bg-white">
                               Expected: A {a}% · B {b}%
                             </div>
-                            {isHighImpact && (
+                            {isHighImpact && probs.winnerProb !== null && (
                               <div className="px-4 py-1.5 text-[11px] font-bold text-rose-700 bg-rose-50 border-t border-rose-100">
                                 🔥 High impact win — Team {m.winner} was {Math.round(probs.winnerProb * 100)}% expected
                               </div>
