@@ -175,6 +175,36 @@ export default function MatchesPage() {
     return best;
   }, [data, sessionWins, winStats]);
 
+  // Today's points: per-player aggregates from matches with both scores entered.
+  const sessionPoints = useMemo(() => {
+    if (!data) return [] as { id: number; name: string; totalPoints: number; matchesScored: number; bestSingleMatch: number; pointsConceded: number; pointDiff: number; avgPoints: number }[];
+    type Acc = { id: number; name: string; totalPoints: number; matchesScored: number; bestSingleMatch: number; pointsConceded: number };
+    const byPlayer = new Map<number, Acc>();
+    for (const m of data.matches) {
+      if (m.teamAScore === null || m.teamBScore === null) continue;
+      for (const team of ["A", "B"] as const) {
+        const players = team === "A" ? m.teamA : m.teamB;
+        const own = team === "A" ? m.teamAScore : m.teamBScore;
+        const opp = team === "A" ? m.teamBScore : m.teamAScore;
+        for (const p of players) {
+          const cur = byPlayer.get(p.id) ?? { id: p.id, name: p.name, totalPoints: 0, matchesScored: 0, bestSingleMatch: 0, pointsConceded: 0 };
+          cur.totalPoints += own;
+          cur.pointsConceded += opp;
+          cur.matchesScored += 1;
+          if (own > cur.bestSingleMatch) cur.bestSingleMatch = own;
+          byPlayer.set(p.id, cur);
+        }
+      }
+    }
+    return Array.from(byPlayer.values())
+      .map((a) => ({
+        ...a,
+        pointDiff: a.totalPoints - a.pointsConceded,
+        avgPoints: a.matchesScored > 0 ? Math.round((a.totalPoints / a.matchesScored) * 10) / 10 : 0,
+      }))
+      .sort((a, b) => b.totalPoints - a.totalPoints || b.bestSingleMatch - a.bestSingleMatch || a.name.localeCompare(b.name));
+  }, [data]);
+
   // Today's Best Synergy: pair of teammates with most wins together today.
   // Ties broken by highest win%, then by alphabetical names.
   const todaySynergy = useMemo(() => {
@@ -1020,6 +1050,33 @@ export default function MatchesPage() {
                     </div>
                   </>
                 )}
+              </div>
+            )}
+
+            {/* Today's points (only when at least one match has scores) */}
+            {sessionPoints.length > 0 && (
+              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5">
+                <h2 className="font-bold text-gray-800 text-sm mb-3 flex items-center gap-2">
+                  🎯 Today&apos;s points
+                </h2>
+                <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-2 gap-y-1.5 text-[11px]">
+                  <div className="font-bold text-gray-400 uppercase tracking-wider">Player</div>
+                  <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Tot</div>
+                  <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Avg</div>
+                  <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Best</div>
+                  <div className="font-bold text-gray-400 uppercase tracking-wider text-right">+/−</div>
+                  {sessionPoints.map((p) => (
+                    <div key={p.id} className="contents">
+                      <div className="font-semibold text-gray-700 truncate">{p.name}</div>
+                      <div className="text-right font-bold text-amber-600">{p.totalPoints}</div>
+                      <div className="text-right text-gray-700 font-semibold">{p.avgPoints}</div>
+                      <div className="text-right text-emerald-600 font-semibold">{p.bestSingleMatch}</div>
+                      <div className={`text-right font-bold ${p.pointDiff >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
+                        {p.pointDiff >= 0 ? "+" : ""}{p.pointDiff}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 

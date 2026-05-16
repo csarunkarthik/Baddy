@@ -15,7 +15,11 @@ type BuddyData = {
 type BestPartnerRow = { playerId: number; playerName: string; partnerName: string; wins: number; played: number; winPct: number };
 type TopDuo = { p1: string; p2: string; wins: number; played: number; winPct: number };
 type BestPartnersData = { perPlayer: BestPartnerRow[]; topDuos: TopDuo[] };
-type PointsStat = { id: number; name: string; totalPoints: number; matchesScored: number; bestSingleMatch: number };
+type PointsStat = {
+  id: number; name: string;
+  totalPoints: number; matchesScored: number; bestSingleMatch: number;
+  pointsConceded: number; avgPoints: number; avgConceded: number; pointDiff: number;
+};
 
 function makeAbbr(players: { id: number; name: string }[]) {
   const result: Record<number, string> = {};
@@ -266,17 +270,23 @@ export default function StatsPage() {
                   <h2 className="font-bold text-gray-800 text-sm">Points scored</h2>
                   <span className="text-[10px] text-gray-400 font-semibold ml-auto">scored matches only</span>
                 </div>
-                <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 gap-y-1.5 text-xs">
+                <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-x-2 gap-y-1.5 text-[11px]">
                   <div className="font-bold text-gray-400 uppercase tracking-wider">Player</div>
-                  <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Total</div>
+                  <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Tot</div>
+                  <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Avg</div>
                   <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Best</div>
+                  <div className="font-bold text-gray-400 uppercase tracking-wider text-right">+/−</div>
                   <div className="font-bold text-gray-400 uppercase tracking-wider text-right">M</div>
                   {points.map((p) => (
                     <div key={p.id} className="contents">
                       <div className="font-semibold text-gray-700 truncate">{p.name}</div>
                       <div className="text-right font-bold text-amber-600">{p.totalPoints}</div>
+                      <div className="text-right text-gray-700 font-semibold">{p.avgPoints}</div>
                       <div className="text-right text-emerald-600 font-semibold">{p.bestSingleMatch}</div>
-                      <div className="text-right text-gray-500">{p.matchesScored}</div>
+                      <div className={`text-right font-bold ${p.pointDiff >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
+                        {p.pointDiff >= 0 ? "+" : ""}{p.pointDiff}
+                      </div>
+                      <div className="text-right text-gray-400">{p.matchesScored}</div>
                     </div>
                   ))}
                 </div>

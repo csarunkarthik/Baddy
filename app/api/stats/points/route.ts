@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-// Per-player aggregate points: total earned and best single-match score.
+// Per-player aggregate points: total earned, best single match, points conceded,
+// differential, average per match, biggest win margin.
 // Only counts matches where BOTH teamAScore and teamBScore are present.
 // Optional ?year=YYYY filter.
 function yearBounds(year: number) {
@@ -31,6 +32,7 @@ export async function GET(req: Request) {
     id: number;
     name: string;
     totalPoints: number;
+    pointsConceded: number;
     matchesScored: number;
     bestSingleMatch: number;
   };
@@ -39,24 +41,35 @@ export async function GET(req: Request) {
   for (const m of matches) {
     if (m.teamAScore === null || m.teamBScore === null) continue;
     for (const p of m.participants) {
-      const teamScore = p.team === "A" ? m.teamAScore : m.teamBScore;
+      const own = p.team === "A" ? m.teamAScore : m.teamBScore;
+      const opp = p.team === "A" ? m.teamBScore : m.teamAScore;
       let agg = byPlayer.get(p.playerId);
       if (!agg) {
-        agg = { id: p.playerId, name: p.player.name, totalPoints: 0, matchesScored: 0, bestSingleMatch: 0 };
+        agg = {
+          id: p.playerId,
+          name: p.player.name,
+          totalPoints: 0,
+          pointsConceded: 0,
+          matchesScored: 0,
+          bestSingleMatch: 0,
+        };
         byPlayer.set(p.playerId, agg);
       }
-      agg.totalPoints += teamScore;
+      agg.totalPoints += own;
+      agg.pointsConceded += opp;
       agg.matchesScored += 1;
-      if (teamScore > agg.bestSingleMatch) agg.bestSingleMatch = teamScore;
+      if (own > agg.bestSingleMatch) agg.bestSingleMatch = own;
     }
   }
 
-  const stats = Array.from(byPlayer.values()).sort(
-    (a, b) =>
-      b.totalPoints - a.totalPoints ||
-      b.bestSingleMatch - a.bestSingleMatch ||
-      a.name.localeCompare(b.name)
-  );
+  const stats = Array.from(byPlayer.values())
+    .map((a) => ({
+      ...a,
+      avgPoints: a.matchesScored > 0 ? Math.round((a.totalPoints / a.matchesScored) * 10) / 10 : 0,
+      avgConceded: a.matchesScored > 0 ? Math.round((a.pointsConceded / a.matchesScored) * 10) / 10 : 0,
+      pointDiff: a.totalPoints - a.pointsConceded,
+    }))
+    .sort((a, b) => b.totalPoints - a.totalPoints || b.bestSingleMatch - a.bestSingleMatch || a.name.localeCompare(b.name));
 
   return NextResponse.json(stats);
 }

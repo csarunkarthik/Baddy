@@ -76,6 +76,9 @@ export async function GET() {
     last3Wins: number;
     last3Played: number;
     sessionFirstDate: Date | null;
+    pointsScored: number;
+    pointsConceded: number;
+    matchesScored: number;
   };
 
   const stats = new Map<number, PlayerStats>();
@@ -103,7 +106,25 @@ export async function GET() {
       last3Wins: 0,
       last3Played: 0,
       sessionFirstDate: null,
+      pointsScored: 0,
+      pointsConceded: 0,
+      matchesScored: 0,
     });
+  }
+
+  // Points aggregates from scored matches
+  for (const m of matches) {
+    if (m.teamAScore === null || m.teamBScore === null) continue;
+    const parts = participantsByMatch.get(m.id) ?? [];
+    for (const p of parts) {
+      const ps = stats.get(p.playerId);
+      if (!ps) continue;
+      const own = p.team === "A" ? m.teamAScore : m.teamBScore;
+      const opp = p.team === "A" ? m.teamBScore : m.teamAScore;
+      ps.pointsScored += own;
+      ps.pointsConceded += opp;
+      ps.matchesScored += 1;
+    }
   }
 
   // Attendance + venues + first session date
@@ -373,6 +394,15 @@ export async function GET() {
       if (after.every((s) => sids.has(s.id))) return after.length;
       return 0;
     } },
+    { key: "sharpshooter", label: "Sharpshooter", emoji: "🎯", criteria: "Best average points per match (≥3 scored matches)",
+      metric: (p) => p.matchesScored >= 3 ? p.pointsScored / p.matchesScored : 0,
+      filter: (p) => p.matchesScored >= 3 } as TrophyDef,
+    { key: "brick-wall", label: "Brick Wall", emoji: "🛡", criteria: "Lowest avg points conceded (≥3 scored matches)",
+      metric: (p) => p.matchesScored >= 3 ? 100 - (p.pointsConceded / p.matchesScored) : 0,
+      filter: (p) => p.matchesScored >= 3 } as TrophyDef,
+    { key: "dominator", label: "Dominator", emoji: "💪", criteria: "Best point differential (scored − conceded)",
+      metric: (p) => p.matchesScored >= 3 ? p.pointsScored - p.pointsConceded : 0,
+      filter: (p) => p.matchesScored >= 3 } as TrophyDef,
   ];
 
   // Per-player badge collation — assign sequentially so ties favor balance.
