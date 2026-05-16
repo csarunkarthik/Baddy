@@ -15,6 +15,7 @@ type BuddyData = {
 type BestPartnerRow = { playerId: number; playerName: string; partnerName: string; wins: number; played: number; winPct: number };
 type TopDuo = { p1: string; p2: string; wins: number; played: number; winPct: number };
 type BestPartnersData = { perPlayer: BestPartnerRow[]; topDuos: TopDuo[] };
+type PointsStat = { id: number; name: string; totalPoints: number; matchesScored: number; bestSingleMatch: number };
 
 function makeAbbr(players: { id: number; name: string }[]) {
   const result: Record<number, string> = {};
@@ -36,18 +37,20 @@ export default function StatsPage() {
   const [wins, setWins] = useState<Record<number, WinStat>>({});
   const [buddyData, setBuddyData] = useState<BuddyData | null>(null);
   const [partners, setPartners] = useState<BestPartnersData>({ perPlayer: [], topDuos: [] });
+  const [points, setPoints] = useState<PointsStat[]>([]);
   const [totalDays, setTotalDays] = useState(0);
   const [availableYears, setAvailableYears] = useState<number[]>([currentYear]);
   const [loading, setLoading] = useState(true);
 
   async function loadStats(y: number) {
     setLoading(true);
-    const [statsRes, venuesRes, buddiesRes, winsRes, partnersRes] = await Promise.all([
+    const [statsRes, venuesRes, buddiesRes, winsRes, partnersRes, pointsRes] = await Promise.all([
       fetch(`/api/stats?year=${y}`),
       fetch(`/api/venues`),
       fetch(`/api/buddies?year=${y}`),
       fetch(`/api/stats/wins?year=${y}`),
       fetch(`/api/stats/best-partners?year=${y}`),
+      fetch(`/api/stats/points?year=${y}`),
     ]);
     const statsData = await statsRes.json();
     const ranked = statsData.players.map((p: Omit<PlayerStat, "rank">) => ({
@@ -65,6 +68,8 @@ export default function StatsPage() {
       ? await partnersRes.json()
       : { perPlayer: [], topDuos: [] };
     setPartners(partnersData);
+    const pointsData: PointsStat[] = pointsRes.ok ? await pointsRes.json() : [];
+    setPoints(pointsData);
     setLoading(false);
   }
 
@@ -253,6 +258,31 @@ export default function StatsPage() {
                 ))}
               </div>
             )}
+            {/* Points scored */}
+            {points.length > 0 && (
+              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-lg">🎯</span>
+                  <h2 className="font-bold text-gray-800 text-sm">Points scored</h2>
+                  <span className="text-[10px] text-gray-400 font-semibold ml-auto">scored matches only</span>
+                </div>
+                <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 gap-y-1.5 text-xs">
+                  <div className="font-bold text-gray-400 uppercase tracking-wider">Player</div>
+                  <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Total</div>
+                  <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Best</div>
+                  <div className="font-bold text-gray-400 uppercase tracking-wider text-right">M</div>
+                  {points.map((p) => (
+                    <div key={p.id} className="contents">
+                      <div className="font-semibold text-gray-700 truncate">{p.name}</div>
+                      <div className="text-right font-bold text-amber-600">{p.totalPoints}</div>
+                      <div className="text-right text-emerald-600 font-semibold">{p.bestSingleMatch}</div>
+                      <div className="text-right text-gray-500">{p.matchesScored}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Best Partners */}
             {(partners.topDuos.length > 0 || partners.perPlayer.length > 0) && (
               <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 space-y-5">
@@ -328,9 +358,9 @@ export default function StatsPage() {
             <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-rose-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-amber-200">🏆</div>
             <span className="text-[10px] font-bold text-gray-700">Matches</span>
           </Link>
-          <Link href="/feed" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
-            <div className="w-10 h-10 bg-gradient-to-br from-violet-400 to-fuchsia-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-violet-200">💬</div>
-            <span className="text-[10px] font-bold text-gray-700">Feed</span>
+          <Link href="/awards" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
+            <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-yellow-200">🏅</div>
+            <span className="text-[10px] font-bold text-gray-700">Awards</span>
           </Link>
         </div>
       </div>

@@ -4,14 +4,17 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 type Player = { id: number; name: string };
+type CoupleKey = "bamHari" | "arunDeep" | "avinashSharmili";
 type Match = {
   id: number;
   matchNumber: number;
   winner: "A" | "B" | null;
+  teamAScore: number | null;
+  teamBScore: number | null;
   teamA: Player[];
   teamB: Player[];
 };
-type Couple = { key: "bamHari" | "arunDeep"; label: string; bothAttending: boolean; player1Id?: number; player2Id?: number };
+type Couple = { key: CoupleKey; label: string; bothAttending: boolean; player1Id?: number; player2Id?: number };
 type SessionInfo = {
   id: number;
   date: string;
@@ -19,6 +22,7 @@ type SessionInfo = {
   totalMatches: number;
   bamHariKid: boolean;
   arunDeepKid: boolean;
+  avinashSharmiliKid: boolean;
   locked: boolean;
   attending: Player[];
 };
@@ -60,6 +64,7 @@ export default function MatchesPage() {
   const [totalMatchesDraft, setTotalMatchesDraft] = useState<number>(15);
   const [bamHariKidDraft, setBamHariKidDraft] = useState(false);
   const [arunDeepKidDraft, setArunDeepKidDraft] = useState(false);
+  const [avinashSharmiliKidDraft, setAvinashSharmiliKidDraft] = useState(false);
 
   const [editingMatchId, setEditingMatchId] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState<{ a1: number; a2: number; b1: number; b2: number } | null>(null);
@@ -97,6 +102,7 @@ export default function MatchesPage() {
       setTotalMatchesDraft(payload.session.totalMatches);
       setBamHariKidDraft(payload.session.bamHariKid);
       setArunDeepKidDraft(payload.session.arunDeepKid);
+      setAvinashSharmiliKidDraft(payload.session.avinashSharmiliKid);
     } catch {
       setError("Network error");
     }
@@ -194,13 +200,14 @@ export default function MatchesPage() {
       .sort((a, b) => b.wins - a.wins || b.pct - a.pct || a.p1.localeCompare(b.p1) || a.p2.localeCompare(b.p2));
   }, [data]);
 
-  // Pre-match win probabilities for played fixtures, computed from each player's
-  // career win-rate EXCLUDING today (so the day's own outcomes don't bias the prior).
-  // Returns null for a match when any of the 4 players have no prior history.
+  // Pre-match win probabilities, computed from each player's career win-rate
+  // EXCLUDING today (so the day's own outcomes don't bias the prior).
+  // Players with no prior data are assumed average (0.5). Every fixture gets a probability.
   const HIGH_IMPACT_THRESHOLD = 0.40;
+  const DEFAULT_PRIOR = 0.5;
   const matchProbs = useMemo(() => {
-    const map = new Map<number, { probA: number; probB: number; winnerProb: number | null } | null>();
-    if (!data || winStats.length === 0) return map;
+    const map = new Map<number, { probA: number; probB: number; winnerProb: number | null }>();
+    if (!data) return map;
 
     const priorPct = new Map<number, number>();
     for (const career of winStats) {
@@ -212,16 +219,19 @@ export default function MatchesPage() {
       if (priorPlayed > 0) priorPct.set(career.id, priorWins / priorPlayed);
     }
 
+    function getPrior(id: number) {
+      return priorPct.has(id) ? priorPct.get(id)! : DEFAULT_PRIOR;
+    }
+
     for (const m of data.matches) {
       const aIds = m.teamA.map((p) => p.id);
       const bIds = m.teamB.map((p) => p.id);
-      if (aIds.length !== 2 || bIds.length !== 2) { map.set(m.id, null); continue; }
-      if ([...aIds, ...bIds].some((id) => !priorPct.has(id))) { map.set(m.id, null); continue; }
+      if (aIds.length !== 2 || bIds.length !== 2) continue;
 
-      const strA = (priorPct.get(aIds[0])! + priorPct.get(aIds[1])!) / 2;
-      const strB = (priorPct.get(bIds[0])! + priorPct.get(bIds[1])!) / 2;
+      const strA = (getPrior(aIds[0]) + getPrior(aIds[1])) / 2;
+      const strB = (getPrior(bIds[0]) + getPrior(bIds[1])) / 2;
       const total = strA + strB;
-      if (total === 0) { map.set(m.id, null); continue; }
+      if (total === 0) continue;
 
       const probA = strA / total;
       const probB = strB / total;
@@ -298,7 +308,7 @@ export default function MatchesPage() {
     }
   }
 
-  async function saveConfig(patch: Partial<{ totalMatches: number; bamHariKid: boolean; arunDeepKid: boolean }>) {
+  async function saveConfig(patch: Partial<{ totalMatches: number; bamHariKid: boolean; arunDeepKid: boolean; avinashSharmiliKid: boolean }>) {
     if (!data) return;
     await fetch(`/api/sessions/${data.session.id}/matches/config`, {
       method: "PATCH",
@@ -322,6 +332,7 @@ export default function MatchesPage() {
         totalMatches: totalMatchesDraft,
         bamHariKid: bamHariKidDraft,
         arunDeepKid: arunDeepKidDraft,
+        avinashSharmiliKid: avinashSharmiliKidDraft,
       }),
     });
     if (!res.ok) {
@@ -344,6 +355,32 @@ export default function MatchesPage() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ winner: next }),
+    });
+    if (!res.ok) {
+      load(selectedDate);
+    } else {
+      const ws = await fetch(`/api/stats/wins`);
+      if (ws.ok) setWinStats(await ws.json());
+    }
+  }
+
+  async function saveScores(matchId: number, aScore: number | null, bScore: number | null) {
+    if (!data) return;
+    setData({
+      ...data,
+      matches: data.matches.map((m) => {
+        if (m.id !== matchId) return m;
+        const next = { ...m, teamAScore: aScore, teamBScore: bScore };
+        if (aScore !== null && bScore !== null && aScore !== bScore) {
+          next.winner = aScore > bScore ? "A" : "B";
+        }
+        return next;
+      }),
+    });
+    const res = await fetch(`/api/matches/${matchId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ teamAScore: aScore, teamBScore: bScore }),
     });
     if (!res.ok) {
       load(selectedDate);
@@ -446,8 +483,14 @@ export default function MatchesPage() {
   function attendingForbidden(four: number[]): string | null {
     if (!data) return null;
     for (const c of visibleCouples) {
-      const flag = c.key === "bamHari" ? bamHariKidDraft : arunDeepKidDraft;
-      const sessionFlag = c.key === "bamHari" ? data.session.bamHariKid : data.session.arunDeepKid;
+      const flag =
+        c.key === "bamHari" ? bamHariKidDraft :
+        c.key === "arunDeep" ? arunDeepKidDraft :
+        avinashSharmiliKidDraft;
+      const sessionFlag =
+        c.key === "bamHari" ? data.session.bamHariKid :
+        c.key === "arunDeep" ? data.session.arunDeepKid :
+        data.session.avinashSharmiliKid;
       if (!sessionFlag && !flag) continue;
       if (!c.player1Id || !c.player2Id) continue;
       if (four.includes(c.player1Id) && four.includes(c.player2Id)) return c.label;
@@ -491,9 +534,9 @@ export default function MatchesPage() {
             <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-pink-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-orange-200">📅</div>
             <span className="text-[10px] font-bold text-gray-700">History</span>
           </Link>
-          <Link href="/feed" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
-            <div className="w-10 h-10 bg-gradient-to-br from-violet-400 to-fuchsia-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-violet-200">💬</div>
-            <span className="text-[10px] font-bold text-gray-700">Feed</span>
+          <Link href="/awards" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
+            <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-yellow-200">🏅</div>
+            <span className="text-[10px] font-bold text-gray-700">Awards</span>
           </Link>
         </div>
 
@@ -607,15 +650,18 @@ export default function MatchesPage() {
                     <div className="space-y-2">
                       <p className="text-xs text-gray-400 font-semibold">Kid present? (couple can&apos;t play same match)</p>
                       {visibleCouples.map((c) => {
-                        const flag = c.key === "bamHari" ? bamHariKidDraft : arunDeepKidDraft;
+                        const flag =
+                          c.key === "bamHari" ? bamHariKidDraft :
+                          c.key === "arunDeep" ? arunDeepKidDraft :
+                          avinashSharmiliKidDraft;
                         return (
                           <button
                             key={c.key}
                             onClick={() => {
                               const next = !flag;
-                              if (c.key === "bamHari") setBamHariKidDraft(next);
-                              else setArunDeepKidDraft(next);
-                              saveConfig(c.key === "bamHari" ? { bamHariKid: next } : { arunDeepKid: next });
+                              if (c.key === "bamHari") { setBamHariKidDraft(next); saveConfig({ bamHariKid: next }); }
+                              else if (c.key === "arunDeep") { setArunDeepKidDraft(next); saveConfig({ arunDeepKid: next }); }
+                              else { setAvinashSharmiliKidDraft(next); saveConfig({ avinashSharmiliKid: next }); }
                             }}
                             className={`w-full flex items-center justify-between px-4 py-2.5 rounded-2xl transition-all active:scale-[0.98] ${
                               flag ? "bg-rose-50 border-2 border-rose-200" : "bg-gray-50 border-2 border-transparent"
@@ -841,6 +887,15 @@ export default function MatchesPage() {
                           </>
                         );
                       })()}
+
+                      {!isEditing && !locked && (
+                        <ScoreRow match={m} onSave={saveScores} />
+                      )}
+                      {!isEditing && locked && (m.teamAScore !== null && m.teamBScore !== null) && (
+                        <div className="px-4 py-1.5 text-[11px] font-semibold text-gray-600 border-t border-gray-100 bg-gray-50 text-center">
+                          Score: <span className="font-bold text-gray-800">{m.teamAScore}</span> – <span className="font-bold text-gray-800">{m.teamBScore}</span>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -1002,5 +1057,51 @@ function PlayerRow({ stat }: { stat: WinStat }) {
       <div className="text-right text-gray-500">{stat.played}</div>
       <div className="text-right text-gray-500">{stat.winPct}%</div>
     </>
+  );
+}
+
+function ScoreRow({ match, onSave }: { match: Match; onSave: (id: number, a: number | null, b: number | null) => void }) {
+  const [a, setA] = useState<string>(match.teamAScore !== null ? String(match.teamAScore) : "");
+  const [b, setB] = useState<string>(match.teamBScore !== null ? String(match.teamBScore) : "");
+
+  useEffect(() => {
+    setA(match.teamAScore !== null ? String(match.teamAScore) : "");
+    setB(match.teamBScore !== null ? String(match.teamBScore) : "");
+  }, [match.teamAScore, match.teamBScore]);
+
+  function commit() {
+    const aNum = a.trim() === "" ? null : Math.max(0, Math.min(99, parseInt(a) || 0));
+    const bNum = b.trim() === "" ? null : Math.max(0, Math.min(99, parseInt(b) || 0));
+    if (aNum === match.teamAScore && bNum === match.teamBScore) return;
+    onSave(match.id, aNum, bNum);
+  }
+
+  return (
+    <div className="px-3 py-2 border-t border-gray-100 bg-white flex items-center justify-center gap-2">
+      <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Score</span>
+      <input
+        type="number"
+        inputMode="numeric"
+        min={0}
+        max={99}
+        value={a}
+        onChange={(e) => setA(e.target.value)}
+        onBlur={commit}
+        placeholder="–"
+        className="w-12 text-center bg-gray-50 border-2 border-transparent focus:border-amber-300 rounded-lg py-1 text-sm font-bold text-gray-800 focus:outline-none"
+      />
+      <span className="text-gray-300 font-bold">–</span>
+      <input
+        type="number"
+        inputMode="numeric"
+        min={0}
+        max={99}
+        value={b}
+        onChange={(e) => setB(e.target.value)}
+        onBlur={commit}
+        placeholder="–"
+        className="w-12 text-center bg-gray-50 border-2 border-transparent focus:border-amber-300 rounded-lg py-1 text-sm font-bold text-gray-800 focus:outline-none"
+      />
+    </div>
   );
 }

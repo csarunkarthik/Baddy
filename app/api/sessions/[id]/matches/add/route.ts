@@ -46,6 +46,7 @@ export async function POST(
   const forbidden = activeForbiddenPairs(couples, {
     bamHari: session.bamHariKid,
     arunDeep: session.arunDeepKid,
+    avinashSharmili: session.avinashSharmiliKid,
   });
 
   const result = generateFixtures({

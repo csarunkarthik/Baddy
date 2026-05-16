@@ -27,7 +27,7 @@ export async function POST(
 
   const body = await req.json().catch(() => ({}));
 
-  const patch: { totalMatches?: number; bamHariKid?: boolean; arunDeepKid?: boolean } = {};
+  const patch: { totalMatches?: number; bamHariKid?: boolean; arunDeepKid?: boolean; avinashSharmiliKid?: boolean } = {};
   if (typeof body.totalMatches === "number") {
     const n = Math.floor(body.totalMatches);
     if (!Number.isFinite(n) || n < 1 || n > 50) {
@@ -37,6 +37,7 @@ export async function POST(
   }
   if (typeof body.bamHariKid === "boolean") patch.bamHariKid = body.bamHariKid;
   if (typeof body.arunDeepKid === "boolean") patch.arunDeepKid = body.arunDeepKid;
+  if (typeof body.avinashSharmiliKid === "boolean") patch.avinashSharmiliKid = body.avinashSharmiliKid;
 
   const session = await prisma.session.update({
     where: { id: sessionId },
@@ -57,6 +58,7 @@ export async function POST(
   const forbidden = activeForbiddenPairs(couples, {
     bamHari: session.bamHariKid,
     arunDeep: session.arunDeepKid,
+    avinashSharmili: session.avinashSharmiliKid,
   });
 
   const result = generateFixtures({

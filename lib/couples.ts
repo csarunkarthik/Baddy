@@ -1,10 +1,11 @@
-export type CoupleKey = "bamHari" | "arunDeep";
+export type CoupleKey = "bamHari" | "arunDeep" | "avinashSharmili";
 
 // Pinned by player ID so renames stay applied. Update if a player is ever
 // deleted + recreated (which assigns a new ID).
 export const COUPLES: { key: CoupleKey; playerIds: [number, number] }[] = [
   { key: "bamHari", playerIds: [8, 9] }, // Bamini, Hari
   { key: "arunDeep", playerIds: [2, 1] }, // Arun, Deepika
+  { key: "avinashSharmili", playerIds: [7, 14] }, // Avinash, Sharmili
 ];
 
 type NamedPlayer = { id: number; name: string };

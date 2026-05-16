@@ -15,15 +15,16 @@ model Player {
 }
 
 model Session {
-  id           Int          @id @default(autoincrement())
-  date         DateTime     @unique @db.Date
-  venue        String       @default("")
-  createdAt    DateTime     @default(now())
-  totalMatches Int          @default(15)
-  bamHariKid   Boolean      @default(false)
-  arunDeepKid  Boolean      @default(false)
-  attendance   Attendance[]
-  matches      Match[]
+  id                 Int          @id @default(autoincrement())
+  date               DateTime     @unique @db.Date
+  venue              String       @default("")
+  createdAt          DateTime     @default(now())
+  totalMatches       Int          @default(15)
+  bamHariKid         Boolean      @default(false)
+  arunDeepKid        Boolean      @default(false)
+  avinashSharmiliKid Boolean      @default(false)
+  attendance         Attendance[]
+  matches            Match[]
 }
 
 model Match {
@@ -32,6 +33,8 @@ model Match {
   sessionId    Int
   matchNumber  Int
   winner       String?
+  teamAScore   Int?
+  teamBScore   Int?
   createdAt    DateTime      @default(now())
   participants MatchPlayer[]
 

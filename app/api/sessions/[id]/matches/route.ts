@@ -40,7 +40,15 @@ export async function GET(
       .filter((p) => p.team === "B")
       .sort((a, b) => a.position - b.position)
       .map((p) => ({ id: p.player.id, name: p.player.name }));
-    return { id: m.id, matchNumber: m.matchNumber, winner: m.winner, teamA, teamB };
+    return {
+      id: m.id,
+      matchNumber: m.matchNumber,
+      winner: m.winner,
+      teamAScore: m.teamAScore,
+      teamBScore: m.teamBScore,
+      teamA,
+      teamB,
+    };
   });
 
   return NextResponse.json({
@@ -51,6 +59,7 @@ export async function GET(
       totalMatches: session.totalMatches,
       bamHariKid: session.bamHariKid,
       arunDeepKid: session.arunDeepKid,
+      avinashSharmiliKid: session.avinashSharmiliKid,
       locked: isSessionLocked(session.date),
       attending: session.attendance
         .map((a) => ({ id: a.player.id, name: a.player.name }))

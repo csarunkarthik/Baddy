@@ -29,7 +29,37 @@ export async function PATCH(
 
   const body = await req.json();
 
-  // Winner toggle
+  // Scores — nullable ints. If both present, optionally auto-set winner.
+  const scoreUpdate: { teamAScore?: number | null; teamBScore?: number | null; winner?: "A" | "B" | null } = {};
+  if (Object.prototype.hasOwnProperty.call(body, "teamAScore")) {
+    const v = body.teamAScore;
+    if (v !== null && (typeof v !== "number" || !Number.isFinite(v) || v < 0 || v > 99)) {
+      return NextResponse.json({ error: "teamAScore must be 0–99 or null" }, { status: 400 });
+    }
+    scoreUpdate.teamAScore = v === null ? null : Math.floor(v);
+  }
+  if (Object.prototype.hasOwnProperty.call(body, "teamBScore")) {
+    const v = body.teamBScore;
+    if (v !== null && (typeof v !== "number" || !Number.isFinite(v) || v < 0 || v > 99)) {
+      return NextResponse.json({ error: "teamBScore must be 0–99 or null" }, { status: 400 });
+    }
+    scoreUpdate.teamBScore = v === null ? null : Math.floor(v);
+  }
+  // Auto-infer winner from scores when both sides set and differ.
+  if (
+    "teamAScore" in scoreUpdate &&
+    "teamBScore" in scoreUpdate &&
+    typeof scoreUpdate.teamAScore === "number" &&
+    typeof scoreUpdate.teamBScore === "number" &&
+    scoreUpdate.teamAScore !== scoreUpdate.teamBScore
+  ) {
+    scoreUpdate.winner = scoreUpdate.teamAScore > scoreUpdate.teamBScore ? "A" : "B";
+  }
+  if (Object.keys(scoreUpdate).length > 0) {
+    await prisma.match.update({ where: { id: matchId }, data: scoreUpdate });
+  }
+
+  // Winner toggle (independent of scores — still allowed)
   if (Object.prototype.hasOwnProperty.call(body, "winner")) {
     const w = body.winner;
     if (w !== "A" && w !== "B" && w !== null) {
@@ -86,6 +116,8 @@ export async function PATCH(
     id: m.id,
     matchNumber: m.matchNumber,
     winner: m.winner,
+    teamAScore: m.teamAScore,
+    teamBScore: m.teamBScore,
     teamA: m.participants
       .filter((p) => p.team === "A")
       .sort((a, b) => a.position - b.position)

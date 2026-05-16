@@ -24,7 +24,7 @@ export async function PATCH(
   }
 
   const body = await req.json();
-  const data: { totalMatches?: number; bamHariKid?: boolean; arunDeepKid?: boolean } = {};
+  const data: { totalMatches?: number; bamHariKid?: boolean; arunDeepKid?: boolean; avinashSharmiliKid?: boolean } = {};
   if (typeof body.totalMatches === "number") {
     const n = Math.floor(body.totalMatches);
     if (!Number.isFinite(n) || n < 1 || n > 50) {
@@ -34,11 +34,12 @@ export async function PATCH(
   }
   if (typeof body.bamHariKid === "boolean") data.bamHariKid = body.bamHariKid;
   if (typeof body.arunDeepKid === "boolean") data.arunDeepKid = body.arunDeepKid;
+  if (typeof body.avinashSharmiliKid === "boolean") data.avinashSharmiliKid = body.avinashSharmiliKid;
 
   const session = await prisma.session.update({
     where: { id: sessionId },
     data,
-    select: { id: true, totalMatches: true, bamHariKid: true, arunDeepKid: true },
+    select: { id: true, totalMatches: true, bamHariKid: true, arunDeepKid: true, avinashSharmiliKid: true },
   });
   return NextResponse.json(session);
 }
