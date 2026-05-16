@@ -161,9 +161,10 @@ export default function Home() {
             placeholder="Where are you playing?"
             value={venue}
             onChange={(e) => { setVenue(e.target.value); setSaved(false); }}
-            className="w-full bg-gray-50 border-2 border-transparent focus:border-emerald-300 rounded-2xl px-4 py-3 text-sm font-medium text-gray-900 placeholder-gray-400 focus:outline-none transition-colors"
+            disabled={locked}
+            className="w-full bg-gray-50 border-2 border-transparent focus:border-emerald-300 rounded-2xl px-4 py-3 text-sm font-medium text-gray-900 placeholder-gray-400 focus:outline-none transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           />
-          {filteredSuggestions.length > 0 && (
+          {filteredSuggestions.length > 0 && !locked && (
             <div className="flex flex-wrap gap-2">
               {filteredSuggestions.map((s) => (
                 <button
@@ -210,12 +211,13 @@ export default function Home() {
                     return (
                       <button
                         key={player.id}
-                        onClick={() => togglePlayer(player.id)}
+                        onClick={() => !locked && togglePlayer(player.id)}
+                        disabled={locked}
                         className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all active:scale-[0.98] ${
                           selected
                             ? "bg-emerald-50 border-2 border-emerald-200"
                             : "bg-gray-50 border-2 border-transparent hover:border-gray-200"
-                        }`}
+                        } ${locked ? "cursor-default opacity-90" : ""}`}
                       >
                         <span className={`text-sm font-semibold ${selected ? "text-emerald-800" : "text-gray-500"}`}>
                           {player.name}
