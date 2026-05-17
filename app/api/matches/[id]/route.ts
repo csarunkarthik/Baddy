@@ -59,11 +59,32 @@ export async function PATCH(
     await prisma.match.update({ where: { id: matchId }, data: scoreUpdate });
   }
 
-  // Winner toggle (independent of scores — still allowed)
+  // Winner toggle. When both scores are recorded and differ, only the higher-scoring
+  // team can be winner — reject mismatches defensively (client also blocks this).
   if (Object.prototype.hasOwnProperty.call(body, "winner")) {
     const w = body.winner;
     if (w !== "A" && w !== "B" && w !== null) {
       return NextResponse.json({ error: "winner must be 'A', 'B', or null" }, { status: 400 });
+    }
+    if (w === "A" || w === "B") {
+      const current = await prisma.match.findUnique({
+        where: { id: matchId },
+        select: { teamAScore: true, teamBScore: true },
+      });
+      if (
+        current &&
+        current.teamAScore !== null &&
+        current.teamBScore !== null &&
+        current.teamAScore !== current.teamBScore
+      ) {
+        const higher: "A" | "B" = current.teamAScore > current.teamBScore ? "A" : "B";
+        if (w !== higher) {
+          return NextResponse.json(
+            { error: "Winner must be the team with the higher score." },
+            { status: 400 }
+          );
+        }
+      }
     }
     await prisma.match.update({ where: { id: matchId }, data: { winner: w } });
   }

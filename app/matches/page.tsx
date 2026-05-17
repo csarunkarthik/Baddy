@@ -447,6 +447,12 @@ export default function MatchesPage() {
 
   async function setWinner(matchId: number, currentWinner: "A" | "B" | null, team: "A" | "B") {
     if (!data) return;
+    const match = data.matches.find((m) => m.id === matchId);
+    // If both scores entered and differ, only the higher-scoring team can be winner.
+    if (match && match.teamAScore !== null && match.teamBScore !== null && match.teamAScore !== match.teamBScore) {
+      const higher = match.teamAScore > match.teamBScore ? "A" : "B";
+      if (team !== higher) return;
+    }
     const next = currentWinner === team ? null : team;
     setData({
       ...data,
@@ -1228,12 +1234,22 @@ function ScoreRow({ match, onSave }: { match: Match; onSave: (id: number, a: num
     onSave(match.id, aVal, bVal);
   }
 
-  // Default to 21 when unset — first +/- tap persists that as the starting point.
+  // Default to 21 when unset. First +/- tap commits BOTH scores so the
+  // auto-winner-from-scores logic can fire (it needs both non-null).
   function bumpFromDefault(team: "A" | "B", delta: number) {
-    const base = team === "A" ? (a ?? 21) : (b ?? 21);
-    const next = clamp(base + delta);
-    if (team === "A") { setA(next); persist(next, b); }
-    else { setB(next); persist(a, next); }
+    const aBase = a ?? 21;
+    const bBase = b ?? 21;
+    if (team === "A") {
+      const aNext = clamp(aBase + delta);
+      setA(aNext);
+      if (b === null) setB(bBase);
+      persist(aNext, bBase);
+    } else {
+      const bNext = clamp(bBase + delta);
+      setB(bNext);
+      if (a === null) setA(aBase);
+      persist(aBase, bNext);
+    }
   }
   const aDisplay = a ?? 21;
   const bDisplay = b ?? 21;
