@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 // All computed from existing match / attendance / session data.
 
 const MIN_PLAYED = 3; // baseline eligibility for trophy awards
-const HIGH_IMPACT_THRESHOLD = 0.4;
+const HIGH_IMPACT_THRESHOLD = 0.5;
 
 type Badge = { key: string; label: string; emoji: string; criteria: string };
 type Milestone = { key: string; label: string; emoji: string; threshold: number; metric: "wins" | "matches" | "sessions"; reached: boolean };

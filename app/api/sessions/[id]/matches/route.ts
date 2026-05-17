@@ -31,6 +31,32 @@ export async function GET(
   const attendingIds = new Set(session.attendance.map((a) => a.player.id));
   const couples = resolveCouples(allPlayers, attendingIds);
 
+  // Prior win rates frozen at this session's date — used for expected-%
+  // and high-impact badges. Only counts matches from sessions strictly before.
+  const earlierMatches = await prisma.match.findMany({
+    where: {
+      winner: { not: null },
+      session: { date: { lt: session.date } },
+    },
+    select: {
+      winner: true,
+      participants: { select: { playerId: true, team: true } },
+    },
+  });
+  const priorAgg = new Map<number, { wins: number; played: number }>();
+  for (const m of earlierMatches) {
+    for (const p of m.participants) {
+      const cur = priorAgg.get(p.playerId) ?? { wins: 0, played: 0 };
+      cur.played += 1;
+      if (p.team === m.winner) cur.wins += 1;
+      priorAgg.set(p.playerId, cur);
+    }
+  }
+  const playerPriorPcts: Record<number, number> = {};
+  for (const [pid, agg] of priorAgg) {
+    if (agg.played > 0) playerPriorPcts[pid] = agg.wins / agg.played;
+  }
+
   const matches = session.matches.map((m) => {
     const teamA = m.participants
       .filter((p) => p.team === "A")
@@ -68,5 +94,6 @@ export async function GET(
     matches,
     couples,
     allPlayers,
+    playerPriorPcts,
   });
 }

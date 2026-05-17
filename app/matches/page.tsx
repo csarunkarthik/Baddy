@@ -31,6 +31,7 @@ type MatchesPayload = {
   matches: Match[];
   couples: Couple[];
   allPlayers: Player[];
+  playerPriorPcts: Record<string, number>;
 };
 type WinStat = { id: number; name: string; wins: number; played: number; winPct: number };
 
@@ -239,23 +240,20 @@ export default function MatchesPage() {
       .sort((a, b) => b.wins - a.wins || b.pct - a.pct || a.p1.localeCompare(b.p1) || a.p2.localeCompare(b.p2));
   }, [data]);
 
-  // Pre-match win probabilities, computed from each player's career win-rate
-  // EXCLUDING today (so the day's own outcomes don't bias the prior).
-  // Players with no prior data are assumed average (0.5). Every fixture gets a probability.
-  const HIGH_IMPACT_THRESHOLD = 0.40;
+  // Pre-match win probabilities. Server returns playerPriorPcts frozen at this
+  // session's date (only sessions strictly before count), so past fixtures'
+  // expected % never drifts as new sessions are added. Players with no prior
+  // data are assumed average (0.5). Every fixture gets a probability.
+  // High-impact = winner had < 50% expected probability (any underdog win).
+  const HIGH_IMPACT_THRESHOLD = 0.50;
   const DEFAULT_PRIOR = 0.5;
   const matchProbs = useMemo(() => {
     const map = new Map<number, { probA: number; probB: number; winnerProb: number | null }>();
     if (!data) return map;
 
     const priorPct = new Map<number, number>();
-    for (const career of winStats) {
-      const sToday = sessionWins.find((s) => s.id === career.id);
-      const todayWins = sToday?.wins ?? 0;
-      const todayPlayed = sToday?.played ?? 0;
-      const priorPlayed = career.played - todayPlayed;
-      const priorWins = career.wins - todayWins;
-      if (priorPlayed > 0) priorPct.set(career.id, priorWins / priorPlayed);
+    for (const [pid, rate] of Object.entries(data.playerPriorPcts || {})) {
+      priorPct.set(parseInt(pid), rate);
     }
 
     function getPrior(id: number) {
@@ -278,7 +276,7 @@ export default function MatchesPage() {
       map.set(m.id, { probA, probB, winnerProb });
     }
     return map;
-  }, [data, winStats, sessionWins]);
+  }, [data]);
 
   const highImpactCount = useMemo(() => {
     let n = 0;
