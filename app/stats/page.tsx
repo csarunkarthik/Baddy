@@ -88,8 +88,8 @@ export default function StatsPage() {
   const maxVenue = venues[0]?.count ?? 1;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      <div className="relative overflow-hidden bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 text-white px-5 pt-12 pb-8">
+    <div className="app-bg">
+      <div className="relative overflow-hidden app-header px-5 pt-12 pb-8">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-4 right-8 text-8xl">📊</div>
           <div className="absolute -bottom-4 -left-4 w-32 h-32 rounded-full bg-white" />
@@ -98,7 +98,7 @@ export default function StatsPage() {
           <Link href="/" className="mt-1 w-9 h-9 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors font-bold">←</Link>
           <div className="flex-1">
             <h1 className="text-3xl font-extrabold tracking-tight">Stats</h1>
-            <p className="text-blue-100 text-sm mt-0.5">{stats.length} players · {totalDays} {totalDays === 1 ? "day" : "days"} played</p>
+            <p className="app-header-subtle text-sm mt-0.5">{stats.length} players · {totalDays} {totalDays === 1 ? "day" : "days"} played</p>
           </div>
         </div>
         {/* Year selector */}
@@ -350,29 +350,6 @@ export default function StatsPage() {
             )}
           </>
         )}
-        {/* Nav */}
-        <div className="grid grid-cols-5 gap-2 pt-1">
-          <Link href="/" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
-            <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-emerald-200">🏸</div>
-            <span className="text-[10px] font-bold text-gray-700">Home</span>
-          </Link>
-          <Link href="/players" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
-            <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-emerald-200">👥</div>
-            <span className="text-[10px] font-bold text-gray-700">Players</span>
-          </Link>
-          <Link href="/history" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
-            <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-pink-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-orange-200">📅</div>
-            <span className="text-[10px] font-bold text-gray-700">History</span>
-          </Link>
-          <Link href="/matches" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
-            <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-rose-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-amber-200">🏆</div>
-            <span className="text-[10px] font-bold text-gray-700">Matches</span>
-          </Link>
-          <Link href="/awards" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
-            <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-yellow-200">🏅</div>
-            <span className="text-[10px] font-bold text-gray-700">Awards</span>
-          </Link>
-        </div>
       </div>
     </div>
   );

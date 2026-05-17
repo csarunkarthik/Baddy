@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
 type Player = { id: number; name: string };
@@ -70,6 +70,10 @@ export default function MatchesPage() {
   const [editDraft, setEditDraft] = useState<{ a1: number; a2: number; b1: number; b2: number } | null>(null);
 
   const [addCount, setAddCount] = useState<number>(4);
+  // Accordion sections — Fixtures open by default, others closed once fixtures exist.
+  const [openSetup, setOpenSetup] = useState(true);
+  const [openFixtures, setOpenFixtures] = useState(true);
+  const [openStats, setOpenStats] = useState(false);
 
   const locked = !!data?.session.locked;
 
@@ -113,6 +117,11 @@ export default function MatchesPage() {
     load(selectedDate);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate]);
+
+  // Auto-collapse the Setup card once a session already has fixtures.
+  useEffect(() => {
+    if (data && data.matches.length > 0) setOpenSetup(false);
+  }, [data?.session.id, data?.matches.length]);
 
   const attendingCount = data?.session.attending.length ?? 0;
   const canGenerate = attendingCount >= 4;
@@ -529,8 +538,8 @@ export default function MatchesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-amber-50 to-rose-50">
-      <div className="relative overflow-hidden bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500 text-white px-5 pt-12 pb-8">
+    <div className="app-bg">
+      <div className="relative overflow-hidden app-header px-5 pt-12 pb-8">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-4 right-8 text-8xl">🏆</div>
         </div>
@@ -540,58 +549,30 @@ export default function MatchesPage() {
           </Link>
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight">Matches</h1>
-            <p className="text-amber-100 text-sm mt-0.5">Win/loss tracker · {formatDisplay(selectedDate)}</p>
+            <p className="app-header-subtle text-sm mt-0.5">Win/loss tracker · {formatDisplay(selectedDate)}</p>
           </div>
         </div>
       </div>
 
       <div className="px-4 py-5 max-w-lg mx-auto space-y-4">
-        {/* Nav */}
-        <div className="grid grid-cols-5 gap-2">
-          <Link href="/" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
-            <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-emerald-200">🏸</div>
-            <span className="text-[10px] font-bold text-gray-700">Home</span>
-          </Link>
-          <Link href="/players" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
-            <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-emerald-200">👥</div>
-            <span className="text-[10px] font-bold text-gray-700">Players</span>
-          </Link>
-          <Link href="/stats" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-blue-200">📊</div>
-            <span className="text-[10px] font-bold text-gray-700">Stats</span>
-          </Link>
-          <Link href="/history" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
-            <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-pink-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-orange-200">📅</div>
-            <span className="text-[10px] font-bold text-gray-700">History</span>
-          </Link>
-          <Link href="/awards" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
-            <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-yellow-200">🏅</div>
-            <span className="text-[10px] font-bold text-gray-700">Awards</span>
-          </Link>
-        </div>
 
-        {/* Date */}
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">📅</span>
-              <h2 className="font-bold text-gray-800 text-sm">Date</h2>
-            </div>
-            {selectedDate !== todayStr && (
-              <button
-                onClick={() => setSelectedDate(todayStr)}
-                className="text-xs text-amber-600 font-semibold bg-amber-50 px-3 py-1 rounded-full hover:bg-amber-100 transition-colors"
-              >
-                Back to today
-              </button>
-            )}
-          </div>
+        {/* Date — compact one-row picker */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-3 py-2 flex items-center gap-2">
+          <span className="text-base shrink-0" aria-hidden>📅</span>
           <input
             type="date"
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
-            className="w-full bg-gray-50 border-2 border-transparent focus:border-amber-300 rounded-2xl px-4 py-3 text-sm font-medium text-gray-900 focus:outline-none transition-colors"
+            className="flex-1 min-w-0 bg-transparent text-sm font-semibold text-slate-800 focus:outline-none"
           />
+          {selectedDate !== todayStr && (
+            <button
+              onClick={() => setSelectedDate(todayStr)}
+              className="shrink-0 text-xs text-indigo-700 font-bold bg-indigo-50 px-3 py-1 rounded-full hover:bg-indigo-100 transition-colors"
+            >
+              Today
+            </button>
+          )}
         </div>
 
         {locked && (
@@ -616,7 +597,18 @@ export default function MatchesPage() {
           </div>
         ) : data ? (
           <>
-            {/* Attendance + Config */}
+            {/* Setup accordion */}
+            <button
+              onClick={() => setOpenSetup(!openSetup)}
+              className="w-full bg-white rounded-2xl shadow-sm border border-slate-100 px-4 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors"
+            >
+              <span className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                <span>⚙️</span>
+                <span>Setup &amp; attendance</span>
+              </span>
+              <span className="text-slate-400 text-sm">{openSetup ? "▴" : "▾"}</span>
+            </button>
+            {openSetup && (
             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -767,6 +759,7 @@ export default function MatchesPage() {
                 </div>
               )}
             </div>
+            )}
 
             {/* Matches list */}
             {data.matches.length > 0 && (
@@ -931,6 +924,19 @@ export default function MatchesPage() {
                 })}
               </div>
             )}
+
+            {/* Stats accordion */}
+            <button
+              onClick={() => setOpenStats(!openStats)}
+              className="w-full bg-white rounded-2xl shadow-sm border border-slate-100 px-4 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors"
+            >
+              <span className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                <span>📊</span>
+                <span>Today&apos;s stats</span>
+              </span>
+              <span className="text-slate-400 text-sm">{openStats ? "▴" : "▾"}</span>
+            </button>
+            {openStats && (<>
 
             {/* MVP of the Day */}
             {allMatchesDone && mvps.length > 0 && (
@@ -1099,6 +1105,7 @@ export default function MatchesPage() {
                 </div>
               )}
             </div>
+            </>)}
           </>
         ) : null}
       </div>
@@ -1120,44 +1127,74 @@ function PlayerRow({ stat }: { stat: WinStat }) {
 function ScoreRow({ match, onSave }: { match: Match; onSave: (id: number, a: number | null, b: number | null) => void }) {
   const [a, setA] = useState<string>(match.teamAScore !== null ? String(match.teamAScore) : "");
   const [b, setB] = useState<string>(match.teamBScore !== null ? String(match.teamBScore) : "");
+  const aRef = useRef<HTMLInputElement>(null);
+  const bRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setA(match.teamAScore !== null ? String(match.teamAScore) : "");
     setB(match.teamBScore !== null ? String(match.teamBScore) : "");
   }, [match.teamAScore, match.teamBScore]);
 
-  function commit() {
-    const aNum = a.trim() === "" ? null : Math.max(0, Math.min(99, parseInt(a) || 0));
-    const bNum = b.trim() === "" ? null : Math.max(0, Math.min(99, parseInt(b) || 0));
+  function persist(aVal: string, bVal: string) {
+    const aNum = aVal.trim() === "" ? null : Math.max(0, Math.min(99, parseInt(aVal) || 0));
+    const bNum = bVal.trim() === "" ? null : Math.max(0, Math.min(99, parseInt(bVal) || 0));
     if (aNum === match.teamAScore && bNum === match.teamBScore) return;
     onSave(match.id, aNum, bNum);
   }
 
+  function tap21(team: "A" | "B") {
+    if (team === "A") {
+      setA("21");
+      persist("21", b);
+      if (!b.trim()) bRef.current?.focus();
+    } else {
+      setB("21");
+      persist(a, "21");
+      if (!a.trim()) aRef.current?.focus();
+    }
+  }
+
   return (
     <div className="px-3 py-2 border-t border-gray-100 bg-white flex items-center justify-center gap-2">
-      <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Score</span>
+      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Score</span>
       <input
+        ref={aRef}
         type="number"
         inputMode="numeric"
         min={0}
         max={99}
         value={a}
         onChange={(e) => setA(e.target.value)}
-        onBlur={commit}
+        onBlur={() => persist(a, b)}
         placeholder="–"
-        className="w-12 text-center bg-gray-50 border-2 border-transparent focus:border-amber-300 rounded-lg py-1 text-sm font-bold text-gray-800 focus:outline-none"
+        className="w-12 text-center bg-slate-50 border-2 border-transparent focus:border-indigo-300 rounded-lg py-1 text-sm font-bold text-slate-800 focus:outline-none"
       />
-      <span className="text-gray-300 font-bold">–</span>
+      <button
+        onClick={() => tap21("A")}
+        className="text-[10px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 active:scale-95 px-2 py-1 rounded-full transition-all"
+        title="Set Team A to 21"
+      >
+        21
+      </button>
+      <span className="text-slate-300 font-bold">–</span>
+      <button
+        onClick={() => tap21("B")}
+        className="text-[10px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 active:scale-95 px-2 py-1 rounded-full transition-all"
+        title="Set Team B to 21"
+      >
+        21
+      </button>
       <input
+        ref={bRef}
         type="number"
         inputMode="numeric"
         min={0}
         max={99}
         value={b}
         onChange={(e) => setB(e.target.value)}
-        onBlur={commit}
+        onBlur={() => persist(a, b)}
         placeholder="–"
-        className="w-12 text-center bg-gray-50 border-2 border-transparent focus:border-amber-300 rounded-lg py-1 text-sm font-bold text-gray-800 focus:outline-none"
+        className="w-12 text-center bg-slate-50 border-2 border-transparent focus:border-indigo-300 rounded-lg py-1 text-sm font-bold text-slate-800 focus:outline-none"
       />
     </div>
   );

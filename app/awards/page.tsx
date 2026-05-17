@@ -51,8 +51,8 @@ export default function AwardsPage() {
     : [];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-amber-50 to-yellow-50">
-      <div className="relative overflow-hidden bg-gradient-to-br from-yellow-400 via-amber-500 to-orange-500 text-white px-5 pt-12 pb-8">
+    <div className="app-bg">
+      <div className="relative overflow-hidden app-header px-5 pt-12 pb-8">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-4 right-8 text-8xl">🏅</div>
         </div>
@@ -62,35 +62,12 @@ export default function AwardsPage() {
           </Link>
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight">Awards</h1>
-            <p className="text-yellow-50 text-sm mt-0.5">Trophies, milestones &amp; team honors</p>
+            <p className="app-header-subtle text-sm mt-0.5">Trophies, milestones &amp; team honors</p>
           </div>
         </div>
       </div>
 
       <div className="px-4 py-5 max-w-lg mx-auto space-y-4">
-        {/* Nav */}
-        <div className="grid grid-cols-5 gap-2">
-          <Link href="/" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
-            <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-emerald-200">🏸</div>
-            <span className="text-[10px] font-bold text-gray-700">Home</span>
-          </Link>
-          <Link href="/players" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
-            <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-emerald-200">👥</div>
-            <span className="text-[10px] font-bold text-gray-700">Players</span>
-          </Link>
-          <Link href="/stats" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-blue-200">📊</div>
-            <span className="text-[10px] font-bold text-gray-700">Stats</span>
-          </Link>
-          <Link href="/history" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
-            <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-pink-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-orange-200">📅</div>
-            <span className="text-[10px] font-bold text-gray-700">History</span>
-          </Link>
-          <Link href="/matches" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
-            <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-rose-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-amber-200">🏆</div>
-            <span className="text-[10px] font-bold text-gray-700">Matches</span>
-          </Link>
-        </div>
 
         {loading ? (
           <div className="flex justify-center py-16">

@@ -83,8 +83,8 @@ export default function PlayersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50 to-teal-50">
-      <div className="relative overflow-hidden bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 text-white px-5 pt-12 pb-8">
+    <div className="app-bg">
+      <div className="relative overflow-hidden app-header px-5 pt-12 pb-8">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-4 right-8 text-8xl">👥</div>
           <div className="absolute -bottom-4 -left-4 w-32 h-32 rounded-full bg-white" />
@@ -95,7 +95,7 @@ export default function PlayersPage() {
           </Link>
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight">Players</h1>
-            <p className="text-emerald-100 text-sm mt-0.5">{players.length} registered</p>
+            <p className="app-header-subtle text-sm mt-0.5">{players.length} registered</p>
           </div>
         </div>
       </div>
@@ -156,30 +156,6 @@ export default function PlayersPage() {
               {adding ? "..." : "+ Add"}
             </button>
           </div>
-        </div>
-
-        {/* Nav */}
-        <div className="grid grid-cols-5 gap-2">
-          <Link href="/" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
-            <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-emerald-200">🏸</div>
-            <span className="text-[10px] font-bold text-gray-700">Home</span>
-          </Link>
-          <Link href="/stats" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-blue-200">📊</div>
-            <span className="text-[10px] font-bold text-gray-700">Stats</span>
-          </Link>
-          <Link href="/history" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
-            <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-pink-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-orange-200">📅</div>
-            <span className="text-[10px] font-bold text-gray-700">History</span>
-          </Link>
-          <Link href="/matches" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
-            <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-rose-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-amber-200">🏆</div>
-            <span className="text-[10px] font-bold text-gray-700">Matches</span>
-          </Link>
-          <Link href="/awards" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
-            <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-yellow-200">🏅</div>
-            <span className="text-[10px] font-bold text-gray-700">Awards</span>
-          </Link>
         </div>
 
         {/* Full player list */}

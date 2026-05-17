@@ -99,19 +99,19 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50 to-teal-50">
+    <div className="app-bg">
       {/* Header */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-emerald-500 via-green-500 to-teal-600 text-white px-5 pt-12 pb-8">
+      <div className="relative overflow-hidden app-header px-5 pt-12 pb-8">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-4 right-8 text-8xl">🏸</div>
           <div className="absolute -bottom-4 -left-4 w-32 h-32 rounded-full bg-white" />
         </div>
         <div className="relative">
           <h1 className="text-4xl font-extrabold tracking-tight">Baddy</h1>
-          <p className="text-emerald-100 mt-1 text-sm font-medium">{formatDisplay(selectedDate)}</p>
+          <p className="app-header-subtle mt-1 text-sm font-medium">{formatDisplay(selectedDate)}</p>
           {saved && venue && (
             <div className="mt-3 inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-semibold">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-300 animate-pulse" />
               {venue} · {selectedIds.size} present
             </div>
           )}
@@ -140,7 +140,7 @@ export default function Home() {
             type="date"
             value={selectedDate}
             onChange={(e) => handleDateChange(e.target.value)}
-            className="w-full bg-gray-50 border-2 border-transparent focus:border-emerald-300 rounded-2xl px-4 py-3 text-sm font-medium text-gray-900 focus:outline-none transition-colors"
+            className="w-full bg-gray-50 border-2 border-transparent focus:border-indigo-400 rounded-2xl px-4 py-3 text-sm font-medium text-gray-900 focus:outline-none transition-colors"
           />
           {!isToday && !locked && <p className="text-xs text-orange-500 font-medium">Editing a past or future date</p>}
           {locked && (
@@ -162,7 +162,7 @@ export default function Home() {
             value={venue}
             onChange={(e) => { setVenue(e.target.value); setSaved(false); }}
             disabled={locked}
-            className="w-full bg-gray-50 border-2 border-transparent focus:border-emerald-300 rounded-2xl px-4 py-3 text-sm font-medium text-gray-900 placeholder-gray-400 focus:outline-none transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full bg-gray-50 border-2 border-transparent focus:border-indigo-400 rounded-2xl px-4 py-3 text-sm font-medium text-gray-900 placeholder-gray-400 focus:outline-none transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           />
           {filteredSuggestions.length > 0 && !locked && (
             <div className="flex flex-wrap gap-2">
@@ -170,9 +170,9 @@ export default function Home() {
                 <button
                   key={s.venue}
                   onClick={() => { setVenue(s.venue); setSaved(false); }}
-                  className="px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-emerald-100 hover:text-emerald-700 transition-colors"
+                  className="px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-indigo-100 hover:text-indigo-700 transition-colors"
                 >
-                  {s.venue} <span className="text-gray-400">{s.count}×</span>
+                  {s.venue} <span className="text-slate-400">{s.count}×</span>
                 </button>
               ))}
             </div>
@@ -254,30 +254,6 @@ export default function Home() {
             <p className="text-sm font-medium">Enter a venue to select players</p>
           </div>
         )}
-
-        {/* Nav */}
-        <div className="grid grid-cols-5 gap-2">
-          <Link href="/players" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md hover:border-emerald-200 transition-all active:scale-95">
-            <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-2xl flex items-center justify-center text-lg shadow-lg shadow-emerald-200">👥</div>
-            <span className="text-[10px] font-bold text-gray-700 group-hover:text-emerald-700 transition-colors">Players</span>
-          </Link>
-          <Link href="/stats" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md hover:border-emerald-200 transition-all active:scale-95">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-2xl flex items-center justify-center text-lg shadow-lg shadow-blue-200">📊</div>
-            <span className="text-[10px] font-bold text-gray-700 group-hover:text-emerald-700 transition-colors">Stats</span>
-          </Link>
-          <Link href="/history" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md hover:border-emerald-200 transition-all active:scale-95">
-            <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-pink-500 rounded-2xl flex items-center justify-center text-lg shadow-lg shadow-orange-200">📅</div>
-            <span className="text-[10px] font-bold text-gray-700 group-hover:text-emerald-700 transition-colors">History</span>
-          </Link>
-          <Link href="/matches" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md hover:border-emerald-200 transition-all active:scale-95">
-            <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-rose-500 rounded-2xl flex items-center justify-center text-lg shadow-lg shadow-amber-200">🏆</div>
-            <span className="text-[10px] font-bold text-gray-700 group-hover:text-emerald-700 transition-colors">Matches</span>
-          </Link>
-          <Link href="/awards" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md hover:border-emerald-200 transition-all active:scale-95">
-            <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-2xl flex items-center justify-center text-lg shadow-lg shadow-yellow-200">🏅</div>
-            <span className="text-[10px] font-bold text-gray-700 group-hover:text-emerald-700 transition-colors">Awards</span>
-          </Link>
-        </div>
 
       </div>
     </div>
