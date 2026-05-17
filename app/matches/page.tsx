@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 type Player = { id: number; name: string };
@@ -1125,77 +1125,72 @@ function PlayerRow({ stat }: { stat: WinStat }) {
 }
 
 function ScoreRow({ match, onSave }: { match: Match; onSave: (id: number, a: number | null, b: number | null) => void }) {
-  const [a, setA] = useState<string>(match.teamAScore !== null ? String(match.teamAScore) : "");
-  const [b, setB] = useState<string>(match.teamBScore !== null ? String(match.teamBScore) : "");
-  const aRef = useRef<HTMLInputElement>(null);
-  const bRef = useRef<HTMLInputElement>(null);
+  const [a, setA] = useState<number | null>(match.teamAScore);
+  const [b, setB] = useState<number | null>(match.teamBScore);
 
   useEffect(() => {
-    setA(match.teamAScore !== null ? String(match.teamAScore) : "");
-    setB(match.teamBScore !== null ? String(match.teamBScore) : "");
+    setA(match.teamAScore);
+    setB(match.teamBScore);
   }, [match.teamAScore, match.teamBScore]);
 
-  function persist(aVal: string, bVal: string) {
-    const aNum = aVal.trim() === "" ? null : Math.max(0, Math.min(99, parseInt(aVal) || 0));
-    const bNum = bVal.trim() === "" ? null : Math.max(0, Math.min(99, parseInt(bVal) || 0));
-    if (aNum === match.teamAScore && bNum === match.teamBScore) return;
-    onSave(match.id, aNum, bNum);
+  function clamp(n: number) { return Math.max(0, Math.min(99, n)); }
+  function persist(aVal: number | null, bVal: number | null) {
+    if (aVal === match.teamAScore && bVal === match.teamBScore) return;
+    onSave(match.id, aVal, bVal);
   }
-
-  function tap21(team: "A" | "B") {
+  function bump(team: "A" | "B", delta: number) {
     if (team === "A") {
-      setA("21");
-      persist("21", b);
-      if (!b.trim()) bRef.current?.focus();
+      const next = clamp((a ?? 0) + delta);
+      setA(next);
+      persist(next, b);
     } else {
-      setB("21");
-      persist(a, "21");
-      if (!a.trim()) aRef.current?.focus();
+      const next = clamp((b ?? 0) + delta);
+      setB(next);
+      persist(a, next);
     }
+  }
+  function set21(team: "A" | "B") {
+    if (team === "A") { setA(21); persist(21, b); }
+    else { setB(21); persist(a, 21); }
   }
 
   return (
-    <div className="px-3 py-2 border-t border-gray-100 bg-white flex items-center justify-center gap-2">
-      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Score</span>
-      <input
-        ref={aRef}
-        type="number"
-        inputMode="numeric"
-        min={0}
-        max={99}
-        value={a}
-        onChange={(e) => setA(e.target.value)}
-        onBlur={() => persist(a, b)}
-        placeholder="–"
-        className="w-12 text-center bg-slate-50 border-2 border-transparent focus:border-indigo-300 rounded-lg py-1 text-sm font-bold text-slate-800 focus:outline-none"
-      />
-      <button
-        onClick={() => tap21("A")}
-        className="text-[10px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 active:scale-95 px-2 py-1 rounded-full transition-all"
-        title="Set Team A to 21"
-      >
-        21
-      </button>
-      <span className="text-slate-300 font-bold">–</span>
-      <button
-        onClick={() => tap21("B")}
-        className="text-[10px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 active:scale-95 px-2 py-1 rounded-full transition-all"
-        title="Set Team B to 21"
-      >
-        21
-      </button>
-      <input
-        ref={bRef}
-        type="number"
-        inputMode="numeric"
-        min={0}
-        max={99}
-        value={b}
-        onChange={(e) => setB(e.target.value)}
-        onBlur={() => persist(a, b)}
-        placeholder="–"
-        className="w-12 text-center bg-slate-50 border-2 border-transparent focus:border-indigo-300 rounded-lg py-1 text-sm font-bold text-slate-800 focus:outline-none"
-      />
+    <div className="border-t border-slate-100 bg-white px-3 py-2 space-y-1.5">
+      {(["A", "B"] as const).map((team) => {
+        const value = team === "A" ? a : b;
+        return (
+          <div key={team} className="flex items-center gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 w-4">{team}</span>
+            <div className="flex items-center bg-slate-50 rounded-full overflow-hidden flex-1">
+              <button
+                onClick={() => bump(team, -1)}
+                disabled={value === null || value === 0}
+                aria-label={`Decrease team ${team} score`}
+                className="w-9 h-8 flex items-center justify-center text-slate-600 hover:bg-slate-200 active:scale-95 disabled:opacity-30 font-bold text-base"
+              >
+                −
+              </button>
+              <span className="flex-1 text-center text-sm font-bold text-slate-800 tabular-nums">
+                {value ?? "–"}
+              </span>
+              <button
+                onClick={() => bump(team, 1)}
+                aria-label={`Increase team ${team} score`}
+                className="w-9 h-8 flex items-center justify-center text-slate-600 hover:bg-slate-200 active:scale-95 font-bold text-base"
+              >
+                +
+              </button>
+            </div>
+            <button
+              onClick={() => set21(team)}
+              className="text-[10px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 active:scale-95 px-3 py-1.5 rounded-full transition-all"
+              title={`Set Team ${team} to 21`}
+            >
+              21
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
 }
