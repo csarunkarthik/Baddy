@@ -1138,59 +1138,62 @@ function ScoreRow({ match, onSave }: { match: Match; onSave: (id: number, a: num
     if (aVal === match.teamAScore && bVal === match.teamBScore) return;
     onSave(match.id, aVal, bVal);
   }
-  function bump(team: "A" | "B", delta: number) {
-    if (team === "A") {
-      const next = clamp((a ?? 0) + delta);
-      setA(next);
-      persist(next, b);
-    } else {
-      const next = clamp((b ?? 0) + delta);
-      setB(next);
-      persist(a, next);
-    }
+
+  // Default to 21 when unset — first +/- tap persists that as the starting point.
+  function bumpFromDefault(team: "A" | "B", delta: number) {
+    const base = team === "A" ? (a ?? 21) : (b ?? 21);
+    const next = clamp(base + delta);
+    if (team === "A") { setA(next); persist(next, b); }
+    else { setB(next); persist(a, next); }
   }
-  function set21(team: "A" | "B") {
-    if (team === "A") { setA(21); persist(21, b); }
-    else { setB(21); persist(a, 21); }
-  }
+  const aDisplay = a ?? 21;
+  const bDisplay = b ?? 21;
+  const aMuted = a === null;
+  const bMuted = b === null;
 
   return (
-    <div className="border-t border-slate-100 bg-white px-3 py-2 space-y-1.5">
-      {(["A", "B"] as const).map((team) => {
-        const value = team === "A" ? a : b;
-        return (
-          <div key={team} className="flex items-center gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 w-4">{team}</span>
-            <div className="flex items-center bg-slate-50 rounded-full overflow-hidden flex-1">
-              <button
-                onClick={() => bump(team, -1)}
-                disabled={value === null || value === 0}
-                aria-label={`Decrease team ${team} score`}
-                className="w-9 h-8 flex items-center justify-center text-slate-600 hover:bg-slate-200 active:scale-95 disabled:opacity-30 font-bold text-base"
-              >
-                −
-              </button>
-              <span className="flex-1 text-center text-sm font-bold text-slate-800 tabular-nums">
-                {value ?? "–"}
-              </span>
-              <button
-                onClick={() => bump(team, 1)}
-                aria-label={`Increase team ${team} score`}
-                className="w-9 h-8 flex items-center justify-center text-slate-600 hover:bg-slate-200 active:scale-95 font-bold text-base"
-              >
-                +
-              </button>
-            </div>
-            <button
-              onClick={() => set21(team)}
-              className="text-[10px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 active:scale-95 px-3 py-1.5 rounded-full transition-all"
-              title={`Set Team ${team} to 21`}
-            >
-              21
-            </button>
-          </div>
-        );
-      })}
+    <div className="border-t border-slate-100 bg-white px-3 py-2 flex items-center justify-center gap-3">
+      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">A</span>
+      <div className="flex items-center bg-slate-50 rounded-full">
+        <button
+          onClick={() => bumpFromDefault("A", -1)}
+          aria-label="Decrease team A score"
+          className="w-8 h-8 flex items-center justify-center text-slate-600 hover:bg-slate-200 active:scale-95 font-bold text-base rounded-l-full"
+        >
+          −
+        </button>
+        <span className={`w-9 text-center text-sm font-bold tabular-nums ${aMuted ? "text-slate-400" : "text-slate-800"}`}>
+          {aDisplay}
+        </span>
+        <button
+          onClick={() => bumpFromDefault("A", 1)}
+          aria-label="Increase team A score"
+          className="w-8 h-8 flex items-center justify-center text-slate-600 hover:bg-slate-200 active:scale-95 font-bold text-base rounded-r-full"
+        >
+          +
+        </button>
+      </div>
+      <span className="text-slate-300 font-bold">–</span>
+      <div className="flex items-center bg-slate-50 rounded-full">
+        <button
+          onClick={() => bumpFromDefault("B", -1)}
+          aria-label="Decrease team B score"
+          className="w-8 h-8 flex items-center justify-center text-slate-600 hover:bg-slate-200 active:scale-95 font-bold text-base rounded-l-full"
+        >
+          −
+        </button>
+        <span className={`w-9 text-center text-sm font-bold tabular-nums ${bMuted ? "text-slate-400" : "text-slate-800"}`}>
+          {bDisplay}
+        </span>
+        <button
+          onClick={() => bumpFromDefault("B", 1)}
+          aria-label="Increase team B score"
+          className="w-8 h-8 flex items-center justify-center text-slate-600 hover:bg-slate-200 active:scale-95 font-bold text-base rounded-r-full"
+        >
+          +
+        </button>
+      </div>
+      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">B</span>
     </div>
   );
 }
