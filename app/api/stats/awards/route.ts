@@ -296,12 +296,13 @@ export async function GET() {
     const team = (t: string) => parts.filter((p) => p.team === t).map((p) => p.playerId);
     const a = team("A"); const b = team("B");
     if (a.length !== 2 || b.length !== 2) continue;
-    // Match the /matches page: assume 0.5 prior for players with no history yet.
-    const DEFAULT_PRIOR = 0.5;
-    const ap = a.map((id) => priorPctAt(id, sess.date) ?? DEFAULT_PRIOR);
-    const bp = b.map((id) => priorPctAt(id, sess.date) ?? DEFAULT_PRIOR);
-    const aStr = (ap[0] + ap[1]) / 2;
-    const bStr = (bp[0] + bp[1]) / 2;
+    // High impact requires REAL prior data for all 4 players. Skip otherwise —
+    // a 0.5 fallback would inflate the count for first-session players.
+    const ap = a.map((id) => priorPctAt(id, sess.date));
+    const bp = b.map((id) => priorPctAt(id, sess.date));
+    if (ap.some((x) => x === null) || bp.some((x) => x === null)) continue;
+    const aStr = ((ap[0] as number) + (ap[1] as number)) / 2;
+    const bStr = ((bp[0] as number) + (bp[1] as number)) / 2;
     const tot = aStr + bStr;
     if (tot === 0) continue;
     const winnerProb = m.winner === "A" ? aStr / tot : bStr / tot;

@@ -305,7 +305,10 @@ export default function MatchesPage() {
   const HIGH_IMPACT_THRESHOLD = 0.50;
   const DEFAULT_PRIOR = 0.5;
   const matchProbs = useMemo(() => {
-    const map = new Map<number, { probA: number; probB: number; winnerProb: number | null }>();
+    // hasRealPriors: only true when ALL 4 players have real prior-session data.
+    // Used to gate the 🔥 high-impact badge — Expected % still uses the 0.5
+    // fallback for display.
+    const map = new Map<number, { probA: number; probB: number; winnerProb: number | null; hasRealPriors: boolean }>();
     if (!data) return map;
 
     const priorPct = new Map<number, number>();
@@ -330,7 +333,8 @@ export default function MatchesPage() {
       const probA = strA / total;
       const probB = strB / total;
       const winnerProb = m.winner === "A" ? probA : m.winner === "B" ? probB : null;
-      map.set(m.id, { probA, probB, winnerProb });
+      const hasRealPriors = [...aIds, ...bIds].every((id) => priorPct.has(id));
+      map.set(m.id, { probA, probB, winnerProb, hasRealPriors });
     }
     return map;
   }, [data]);
@@ -338,7 +342,7 @@ export default function MatchesPage() {
   const highImpactCount = useMemo(() => {
     let n = 0;
     matchProbs.forEach((v) => {
-      if (v && v.winnerProb !== null && v.winnerProb < HIGH_IMPACT_THRESHOLD) n++;
+      if (v && v.hasRealPriors && v.winnerProb !== null && v.winnerProb < HIGH_IMPACT_THRESHOLD) n++;
     });
     return n;
   }, [matchProbs]);
@@ -957,8 +961,10 @@ export default function MatchesPage() {
                         if (!probs) return null;
                         const a = Math.round(probs.probA * 100);
                         const b = Math.round(probs.probB * 100);
+                        // 🔥 only when ALL players have real prior data — a 0.5 fallback
+                        // would falsely flag wins by first-time players.
                         const isHighImpact =
-                          m.winner !== null && probs.winnerProb !== null && probs.winnerProb < HIGH_IMPACT_THRESHOLD;
+                          m.winner !== null && probs.winnerProb !== null && probs.hasRealPriors && probs.winnerProb < HIGH_IMPACT_THRESHOLD;
                         return (
                           <>
                             <div className="px-4 py-1.5 text-[10px] font-semibold text-gray-500 border-t border-gray-100 bg-white">
