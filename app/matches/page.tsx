@@ -74,7 +74,7 @@ export default function MatchesPage() {
   // Accordion sections — Fixtures open by default, others closed once fixtures exist.
   const [openSetup, setOpenSetup] = useState(true);
   const [openFixtures, setOpenFixtures] = useState(true);
-  const [openStats, setOpenStats] = useState(false);
+  const [openStats, setOpenStats] = useState(true);
 
   const locked = !!data?.session.locked;
 
@@ -994,7 +994,11 @@ export default function MatchesPage() {
             >
               <span className="font-bold text-slate-800 text-sm flex items-center gap-2">
                 <span>📊</span>
-                <span>Today&apos;s stats</span>
+                <span>
+                  {new Date(selectedDate + "T00:00:00Z").toLocaleDateString("en-GB", {
+                    timeZone: IST, day: "numeric", month: "long", year: "numeric",
+                  })} stats
+                </span>
               </span>
               <span className="text-slate-400 text-sm">{openStats ? "▴" : "▾"}</span>
             </button>
