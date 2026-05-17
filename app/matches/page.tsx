@@ -156,12 +156,69 @@ export default function MatchesPage() {
     );
   }, [sessionWins]);
 
+  // Per-session partner diversity (Pielou² capped at min(T, attendees-1)).
+  // Pure client-side compute from data.matches.
+  type DivRow = { id: number; name: string; matchesPlayed: number; distinctPartners: number; coAttendees: number; diversity: number };
+  const sessionDiversity = useMemo<DivRow[]>(() => {
+    if (!data) return [];
+    const K = Math.max(0, data.session.attending.length - 1);
+    type Acc = { id: number; name: string; partners: Map<number, number>; total: number };
+    const byPlayer = new Map<number, Acc>();
+    for (const m of data.matches) {
+      if (!m.winner) continue;
+      for (const team of [m.teamA, m.teamB]) {
+        if (team.length !== 2) continue;
+        for (const p of team) {
+          if (!byPlayer.has(p.id)) byPlayer.set(p.id, { id: p.id, name: p.name, partners: new Map(), total: 0 });
+          const s = byPlayer.get(p.id)!;
+          const partner = team.find((x) => x.id !== p.id)!;
+          s.partners.set(partner.id, (s.partners.get(partner.id) ?? 0) + 1);
+          s.total += 1;
+        }
+      }
+    }
+    return Array.from(byPlayer.values()).map((s) => {
+      const counts = Array.from(s.partners.values());
+      const T = s.total;
+      let entropy = 0;
+      for (const n of counts) {
+        const p = n / T;
+        if (p > 0) entropy -= p * Math.log(p);
+      }
+      const cap = Math.min(T, K);
+      const maxEntropy = cap > 1 ? Math.log(cap) : 0;
+      const pielou = maxEntropy > 0 ? entropy / maxEntropy : 0;
+      return {
+        id: s.id, name: s.name,
+        matchesPlayed: T,
+        distinctPartners: counts.length,
+        coAttendees: K,
+        diversity: Math.round(pielou * pielou * 1000) / 10,
+      };
+    }).sort((a, b) => b.diversity - a.diversity || b.distinctPartners - a.distinctPartners || a.name.localeCompare(b.name));
+  }, [data]);
+
+  // New MVP: average of three normalised stats (W/maxW × 100, win%, diversity %).
   const allMatchesDone = !!data && data.matches.length > 0 && data.matches.every((m) => m.winner !== null);
+  type MvpRow = { id: number; name: string; wins: number; played: number; winPct: number; diversity: number; winsN: number; mvp: number };
+  const mvpRows = useMemo<MvpRow[]>(() => {
+    if (sessionWins.length === 0) return [];
+    const maxW = Math.max(...sessionWins.map((s) => s.wins));
+    return sessionWins.map((w) => {
+      const d = sessionDiversity.find((x) => x.id === w.id);
+      const diversity = d?.diversity ?? 0;
+      const winsN = maxW > 0 ? (w.wins / maxW) * 100 : 0;
+      const mvp = (winsN + w.winPct + diversity) / 3;
+      return { id: w.id, name: w.name, wins: w.wins, played: w.played, winPct: w.winPct, diversity, winsN, mvp };
+    }).sort((a, b) => b.mvp - a.mvp || b.wins - a.wins || a.name.localeCompare(b.name));
+  }, [sessionWins, sessionDiversity]);
+
+  // Co-MVPs: anyone within 0.5 of the top score.
   const mvps = useMemo(() => {
-    if (!allMatchesDone || sessionWins.length === 0) return [] as WinStat[];
-    const top = sessionWins[0];
-    return sessionWins.filter((s) => s.wins === top.wins && s.winPct === top.winPct);
-  }, [allMatchesDone, sessionWins]);
+    if (!allMatchesDone || mvpRows.length === 0) return [] as MvpRow[];
+    const topScore = mvpRows[0].mvp;
+    return mvpRows.filter((r) => Math.abs(r.mvp - topScore) < 0.5);
+  }, [allMatchesDone, mvpRows]);
 
   // Most Improved: player whose today win% is most above their pre-today career win%.
   // Requires they've played ≥2 today AND had prior history. Career = winStats minus today.
@@ -296,7 +353,7 @@ export default function MatchesPage() {
     lines.push(`${playedCount}/${data.matches.length} matches played`);
     if (mvps.length > 0) {
       const names = mvps.map((p) => p.name).join(", ");
-      lines.push(`🥇 MVP: ${names} (${mvps[0].wins}W · ${mvps[0].winPct}%)`);
+      lines.push(`🥇 MVP: ${names} (${mvps[0].mvp.toFixed(1)} · ${mvps[0].wins}W · ${mvps[0].winPct}% · div ${mvps[0].diversity}%)`);
     }
     if (mostImproved) {
       lines.push(`📈 Most Improved: ${mostImproved.name} — ${mostImproved.todayPct}% today (was ${mostImproved.priorPct}%)`);
@@ -314,6 +371,13 @@ export default function MatchesPage() {
       lines.push("🎯 By win %:");
       for (const s of sessionWinsByPct.slice(0, 5)) {
         lines.push(`• ${s.name} — ${s.winPct}% (${s.wins}W/${s.played}P)`);
+      }
+    }
+    if (sessionDiversity.length > 0) {
+      lines.push("");
+      lines.push("🌐 By diversity:");
+      for (const d of sessionDiversity.slice(0, 5)) {
+        lines.push(`• ${d.name} — ${d.diversity}% (${d.distinctPartners} partners)`);
       }
     }
     if (todaySynergy.length > 0) {
@@ -938,23 +1002,29 @@ export default function MatchesPage() {
 
             {/* MVP of the Day */}
             {allMatchesDone && mvps.length > 0 && (
-              <div className="relative overflow-hidden rounded-3xl shadow-lg shadow-amber-200 p-5 bg-gradient-to-br from-yellow-400 via-amber-500 to-orange-500 text-white">
-                <div className="absolute -top-4 -right-2 text-7xl opacity-15 select-none">🏆</div>
-                <div className="relative">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-yellow-50/90">
-                    {mvps.length > 1 ? "Co-MVPs of the day" : "MVP of the day"}
-                  </p>
-                  <div className="mt-1 flex items-baseline gap-2 flex-wrap">
-                    {mvps.map((p, i) => (
-                      <span key={p.id} className="text-2xl font-extrabold tracking-tight">
-                        {p.name}{i < mvps.length - 1 ? "," : ""}
-                      </span>
-                    ))}
+              <div className="space-y-1.5">
+                <div className="relative overflow-hidden rounded-3xl shadow-lg shadow-amber-200 p-5 bg-gradient-to-br from-yellow-400 via-amber-500 to-orange-500 text-white">
+                  <div className="absolute -top-4 -right-2 text-7xl opacity-15 select-none">🏆</div>
+                  <div className="relative">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-yellow-50/90">
+                      {mvps.length > 1 ? "Co-MVPs of the day" : "MVP of the day"}
+                    </p>
+                    <div className="mt-1 flex items-baseline gap-2 flex-wrap">
+                      {mvps.map((p, i) => (
+                        <span key={p.id} className="text-2xl font-extrabold tracking-tight">
+                          {p.name}{i < mvps.length - 1 ? "," : ""}
+                        </span>
+                      ))}
+                    </div>
+                    <p className="mt-1 text-sm font-semibold text-yellow-50">
+                      MVP score {mvps[0].mvp.toFixed(1)} · {mvps[0].wins}W · {mvps[0].winPct}% · {mvps[0].diversity}% diverse
+                    </p>
                   </div>
-                  <p className="mt-1 text-sm font-semibold text-yellow-50">
-                    {mvps[0].wins}W · {mvps[0].played}P · {mvps[0].winPct}% win-rate
-                  </p>
                 </div>
+                <p className="text-[10px] text-slate-500 px-1 leading-relaxed">
+                  MVP = average of three sub-scores: <b>wins</b> (relative to day&apos;s max),
+                  <b> win %</b>, and <b>diversity</b> (Pielou&apos;s evenness² of partner spread).
+                </p>
               </div>
             )}
 
@@ -1052,6 +1122,23 @@ export default function MatchesPage() {
                         ))}
                       </div>
                     </div>
+                    {sessionDiversity.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">🌐 By diversity</p>
+                        <div className="grid grid-cols-[1fr_auto_auto] gap-x-3 gap-y-1.5 text-xs">
+                          <div className="font-bold text-gray-400 uppercase tracking-wider">Player</div>
+                          <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Partners</div>
+                          <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Score</div>
+                          {sessionDiversity.map((d) => (
+                            <div key={d.id} className="contents">
+                              <div className="font-semibold text-gray-700 truncate">{d.name}</div>
+                              <div className="text-right text-gray-500">{d.distinctPartners} / {d.coAttendees}</div>
+                              <div className="text-right font-bold text-indigo-700">{d.diversity}%</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </>
                 )}
               </div>

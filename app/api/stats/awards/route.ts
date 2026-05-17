@@ -62,6 +62,8 @@ export async function GET() {
     sessionsAttended: number;
     venues: Set<string>;
     partners: Set<number>;
+    partnerCounts: Map<number, number>;
+    coAttendees: Set<number>;
     carryPartners: Set<number>;
     mvpCount: number;
     firstBloodCount: number;
@@ -92,6 +94,8 @@ export async function GET() {
       sessionsAttended: 0,
       venues: new Set(),
       partners: new Set(),
+      partnerCounts: new Map(),
+      coAttendees: new Set(),
       carryPartners: new Set(),
       mvpCount: 0,
       firstBloodCount: 0,
@@ -141,10 +145,11 @@ export async function GET() {
     sessionsByPlayer.get(a.playerId)!.push(a.sessionId);
   }
 
-  // Career match aggregates + partners (winning team)
+  // Career match aggregates + partners (winning team) + partner counts + co-attendees
   for (const m of matches) {
     if (!m.winner) continue;
     const parts = participantsByMatch.get(m.id) ?? [];
+    const sess = sessionById.get(m.sessionId);
     for (const p of parts) {
       const ps = stats.get(p.playerId);
       if (!ps) continue;
@@ -153,7 +158,13 @@ export async function GET() {
       const partner = parts.find((x) => x.team === p.team && x.playerId !== p.playerId);
       if (partner) {
         ps.partners.add(partner.playerId);
+        ps.partnerCounts.set(partner.playerId, (ps.partnerCounts.get(partner.playerId) ?? 0) + 1);
         if (p.team === m.winner) ps.carryPartners.add(partner.playerId);
+      }
+      if (sess) {
+        for (const a of attendance) {
+          if (a.sessionId === sess.id && a.playerId !== p.playerId) ps.coAttendees.add(a.playerId);
+        }
       }
     }
   }
@@ -403,6 +414,19 @@ export async function GET() {
     { key: "dominator", label: "Dominator", emoji: "💪", criteria: "Best point differential (scored − conceded)",
       metric: (p) => p.matchesScored >= 3 ? p.pointsScored - p.pointsConceded : 0,
       filter: (p) => p.matchesScored >= 3 } as TrophyDef,
+    { key: "mixer", label: "Mixer", emoji: "🌐", criteria: "Most diverse partner spread (≥5 played)",
+      metric: (p) => {
+        if (p.played < 5) return 0;
+        const counts = Array.from(p.partnerCounts.values());
+        const T = p.played;
+        let entropy = 0;
+        for (const n of counts) { const q = n / T; if (q > 0) entropy -= q * Math.log(q); }
+        const cap = Math.min(T, p.coAttendees.size);
+        const maxE = cap > 1 ? Math.log(cap) : 0;
+        const pielou = maxE > 0 ? entropy / maxE : 0;
+        return pielou * pielou;
+      },
+      filter: (p) => p.played >= 5 } as TrophyDef,
   ];
 
   // Per-player badge collation — assign sequentially so ties favor balance.
