@@ -198,7 +198,13 @@ export default function MatchesPage() {
     }).sort((a, b) => b.diversity - a.diversity || b.distinctPartners - a.distinctPartners || a.name.localeCompare(b.name));
   }, [data]);
 
-  // New MVP: average of three normalised stats (W/maxW × 100, win%, diversity %).
+  // MVP formula cutover: sessions on or after this date use the new
+  // 60/40 wins/win-% formula. Earlier sessions keep the legacy 3-way
+  // average so historical MVPs don't retroactively change.
+  const MVP_NEW_FORMULA_FROM = "2026-05-24";
+  const sessionDateStr = data?.session.date?.slice(0, 10) ?? "";
+  const useNewMvpFormula = sessionDateStr >= MVP_NEW_FORMULA_FROM;
+
   const allMatchesDone = !!data && data.matches.length > 0 && data.matches.every((m) => m.winner !== null);
   type MvpRow = { id: number; name: string; wins: number; played: number; winPct: number; diversity: number; winsN: number; mvp: number };
   const mvpRows = useMemo<MvpRow[]>(() => {
@@ -208,10 +214,12 @@ export default function MatchesPage() {
       const d = sessionDiversity.find((x) => x.id === w.id);
       const diversity = d?.diversity ?? 0;
       const winsN = maxW > 0 ? (w.wins / maxW) * 100 : 0;
-      const mvp = (winsN + w.winPct + diversity) / 3;
+      const mvp = useNewMvpFormula
+        ? 0.6 * winsN + 0.4 * w.winPct
+        : (winsN + w.winPct + diversity) / 3;
       return { id: w.id, name: w.name, wins: w.wins, played: w.played, winPct: w.winPct, diversity, winsN, mvp };
     }).sort((a, b) => b.mvp - a.mvp || b.wins - a.wins || a.name.localeCompare(b.name));
-  }, [sessionWins, sessionDiversity]);
+  }, [sessionWins, sessionDiversity, useNewMvpFormula]);
 
   // Co-MVPs: anyone within 0.5 of the top score.
   const mvps = useMemo(() => {
@@ -1074,13 +1082,22 @@ export default function MatchesPage() {
                       ))}
                     </div>
                     <p className="mt-1 text-sm font-semibold text-yellow-50">
-                      MVP score {mvps[0].mvp.toFixed(1)} · {mvps[0].wins}W · {mvps[0].winPct}% · {mvps[0].diversity}% diverse
+                      MVP score {mvps[0].mvp.toFixed(1)} · {mvps[0].wins}W · {mvps[0].winPct}%
+                      {!useNewMvpFormula && <> · {mvps[0].diversity}% diverse</>}
                     </p>
                   </div>
                 </div>
                 <p className="text-[10px] text-slate-500 px-1 leading-relaxed">
-                  MVP = average of three sub-scores: <b>wins</b> (relative to day&apos;s max),
-                  <b> win %</b>, and <b>diversity</b> (Pielou&apos;s evenness² of partner spread).
+                  {useNewMvpFormula ? (
+                    <>
+                      MVP = <b>60 % wins</b> (relative to day&apos;s max) + <b>40 % win %</b>.
+                    </>
+                  ) : (
+                    <>
+                      MVP = average of three sub-scores: <b>wins</b> (relative to day&apos;s max),
+                      <b> win %</b>, and <b>diversity</b> (Pielou&apos;s evenness² of partner spread).
+                    </>
+                  )}
                 </p>
               </div>
             )}
