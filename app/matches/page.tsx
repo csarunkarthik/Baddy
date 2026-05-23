@@ -503,6 +503,31 @@ export default function MatchesPage() {
     load(selectedDate);
   }
 
+  async function addAttendee(playerId: number) {
+    if (!data) return;
+    const player = data.allPlayers.find((p) => p.id === playerId);
+    if (!player) return;
+    // Optimistic add — show them in the attending list immediately.
+    setData({
+      ...data,
+      session: {
+        ...data.session,
+        attending: [...data.session.attending, player].sort((a, b) => a.name.localeCompare(b.name)),
+      },
+    });
+    const res = await fetch(`/api/sessions/${data.session.id}/attendance`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ playerId, present: true }),
+    });
+    if (!res.ok) {
+      // Roll back and surface error.
+      await load(selectedDate);
+      const j = await res.json().catch(() => ({}));
+      setError(j.error || "Couldn't add attendee");
+    }
+  }
+
   async function addMatches() {
     if (!data) return;
     const n = Math.max(1, Math.min(50, Math.floor(addCount)));
@@ -698,6 +723,28 @@ export default function MatchesPage() {
                   ))}
                 </div>
               )}
+
+              {!locked && (() => {
+                const attendingIds = new Set(data.session.attending.map((p) => p.id));
+                const missing = data.allPlayers.filter((p) => !attendingIds.has(p.id));
+                if (missing.length === 0) return null;
+                return (
+                  <div className="space-y-1.5">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">+ Add late joiner</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {missing.map((p) => (
+                        <button
+                          key={p.id}
+                          onClick={() => addAttendee(p.id)}
+                          className="px-2.5 py-1 rounded-full bg-slate-50 text-slate-600 text-xs font-semibold border border-dashed border-slate-300 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-300 active:scale-95 transition-all"
+                        >
+                          + {p.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {!locked && (
                 <div className="pt-2 border-t border-gray-100 space-y-3">
