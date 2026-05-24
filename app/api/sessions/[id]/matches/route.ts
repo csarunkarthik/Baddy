@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolveCouples } from "@/lib/couples";
 import { isSessionLocked } from "@/lib/locking";
+import { computeElo, type EloMatch, ELO_START } from "@/lib/elo";
 
 export async function GET(
   _req: Request,
@@ -57,6 +58,54 @@ export async function GET(
     if (agg.played > 0) playerPriorPcts[pid] = agg.wins / agg.played;
   }
 
+  // ELO snapshot: each player's rating at the start of this session, plus
+  // their gain across the session's matches. Compute once over all completed
+  // matches in chronological order, then split the deltas by session.
+  const allCompleted = await prisma.match.findMany({
+    where: { winner: { not: null } },
+    select: {
+      id: true, matchNumber: true, winner: true,
+      teamAScore: true, teamBScore: true, sessionId: true,
+      session: { select: { date: true } },
+      participants: { select: { playerId: true, team: true } },
+    },
+  });
+  const sessionMatchIds = new Set(
+    allCompleted.filter((m) => m.sessionId === sessionId).map((m) => m.id)
+  );
+  const eloMatchesAll: EloMatch[] = allCompleted.map((m) => {
+    const a = m.participants.filter((p) => p.team === "A").map((p) => p.playerId);
+    const b = m.participants.filter((p) => p.team === "B").map((p) => p.playerId);
+    const ymd = m.session.date.toISOString().slice(0, 10);
+    return {
+      id: m.id,
+      sortKey: `${ymd}-${String(m.matchNumber).padStart(4, "0")}`,
+      teamA: a, teamB: b,
+      winner: m.winner === "A" ? "A" : "B",
+      teamAScore: m.teamAScore,
+      teamBScore: m.teamBScore,
+    };
+  });
+  const { perPlayer: eloFinal, matchDeltas } = computeElo(eloMatchesAll);
+  const sessionGain = new Map<number, number>();
+  for (const d of matchDeltas) {
+    if (!sessionMatchIds.has(d.matchId)) continue;
+    for (const [pid, delta] of Object.entries(d.deltas)) {
+      sessionGain.set(+pid, (sessionGain.get(+pid) ?? 0) + delta);
+    }
+  }
+  const playerPriorElos: Record<number, number> = {};
+  const playerSessionGains: Record<number, number> = {};
+  // For every attendee, compute prior = current - session-gain (default 1500
+  // baseline for players with no career matches).
+  for (const a of session.attendance) {
+    const pid = a.player.id;
+    const final = eloFinal.get(pid)?.rating ?? ELO_START;
+    const gain = sessionGain.get(pid) ?? 0;
+    playerPriorElos[pid] = Math.round(final - gain);
+    playerSessionGains[pid] = Math.round(gain);
+  }
+
   const matches = session.matches.map((m) => {
     const teamA = m.participants
       .filter((p) => p.team === "A")
@@ -95,5 +144,7 @@ export async function GET(
     couples,
     allPlayers,
     playerPriorPcts,
+    playerPriorElos,
+    playerSessionGains,
   });
 }

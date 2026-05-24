@@ -2,34 +2,30 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { AVATARS } from "@/lib/avatars";
 
-type Player = { id: number; name: string };
+type Player = { id: number; name: string; avatar?: string | null };
 type PlayerStat = { id: number; sessions: number };
-type Badge = { key: string; label: string; emoji: string; criteria: string };
-type Milestone = { key: string; label: string; emoji: string; threshold: number; metric: string; reached: boolean };
-type PerPlayerAwards = Record<number, { trophies: Badge[]; milestones: Milestone[] }>;
 
 export default function PlayersPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [statsMap, setStatsMap] = useState<Record<number, number>>({});
-  const [awards, setAwards] = useState<PerPlayerAwards>({});
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState("");
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
   const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [expandedAwardsId, setExpandedAwardsId] = useState<number | null>(null);
+  const [avatarPickerId, setAvatarPickerId] = useState<number | null>(null);
 
   useEffect(() => {
-    Promise.all([fetch("/api/players"), fetch("/api/stats"), fetch("/api/stats/awards")])
-      .then(([p, s, a]) => Promise.all([p.json(), s.json(), a.json()]))
-      .then(([playersData, statsData, awardsData]: [Player[], { players: PlayerStat[] }, { perPlayer: PerPlayerAwards }]) => {
+    Promise.all([fetch("/api/players"), fetch("/api/stats")])
+      .then(([p, s]) => Promise.all([p.json(), s.json()]))
+      .then(([playersData, statsData]: [Player[], { players: PlayerStat[] }]) => {
         setPlayers(playersData);
         const map: Record<number, number> = {};
         statsData.players.forEach((p) => { map[p.id] = p.sessions; });
         setStatsMap(map);
-        setAwards(awardsData.perPlayer || {});
         setLoading(false);
       });
   }, []);
@@ -37,7 +33,6 @@ export default function PlayersPage() {
   const sorted = [...players].sort((a, b) => (statsMap[b.id] ?? 0) - (statsMap[a.id] ?? 0));
   const top3 = sorted.slice(0, 3);
   const bottom3 = sorted.length >= 4 ? sorted.slice(-3).reverse() : [];
-
 
   async function addPlayer() {
     if (!newName.trim()) return;
@@ -72,6 +67,19 @@ export default function PlayersPage() {
     setEditingId(null);
   }
 
+  async function pickAvatar(playerId: number, avatar: string | null) {
+    const res = await fetch(`/api/players/${playerId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ avatar }),
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      setPlayers((prev) => prev.map((p) => (p.id === playerId ? updated : p)));
+    }
+    setAvatarPickerId(null);
+  }
+
   async function deletePlayer(id: number) {
     setDeletingId(id);
     await fetch(`/api/players/${id}`, { method: "DELETE" });
@@ -95,7 +103,7 @@ export default function PlayersPage() {
           </Link>
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight">Players</h1>
-            <p className="app-header-subtle text-sm mt-0.5">{players.length} registered</p>
+            <p className="app-header-subtle text-sm mt-0.5">{players.length} registered · tap avatar to change</p>
           </div>
         </div>
       </div>
@@ -146,12 +154,12 @@ export default function PlayersPage() {
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && addPlayer()}
-              className="flex-1 bg-gray-50 border-2 border-transparent focus:border-emerald-300 rounded-2xl px-4 py-3 text-sm font-medium text-gray-900 placeholder-gray-400 focus:outline-none transition-colors"
+              className="flex-1 bg-gray-50 border-2 border-transparent focus:border-indigo-400 rounded-2xl px-4 py-3 text-sm font-medium text-gray-900 placeholder-gray-400 focus:outline-none transition-colors"
             />
             <button
               onClick={addPlayer}
               disabled={adding || !newName.trim()}
-              className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-5 py-3 rounded-2xl text-sm font-bold shadow-md shadow-emerald-200 disabled:opacity-40 disabled:shadow-none hover:from-emerald-600 hover:to-teal-600 active:scale-95 transition-all"
+              className="bg-indigo-600 text-white px-5 py-3 rounded-2xl text-sm font-bold shadow-md disabled:opacity-40 disabled:shadow-none hover:bg-indigo-700 active:scale-95 transition-all"
             >
               {adding ? "..." : "+ Add"}
             </button>
@@ -163,7 +171,7 @@ export default function PlayersPage() {
           <h2 className="font-bold text-gray-800 mb-4">All Players</h2>
           {loading ? (
             <div className="flex justify-center py-8">
-              <div className="w-8 h-8 rounded-full border-4 border-emerald-200 border-t-emerald-500 animate-spin" />
+              <div className="w-8 h-8 rounded-full border-4 border-indigo-200 border-t-indigo-500 animate-spin" />
             </div>
           ) : players.length === 0 ? (
             <div className="text-center py-8 text-gray-400">
@@ -171,13 +179,11 @@ export default function PlayersPage() {
               <p className="text-sm">No players yet — add one above</p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {players.map((player) => {
-                const pawards = awards[player.id] ?? { trophies: [], milestones: [] };
-                const hasAwards = pawards.trophies.length + pawards.milestones.length > 0;
-                const isExpanded = expandedAwardsId === player.id;
+                const showPicker = avatarPickerId === player.id;
                 return (
-                  <div key={player.id} className="space-y-1.5">
+                  <div key={player.id} className="space-y-2">
                     <div className="flex items-center gap-3">
                       {editingId === player.id ? (
                         <>
@@ -190,9 +196,9 @@ export default function PlayersPage() {
                               if (e.key === "Enter") saveEdit(player.id);
                               if (e.key === "Escape") setEditingId(null);
                             }}
-                            className="flex-1 bg-emerald-50 border-2 border-emerald-300 rounded-2xl px-4 py-2.5 text-sm font-medium text-gray-900 focus:outline-none"
+                            className="flex-1 bg-indigo-50 border-2 border-indigo-300 rounded-2xl px-4 py-2.5 text-sm font-medium text-gray-900 focus:outline-none"
                           />
-                          <button onClick={() => saveEdit(player.id)} className="bg-emerald-500 text-white px-4 py-2.5 rounded-2xl text-sm font-bold hover:bg-emerald-600 active:scale-95 transition-all">
+                          <button onClick={() => saveEdit(player.id)} className="bg-indigo-600 text-white px-4 py-2.5 rounded-2xl text-sm font-bold hover:bg-indigo-700 active:scale-95 transition-all">
                             Save
                           </button>
                           <button onClick={() => setEditingId(null)} className="text-gray-400 px-3 py-2.5 rounded-2xl text-sm font-medium hover:bg-gray-100 transition-colors">
@@ -201,12 +207,16 @@ export default function PlayersPage() {
                         </>
                       ) : (
                         <>
-                          <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-emerald-100 to-teal-100 flex items-center justify-center text-sm font-bold text-emerald-700 shrink-0">
-                            {player.name[0].toUpperCase()}
-                          </div>
+                          <button
+                            onClick={() => setAvatarPickerId(showPicker ? null : player.id)}
+                            className="w-10 h-10 rounded-2xl bg-gradient-to-br from-slate-100 to-indigo-100 flex items-center justify-center text-xl shrink-0 hover:from-indigo-100 hover:to-violet-100 active:scale-95 transition-all"
+                            title="Tap to pick an avatar"
+                          >
+                            {player.avatar ?? <span className="text-sm font-bold text-indigo-700">{player.name[0].toUpperCase()}</span>}
+                          </button>
                           <span className="flex-1 text-sm font-semibold text-gray-800">{player.name}</span>
                           <span className="text-xs font-bold text-gray-400">{statsMap[player.id] ?? 0} sessions</span>
-                          <button onClick={() => startEdit(player)} className="text-gray-400 hover:text-emerald-600 px-2 py-1 rounded-xl text-sm transition-colors">✏️</button>
+                          <button onClick={() => startEdit(player)} className="text-gray-400 hover:text-indigo-600 px-2 py-1 rounded-xl text-sm transition-colors">✏️</button>
                           <button
                             onClick={() => deletePlayer(player.id)}
                             disabled={deletingId === player.id}
@@ -218,42 +228,50 @@ export default function PlayersPage() {
                       )}
                     </div>
 
-                    {hasAwards && editingId !== player.id && (
-                      <button
-                        onClick={() => setExpandedAwardsId(isExpanded ? null : player.id)}
-                        className="ml-12 flex flex-wrap items-center gap-1 text-left w-[calc(100%-3rem)]"
-                      >
-                        {pawards.trophies.map((t) => (
-                          <span key={t.key} title={`${t.label} — ${t.criteria}`} className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-50 text-base leading-none">
-                            {t.emoji}
-                          </span>
-                        ))}
-                        {pawards.milestones.map((m) => (
-                          <span key={m.key} title={m.label} className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-50 text-sm leading-none">
-                            {m.emoji}
-                          </span>
-                        ))}
-                        <span className="text-[10px] text-gray-400 font-semibold ml-1">{isExpanded ? "▴" : "▾"}</span>
-                      </button>
-                    )}
-
-                    {isExpanded && hasAwards && (
-                      <div className="ml-12 pl-3 border-l-2 border-amber-200 space-y-1">
-                        {pawards.trophies.map((t) => (
-                          <div key={t.key} className="flex items-start gap-2 text-xs">
-                            <span className="shrink-0">{t.emoji}</span>
-                            <div>
-                              <span className="font-bold text-gray-800">{t.label}</span>
-                              <span className="text-gray-400"> — {t.criteria}</span>
-                            </div>
+                    {showPicker && (
+                      <div className="ml-12 p-3 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Male</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {AVATARS.filter((a) => a.gender === "M").map((a) => (
+                              <button
+                                key={a.emoji}
+                                onClick={() => pickAvatar(player.id, a.emoji)}
+                                title={a.label}
+                                className={`w-9 h-9 rounded-xl text-lg flex items-center justify-center transition-all active:scale-95 ${
+                                  player.avatar === a.emoji ? "bg-indigo-200 ring-2 ring-indigo-500" : "bg-white hover:bg-indigo-50"
+                                }`}
+                              >
+                                {a.emoji}
+                              </button>
+                            ))}
                           </div>
-                        ))}
-                        {pawards.milestones.map((m) => (
-                          <div key={m.key} className="flex items-center gap-2 text-xs">
-                            <span className="shrink-0">{m.emoji}</span>
-                            <span className="font-semibold text-gray-600">{m.label}</span>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Female</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {AVATARS.filter((a) => a.gender === "F").map((a) => (
+                              <button
+                                key={a.emoji}
+                                onClick={() => pickAvatar(player.id, a.emoji)}
+                                title={a.label}
+                                className={`w-9 h-9 rounded-xl text-lg flex items-center justify-center transition-all active:scale-95 ${
+                                  player.avatar === a.emoji ? "bg-pink-200 ring-2 ring-pink-500" : "bg-white hover:bg-pink-50"
+                                }`}
+                              >
+                                {a.emoji}
+                              </button>
+                            ))}
                           </div>
-                        ))}
+                        </div>
+                        {player.avatar && (
+                          <button
+                            onClick={() => pickAvatar(player.id, null)}
+                            className="text-[10px] font-bold text-slate-500 hover:text-rose-600 px-2 py-1"
+                          >
+                            Clear avatar
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
