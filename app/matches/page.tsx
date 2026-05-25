@@ -32,6 +32,8 @@ type MatchesPayload = {
   couples: Couple[];
   allPlayers: Player[];
   playerPriorPcts: Record<string, number>;
+  playerPriorElos: Record<string, number>;
+  playerSessionGains: Record<string, number>;
 };
 type WinStat = { id: number; name: string; wins: number; played: number; winPct: number };
 
@@ -228,6 +230,28 @@ export default function MatchesPage() {
     return mvpRows.filter((r) => Math.abs(r.mvp - topScore) < 0.5);
   }, [allMatchesDone, mvpRows]);
 
+  // Dragon Slayer: player with the biggest ELO gain in this session.
+  // ELO is margin-aware (sqrt of point ratio when scores are recorded), so
+  // the biggest gain corresponds to beating tough opponents by good margins.
+  // We don't show the number — just the name + tagline.
+  const dragonSlayer = useMemo(() => {
+    if (!data || !allMatchesDone) return null as { id: number; name: string } | null;
+    const gains = data.playerSessionGains || {};
+    let bestId: number | null = null;
+    let bestGain = 0;
+    for (const [pid, gain] of Object.entries(gains)) {
+      if (gain > bestGain) {
+        bestGain = gain;
+        bestId = parseInt(pid);
+      }
+    }
+    if (bestId === null) return null;
+    const p = data.session.attending.find((a) => a.id === bestId);
+    if (!p) return null;
+    // Don't double-crown the MVP unless they're clearly the dragon slayer too.
+    return { id: p.id, name: p.name };
+  }, [data, allMatchesDone]);
+
   // Most Improved: player whose today win% is most above their pre-today career win%.
   // Requires they've played ≥2 today AND had prior history. Career = winStats minus today.
   const mostImproved = useMemo(() => {
@@ -365,6 +389,9 @@ export default function MatchesPage() {
     }
     if (mostImproved) {
       lines.push(`📈 Most Improved: ${mostImproved.name} — ${mostImproved.todayPct}% today (was ${mostImproved.priorPct}%)`);
+    }
+    if (dragonSlayer) {
+      lines.push(`🐉 Dragon Slayer: ${dragonSlayer.name} — beat the toughest opponents today`);
     }
     if (highImpactCount > 0) {
       lines.push(`🔥 ${highImpactCount} high-impact win${highImpactCount === 1 ? "" : "s"} (underdogs delivered)`);
@@ -1099,6 +1126,18 @@ export default function MatchesPage() {
                     </>
                   )}
                 </p>
+              </div>
+            )}
+
+            {/* Dragon Slayer of the day — beat the toughest opponents (ELO-based) */}
+            {dragonSlayer && (
+              <div className="relative overflow-hidden rounded-3xl shadow-md shadow-rose-200 p-5 bg-gradient-to-br from-rose-500 via-red-600 to-orange-700 text-white">
+                <div className="absolute -top-4 -right-2 text-7xl opacity-15 select-none">🐉</div>
+                <div className="relative">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-rose-50/90">🐉 Dragon Slayer of the day</p>
+                  <p className="mt-1 text-2xl font-extrabold tracking-tight">{dragonSlayer.name}</p>
+                  <p className="mt-1 text-sm font-semibold text-rose-50">Beat the toughest opponents today.</p>
+                </div>
               </div>
             )}
 
