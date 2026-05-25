@@ -911,6 +911,9 @@ export default function MatchesPage() {
             </div>
             )}
 
+            {/* Fixtures + Stats wrap: when all matches are done, Stats moves above Fixtures */}
+            <div className="flex flex-col gap-4">
+            <div className={allMatchesDone ? "order-2" : "order-1"}>
             {/* Matches list */}
             {data.matches.length > 0 && (
               <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 space-y-3">
@@ -933,7 +936,30 @@ export default function MatchesPage() {
                     </button>
                   )}
 
-                {data.matches.map((m) => {
+                {(() => {
+                  // Pending first (natural match-number order), then completed at the bottom.
+                  // The very first pending match is the "current" / "next up" — highlighted + enlarged.
+                  const pending = data.matches.filter((m) => !m.winner).sort((a, b) => a.matchNumber - b.matchNumber);
+                  const completed = data.matches.filter((m) => m.winner).sort((a, b) => a.matchNumber - b.matchNumber);
+                  const items: { m: typeof data.matches[number]; isActive: boolean; sectionLabel?: string }[] = [];
+                  pending.forEach((m, i) => {
+                    items.push({
+                      m,
+                      isActive: i === 0,
+                      sectionLabel: i === 0 ? "▶ Current match" : i === 1 ? "Up next" : undefined,
+                    });
+                  });
+                  if (completed.length > 0) {
+                    completed.forEach((m, i) => {
+                      items.push({
+                        m,
+                        isActive: false,
+                        sectionLabel: i === 0 ? "Completed" : undefined,
+                      });
+                    });
+                  }
+                  return items;
+                })().map(({ m, isActive, sectionLabel }) => {
                   const isEditing = editingMatchId === m.id;
                   const four = [...m.teamA, ...m.teamB].map((p) => p.id);
                   const violated = attendingForbidden(four);
@@ -942,9 +968,32 @@ export default function MatchesPage() {
                   );
 
                   return (
-                    <div key={m.id} className="rounded-2xl border border-gray-100 overflow-hidden bg-gray-50">
-                      <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-gray-100">
-                        <span className="text-xs font-bold text-gray-500">Match #{m.matchNumber}</span>
+                    <div key={m.id} className="space-y-1">
+                      {sectionLabel && (
+                        <p className={`text-[10px] font-bold uppercase tracking-wider mt-1 ${
+                          isActive ? "text-indigo-700" : "text-slate-400"
+                        }`}>
+                          {sectionLabel}
+                        </p>
+                      )}
+                      <div
+                        className={`rounded-2xl overflow-hidden transition-all ${
+                          isActive
+                            ? "border-2 border-indigo-400 shadow-lg shadow-indigo-100 bg-indigo-50/30"
+                            : m.winner
+                            ? "border border-slate-100 bg-slate-50 opacity-95"
+                            : "border border-gray-100 bg-gray-50"
+                        }`}
+                      >
+                      <div className={`flex items-center justify-between px-4 py-2 ${isActive ? "bg-indigo-50" : "bg-white"} border-b ${isActive ? "border-indigo-100" : "border-gray-100"}`}>
+                        <span className="text-xs font-bold text-gray-500 flex items-center gap-2">
+                          Match #{m.matchNumber}
+                          {isActive && (
+                            <span className="text-[10px] font-extrabold text-white bg-indigo-600 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                              ▶ Next up
+                            </span>
+                          )}
+                        </span>
                         {!locked && (
                           <div className="flex items-center gap-2">
                             <button
@@ -1069,12 +1118,15 @@ export default function MatchesPage() {
                           Score: <span className="font-bold text-gray-800">{m.teamAScore}</span> – <span className="font-bold text-gray-800">{m.teamBScore}</span>
                         </div>
                       )}
+                      </div>
                     </div>
                   );
                 })}
               </div>
             )}
+            </div>
 
+            <div className={`space-y-4 ${allMatchesDone ? "order-1" : "order-2"}`}>
             {/* Stats accordion */}
             <button
               onClick={() => setOpenStats(!openStats)}
@@ -1304,6 +1356,8 @@ export default function MatchesPage() {
               )}
             </div>
             </>)}
+            </div>
+            </div>
           </>
         ) : null}
       </div>
