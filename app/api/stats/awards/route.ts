@@ -81,6 +81,26 @@ export async function GET() {
     pointsScored: number;
     pointsConceded: number;
     matchesScored: number;
+    // Extended trophy fields
+    venueWins: Map<string, number>;
+    venuePlayed: Map<string, number>;
+    venuesWon: Set<string>;
+    weekendWins: number;
+    weekdayWins: number;
+    saturdaySessions: number;
+    sessionStreakMax: number;            // longest run of consecutive attended sessions
+    steamrollWins: number;               // wins by 10+ point margin
+    razorWins: number;                   // wins by 1–2 points
+    heartbreakerLosses: number;          // losses by 1–2 points
+    maxScoreShare: number;
+    minScoreShare: number;
+    firstReachedTen: Date | null;
+    firstReachedTwentyFive: Date | null;
+    wallDefenseWins: number;             // wins where opp team scored ≤ 10
+    stealthStriker: number;              // wins as the lower prior-W% team
+    sessionPctsByDate: { date: Date; pct: number }[];
+    firstSessionAt60Plus: Date | null;
+    maxSessionPct: number;
   };
 
   const stats = new Map<number, PlayerStats>();
@@ -113,6 +133,25 @@ export async function GET() {
       pointsScored: 0,
       pointsConceded: 0,
       matchesScored: 0,
+      venueWins: new Map(),
+      venuePlayed: new Map(),
+      venuesWon: new Set(),
+      weekendWins: 0,
+      weekdayWins: 0,
+      saturdaySessions: 0,
+      sessionStreakMax: 0,
+      steamrollWins: 0,
+      razorWins: 0,
+      heartbreakerLosses: 0,
+      maxScoreShare: 0,
+      minScoreShare: 1,
+      firstReachedTen: null,
+      firstReachedTwentyFive: null,
+      wallDefenseWins: 0,
+      stealthStriker: 0,
+      sessionPctsByDate: [],
+      firstSessionAt60Plus: null,
+      maxSessionPct: 0,
     });
   }
 
@@ -145,11 +184,30 @@ export async function GET() {
     sessionsByPlayer.get(a.playerId)!.push(a.sessionId);
   }
 
-  // Career match aggregates + partners (winning team) + partner counts + co-attendees
-  for (const m of matches) {
-    if (!m.winner) continue;
+  // Career match aggregates + partners + venue + calendar + margin tracking.
+  // Sorted chronologically so first-to-N milestones land on the right player.
+  const sortedMatches = [...matches]
+    .filter((m) => m.winner)
+    .sort((a, b) => {
+      const sa = sessionById.get(a.sessionId);
+      const sb = sessionById.get(b.sessionId);
+      const diff = (sa?.date.getTime() ?? 0) - (sb?.date.getTime() ?? 0);
+      if (diff !== 0) return diff;
+      return a.matchNumber - b.matchNumber;
+    });
+  const winsCounter = new Map<number, number>();
+  for (const m of sortedMatches) {
     const parts = participantsByMatch.get(m.id) ?? [];
     const sess = sessionById.get(m.sessionId);
+    const dow = sess?.date.getUTCDay() ?? -1;
+    const isWeekend = dow === 0 || dow === 6;
+    const hasScores = m.teamAScore !== null && m.teamBScore !== null;
+    const aScore = m.teamAScore ?? 0;
+    const bScore = m.teamBScore ?? 0;
+    const winnerScore = m.winner === "A" ? aScore : bScore;
+    const loserScore = m.winner === "A" ? bScore : aScore;
+    const margin = winnerScore - loserScore;
+
     for (const p of parts) {
       const ps = stats.get(p.playerId);
       if (!ps) continue;
@@ -165,6 +223,56 @@ export async function GET() {
         for (const a of attendance) {
           if (a.sessionId === sess.id && a.playerId !== p.playerId) ps.coAttendees.add(a.playerId);
         }
+        ps.venuePlayed.set(sess.venue, (ps.venuePlayed.get(sess.venue) ?? 0) + 1);
+      }
+      if (hasScores) {
+        const ownScore = p.team === "A" ? aScore : bScore;
+        const oppScore = p.team === "A" ? bScore : aScore;
+        const total = ownScore + oppScore;
+        if (total > 0) {
+          const share = ownScore / total;
+          if (share > ps.maxScoreShare) ps.maxScoreShare = share;
+          if (share < ps.minScoreShare) ps.minScoreShare = share;
+        }
+      }
+      if (p.team === m.winner) {
+        if (sess) { ps.venueWins.set(sess.venue, (ps.venueWins.get(sess.venue) ?? 0) + 1); ps.venuesWon.add(sess.venue); }
+        if (isWeekend) ps.weekendWins++;
+        else if (dow >= 1 && dow <= 5) ps.weekdayWins++;
+        const newWinCount = (winsCounter.get(p.playerId) ?? 0) + 1;
+        winsCounter.set(p.playerId, newWinCount);
+        if (newWinCount === 10 && !ps.firstReachedTen && sess) ps.firstReachedTen = sess.date;
+        if (newWinCount === 25 && !ps.firstReachedTwentyFive && sess) ps.firstReachedTwentyFive = sess.date;
+        if (hasScores) {
+          if (margin >= 10) ps.steamrollWins++;
+          if (margin >= 1 && margin <= 2) ps.razorWins++;
+          if (loserScore <= 10) ps.wallDefenseWins++;
+        }
+      } else if (hasScores && margin >= 1 && margin <= 2) {
+        ps.heartbreakerLosses++;
+      }
+    }
+  }
+
+  // Saturday sessions + longest consecutive attendance streak (per player).
+  const sessionsByDate = [...sessions].sort((a, b) => a.date.getTime() - b.date.getTime());
+  const attendedByPlayer = new Map<number, Set<number>>();
+  for (const a of attendance) {
+    if (!attendedByPlayer.has(a.playerId)) attendedByPlayer.set(a.playerId, new Set());
+    attendedByPlayer.get(a.playerId)!.add(a.sessionId);
+  }
+  for (const p of allPlayers) {
+    const ps = stats.get(p.id);
+    if (!ps) continue;
+    const attended = attendedByPlayer.get(p.id) ?? new Set<number>();
+    let streak = 0;
+    for (const s of sessionsByDate) {
+      if (attended.has(s.id)) {
+        streak++;
+        if (streak > ps.sessionStreakMax) ps.sessionStreakMax = streak;
+        if (s.date.getUTCDay() === 6) ps.saturdaySessions++;
+      } else {
+        streak = 0;
       }
     }
   }
@@ -238,6 +346,9 @@ export async function GET() {
         const pct = ss.wins / ss.played;
         if (pct > ps.bestSessionPct) ps.bestSessionPct = pct;
         ps.sessionPcts.push(pct);
+        ps.sessionPctsByDate.push({ date: s.date, pct });
+        if (pct > ps.maxSessionPct) ps.maxSessionPct = pct;
+        if (pct >= 0.6 && !ps.firstSessionAt60Plus) ps.firstSessionAt60Plus = s.date;
       }
       if (ss.played > ps.marathonHighest) ps.marathonHighest = ss.played;
       if (ss.seq.length >= 3) {
@@ -306,11 +417,20 @@ export async function GET() {
     const tot = aStr + bStr;
     if (tot === 0) continue;
     const winnerProb = m.winner === "A" ? aStr / tot : bStr / tot;
+    const winners = m.winner === "A" ? a : b;
     if (winnerProb < HIGH_IMPACT_THRESHOLD) {
-      const winners = m.winner === "A" ? a : b;
       for (const pid of winners) {
         const ps = stats.get(pid);
         if (ps) ps.highImpactWins++;
+      }
+    }
+    // Stealth Striker: winning team had lower prior W% than opponent
+    const winnerStr = m.winner === "A" ? aStr : bStr;
+    const loserStr = m.winner === "A" ? bStr : aStr;
+    if (winnerStr < loserStr) {
+      for (const pid of winners) {
+        const ps = stats.get(pid);
+        if (ps) ps.stealthStriker++;
       }
     }
   }
@@ -371,11 +491,15 @@ export async function GET() {
   };
   const trophyDefs: TrophyDef[] = [
     { key: "champion", label: "Champion", emoji: "🏆", criteria: "Most career wins", metric: (p) => p.wins },
-    { key: "sniper", label: "Sniper", emoji: "🎯", criteria: "Highest career W%", metric: (p) => p.played > 0 ? p.wins / p.played : 0 },
+    { key: "sniper", label: "Sniper", emoji: "🎯", criteria: "Highest career W% (≥10 played)",
+      metric: (p) => p.played >= 10 ? p.wins / p.played : 0,
+      filter: (p) => p.played >= 10 } as TrophyDef,
     { key: "mvp-crown", label: "MVP Crown", emoji: "👑", criteria: "Most MVP appearances", metric: (p) => p.mvpCount },
     { key: "the-closer", label: "The Closer", emoji: "🌙", criteria: "Won the last match of a session most", metric: (p) => p.closerCount },
     { key: "first-blood", label: "First Blood", emoji: "🐝", criteria: "Won the first match of a session most", metric: (p) => p.firstBloodCount },
-    { key: "clutch", label: "Clutch", emoji: "💎", criteria: "Best W% in last 3 matches of sessions", metric: (p) => p.last3Played > 0 ? p.last3Wins / p.last3Played : 0 },
+    { key: "clutch", label: "Clutch", emoji: "💎", criteria: "Best W% in last 3 of sessions (≥3 sessions)",
+      metric: (p) => p.last3Played >= 9 ? p.last3Wins / p.last3Played : 0,
+      filter: (p) => p.last3Played >= 9 } as TrophyDef,
     { key: "iron-player", label: "Iron Player", emoji: "🦾", criteria: "Most career matches played", metric: (p) => p.played },
     { key: "marathon", label: "Marathon Runner", emoji: "🌟", criteria: "Most matches in a single session", metric: (p) => p.marathonHighest },
     { key: "bus-driver", label: "Bus Driver", emoji: "🐎", criteria: "Most wins when paired with a bottom-3 player", metric: (p) => p.bottomPartnerWins },
@@ -429,6 +553,84 @@ export async function GET() {
         return pielou * pielou;
       },
       filter: (p) => p.played >= 5 } as TrophyDef,
+
+    // Venue-flavored
+    { key: "lara-legend", label: "Lara Legend", emoji: "📍", criteria: "Most career wins at Lara",
+      metric: (p) => p.venueWins.get("Lara") ?? 0 },
+    { key: "tt-tiger", label: "TT Sports Tiger", emoji: "🐯", criteria: "Most career wins at TT Sports",
+      metric: (p) => p.venueWins.get("TT Sports") ?? 0 },
+    { key: "sk-maestro", label: "Super Kings Maestro", emoji: "👑", criteria: "Most career wins at Super Kings",
+      metric: (p) => p.venueWins.get("Super Kings") ?? 0 },
+    { key: "wanderer", label: "Wanderer", emoji: "🌍", criteria: "Won matches at the most distinct venues",
+      metric: (p) => p.venuesWon.size },
+    { key: "court-adapter", label: "Court Adapter", emoji: "⚖️", criteria: "Smallest W% variance across venues (≥3 per venue)",
+      metric: (p) => {
+        const pcts: number[] = [];
+        for (const [v, played] of p.venuePlayed) {
+          if (played >= 3) pcts.push((p.venueWins.get(v) ?? 0) / played);
+        }
+        if (pcts.length < 2) return 0;
+        const mean = pcts.reduce((a, b) => a + b, 0) / pcts.length;
+        const variance = pcts.reduce((s, x) => s + (x - mean) ** 2, 0) / pcts.length;
+        return 1 - variance; // higher is better
+      },
+      filter: (p) => {
+        let n = 0;
+        for (const played of p.venuePlayed.values()) if (played >= 3) n++;
+        return n >= 2;
+      } } as TrophyDef,
+
+    // Calendar / attendance
+    { key: "iron-streak", label: "Iron Streak", emoji: "🚆", criteria: "Longest run of consecutive sessions attended",
+      metric: (p) => p.sessionStreakMax },
+    { key: "weekend-warrior", label: "Weekend Warrior", emoji: "🏆", criteria: "Most wins on Sat / Sun",
+      metric: (p) => p.weekendWins },
+    { key: "weekday-hustler", label: "Weekday Hustler", emoji: "🌞", criteria: "Most wins on Mon–Fri",
+      metric: (p) => p.weekdayWins },
+    { key: "saturday-saint", label: "Saturday Saint", emoji: "📅", criteria: "Most Saturday sessions attended",
+      metric: (p) => p.saturdaySessions },
+
+    // Score margin (require scored matches)
+    { key: "steamroller", label: "Steamroller", emoji: "🛡", criteria: "Most wins with a 10+ point margin",
+      metric: (p) => p.steamrollWins },
+    { key: "razors-edge", label: "Razor's Edge", emoji: "✂️", criteria: "Most wins by 1–2 points",
+      metric: (p) => p.razorWins },
+    { key: "heartbreaker", label: "Heartbreaker", emoji: "💔", criteria: "Most losses by 1–2 points",
+      metric: (p) => p.heartbreakerLosses },
+    { key: "range-master", label: "Range Master", emoji: "🎢", criteria: "Biggest range between best and worst score share",
+      metric: (p) => p.maxScoreShare > 0 ? p.maxScoreShare - p.minScoreShare : 0 },
+
+    // Permanent milestones — earliest to reach
+    { key: "first-to-10", label: "First to 10 Wins", emoji: "🥇", criteria: "Earliest player to reach 10 career wins",
+      metric: (p) => p.firstReachedTen ? -p.firstReachedTen.getTime() : 0,
+      filter: (p) => p.firstReachedTen !== null } as TrophyDef,
+    { key: "first-to-25", label: "First to 25 Wins", emoji: "🥈", criteria: "Earliest player to reach 25 career wins",
+      metric: (p) => p.firstReachedTwentyFive ? -p.firstReachedTwentyFive.getTime() : 0,
+      filter: (p) => p.firstReachedTwentyFive !== null } as TrophyDef,
+
+    // Defensive / underdog
+    { key: "wall", label: "Wall", emoji: "🧱", criteria: "Most wins where opponent scored ≤ 10",
+      metric: (p) => p.wallDefenseWins },
+    { key: "stealth-striker", label: "Stealth Striker", emoji: "🥷", criteria: "Most wins as the lower-rated team (by prior W%)",
+      metric: (p) => p.stealthStriker },
+
+    // Trajectory
+    { key: "trending-up", label: "Trending Up", emoji: "📈", criteria: "Largest W% jump from first to recent sessions (≥4 sessions)",
+      metric: (p) => {
+        const sorted = [...p.sessionPctsByDate].sort((a, b) => a.date.getTime() - b.date.getTime());
+        if (sorted.length < 4) return 0;
+        const k = Math.min(3, Math.floor(sorted.length / 2));
+        const first = sorted.slice(0, k).map((x) => x.pct).reduce((a, b) => a + b, 0) / k;
+        const last = sorted.slice(-k).map((x) => x.pct).reduce((a, b) => a + b, 0) / k;
+        return last - first;
+      },
+      filter: (p) => p.sessionPctsByDate.length >= 4 } as TrophyDef,
+    { key: "late-bloomer", label: "Late Bloomer", emoji: "🌱", criteria: "Newest player to crack 60% W% in a session",
+      metric: (p) => p.firstSessionAt60Plus ? p.createdAt.getTime() : 0,
+      filter: (p) => p.firstSessionAt60Plus !== null } as TrophyDef,
+    { key: "comet", label: "Comet", emoji: "☄️", criteria: "Highest single-session W% ever (one-shot brilliance)",
+      metric: (p) => p.maxSessionPct,
+      filter: (p) => p.sessionPctsByDate.length >= 1 } as TrophyDef,
   ];
 
   // Per-player badge collation — assign sequentially so ties favor balance.
