@@ -23,9 +23,14 @@ type PointsStat = {
 
 const MEDAL: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
 
+const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
 export default function StatsPage() {
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear);
+  const [month, setMonth] = useState<number | null>(null);
+  const [venue, setVenue] = useState<string | null>(null);
+  const [lastN, setLastN] = useState<number | null>(null);
   const [stats, setStats] = useState<PlayerStat[]>([]);
   const [venues, setVenues] = useState<VenueStat[]>([]);
   const [wins, setWins] = useState<Record<number, WinStat>>({});
@@ -36,15 +41,24 @@ export default function StatsPage() {
   const [availableYears, setAvailableYears] = useState<number[]>([currentYear]);
   const [loading, setLoading] = useState(true);
 
-  async function loadStats(y: number) {
+  function buildQuery(y: number, m: number | null, v: string | null, n: number | null) {
+    const params = new URLSearchParams({ year: String(y) });
+    if (m) params.set("month", String(m));
+    if (v) params.set("venue", v);
+    if (n) params.set("lastN", String(n));
+    return params.toString();
+  }
+
+  async function loadStats(y: number, m: number | null, v: string | null, n: number | null) {
     setLoading(true);
+    const qs = buildQuery(y, m, v, n);
     const [statsRes, venuesRes, winsRes, partnersRes, pointsRes, diversityRes] = await Promise.all([
-      fetch(`/api/stats?year=${y}`),
+      fetch(`/api/stats?${qs}`),
       fetch(`/api/venues`),
-      fetch(`/api/stats/wins?year=${y}`),
-      fetch(`/api/stats/best-partners?year=${y}`),
-      fetch(`/api/stats/points?year=${y}`),
-      fetch(`/api/stats/diversity?year=${y}`),
+      fetch(`/api/stats/wins?${qs}`),
+      fetch(`/api/stats/best-partners?${qs}`),
+      fetch(`/api/stats/points?${qs}`),
+      fetch(`/api/stats/diversity?${qs}`),
     ]);
     const statsData = await statsRes.json();
     const ranked = statsData.players.map((p: Omit<PlayerStat, "rank">) => ({
@@ -68,12 +82,23 @@ export default function StatsPage() {
     setLoading(false);
   }
 
-  useEffect(() => { loadStats(year); }, []);
+  useEffect(() => { loadStats(year, month, venue, lastN); }, []);
 
-  function handleYearChange(y: number) {
-    setYear(y);
-    loadStats(y);
+  function handleYearChange(y: number) { setYear(y); loadStats(y, month, venue, lastN); }
+  function handleMonthChange(m: number | null) { setMonth(m); loadStats(year, m, venue, lastN); }
+  function handleVenueChange(v: string | null) { setVenue(v); loadStats(year, month, v, lastN); }
+  function handleLastNChange(n: number | null) { setLastN(n); loadStats(year, month, venue, n); }
+  function clearFilters() {
+    setMonth(null); setVenue(null); setLastN(null);
+    loadStats(year, null, null, null);
   }
+
+  const sliceLabel = [
+    String(year),
+    month ? MONTH_NAMES[month - 1] : null,
+    venue,
+    lastN ? `last ${lastN}` : null,
+  ].filter(Boolean).join(" · ");
 
   const max = stats[0]?.sessions ?? 1;
   const maxVenue = venues[0]?.count ?? 1;
@@ -85,7 +110,7 @@ export default function StatsPage() {
           <Link href="/" className="mt-1 w-9 h-9 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors font-bold">←</Link>
           <div className="flex-1">
             <h1 className="text-3xl font-extrabold tracking-tight">Stats</h1>
-            <p className="app-header-subtle text-sm mt-0.5">{stats.length} players · {totalDays} {totalDays === 1 ? "day" : "days"} played</p>
+            <p className="app-header-subtle text-sm mt-0.5">{sliceLabel} · {totalDays} {totalDays === 1 ? "day" : "days"} · {stats.length} players</p>
           </div>
         </div>
         {/* Year selector */}
@@ -102,6 +127,47 @@ export default function StatsPage() {
             </button>
           ))}
         </div>
+        {/* Filter pills: Month / Venue / Last-N */}
+        <div className="relative mt-2 flex gap-2 flex-wrap items-center">
+          <select
+            value={month ?? ""}
+            onChange={(e) => handleMonthChange(e.target.value ? parseInt(e.target.value) : null)}
+            className="bg-white/20 text-white text-xs font-bold px-3 py-1.5 rounded-full focus:outline-none cursor-pointer"
+          >
+            <option value="">All months</option>
+            {MONTH_NAMES.map((m, i) => (
+              <option key={m} value={i + 1} className="text-gray-800">{m}</option>
+            ))}
+          </select>
+          <select
+            value={venue ?? ""}
+            onChange={(e) => handleVenueChange(e.target.value || null)}
+            className="bg-white/20 text-white text-xs font-bold px-3 py-1.5 rounded-full focus:outline-none cursor-pointer"
+          >
+            <option value="">All venues</option>
+            {venues.map((v) => (
+              <option key={v.venue} value={v.venue} className="text-gray-800">{v.venue}</option>
+            ))}
+          </select>
+          <select
+            value={lastN ?? ""}
+            onChange={(e) => handleLastNChange(e.target.value ? parseInt(e.target.value) : null)}
+            className="bg-white/20 text-white text-xs font-bold px-3 py-1.5 rounded-full focus:outline-none cursor-pointer"
+          >
+            <option value="">All sessions</option>
+            <option value="5" className="text-gray-800">Last 5</option>
+            <option value="10" className="text-gray-800">Last 10</option>
+            <option value="25" className="text-gray-800">Last 25</option>
+          </select>
+          {(month || venue || lastN) && (
+            <button
+              onClick={clearFilters}
+              className="text-xs text-white/80 hover:text-white underline px-1"
+            >
+              Clear
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="px-4 py-5 max-w-lg mx-auto space-y-4">
@@ -115,11 +181,11 @@ export default function StatsPage() {
             {stats.length === 0 ? (
               <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-10 text-center">
                 <div className="text-4xl mb-3">🏸</div>
-                <p className="text-gray-400 text-sm font-medium">No sessions in {year} yet</p>
+                <p className="text-gray-400 text-sm font-medium">No sessions match this filter</p>
               </div>
             ) : (
               <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 space-y-2">
-                <h2 className="font-bold text-gray-800 px-2 pb-1">Players · {year}</h2>
+                <h2 className="font-bold text-gray-800 px-2 pb-1">Players</h2>
                 {stats.map((p) => (
                   <div key={p.id} className="flex items-center gap-3 p-2">
                     <span className="w-8 text-center text-lg shrink-0">
@@ -189,7 +255,7 @@ export default function StatsPage() {
               return (
                 <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 space-y-1">
                   <h2 className="font-bold text-gray-800 px-2 pb-1 flex items-center gap-2">
-                    🏆 <span>Wins · {year}</span>
+                    🏆 <span>Wins</span>
                   </h2>
                   <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 gap-y-1.5 px-2 py-1 text-xs">
                     <div className="font-bold text-gray-400 uppercase tracking-wider">Player</div>

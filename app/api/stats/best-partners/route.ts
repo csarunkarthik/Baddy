@@ -1,23 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-
-function yearBounds(year: number) {
-  return {
-    gte: new Date(`${year}-01-01T00:00:00Z`),
-    lt: new Date(`${year + 1}-01-01T00:00:00Z`),
-  };
-}
+import { parseStatsScope, resolveSessionIds } from "@/lib/stats-filter";
 
 // For each player, return their best partner (highest wins-together, then win%),
-// plus the top duos overall. Optional ?year=YYYY filter.
+// plus the top duos overall. Supports ?year, ?month, ?venue, ?lastN.
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const yearParam = searchParams.get("year");
-  const sessionFilter = yearParam ? { date: yearBounds(parseInt(yearParam)) } : undefined;
+  const scope = parseStatsScope(req.url);
+  const ids = await resolveSessionIds(scope);
   const matches = await prisma.match.findMany({
     where: {
       winner: { not: null },
-      ...(sessionFilter ? { session: sessionFilter } : {}),
+      ...(ids === "all" ? {} : { sessionId: { in: ids } }),
     },
     select: {
       id: true,

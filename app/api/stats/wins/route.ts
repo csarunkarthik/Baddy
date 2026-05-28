@@ -1,19 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-
-function yearBounds(year: number) {
-  return {
-    gte: new Date(`${year}-01-01T00:00:00Z`),
-    lt: new Date(`${year + 1}-01-01T00:00:00Z`),
-  };
-}
+import { parseStatsScope, resolveSessionIds } from "@/lib/stats-filter";
 
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const yearParam = searchParams.get("year");
-  const where = yearParam
-    ? { match: { session: { date: yearBounds(parseInt(yearParam)) } } }
-    : undefined;
+  const scope = parseStatsScope(req.url);
+  const ids = await resolveSessionIds(scope);
+  const where =
+    ids === "all"
+      ? undefined
+      : { match: { sessionId: { in: ids } } };
 
   const rows = await prisma.matchPlayer.findMany({
     where,

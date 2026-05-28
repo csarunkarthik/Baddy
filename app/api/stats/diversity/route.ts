@@ -1,18 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { parseStatsScope, resolveSessionIds } from "@/lib/stats-filter";
 
 // Partner diversity score per player.
 // Metric: Pielou's evenness with max-entropy capped at log(min(T, K)),
 // then squared to stretch the visual spread into roughly 50–100.
 //   T = matches the player has played in (with a winner)
 //   K = total co-attendees the player could have partnered with
-// Filters:
-//   ?year=YYYY     — career within that year
-//   ?sessionId=N   — restrict to one session (uses that session's attendees as K)
-
-function yearBounds(year: number) {
-  return { gte: new Date(`${year}-01-01T00:00:00Z`), lt: new Date(`${year + 1}-01-01T00:00:00Z`) };
-}
+// Filters: ?year, ?month, ?venue, ?lastN (career slice) OR ?sessionId (single).
 
 type Stat = {
   id: number;
@@ -26,7 +21,6 @@ type Stat = {
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const yearParam = searchParams.get("year");
   const sessionIdParam = searchParams.get("sessionId");
 
   const matchWhere: Record<string, unknown> = { winner: { not: null } };
@@ -43,8 +37,10 @@ export async function GET(req: Request) {
       select: { playerId: true },
     });
     sessionAttendeeSet = new Set(att.map((a) => a.playerId));
-  } else if (yearParam) {
-    matchWhere.session = { date: yearBounds(parseInt(yearParam)) };
+  } else {
+    const scope = parseStatsScope(req.url);
+    const ids = await resolveSessionIds(scope);
+    if (ids !== "all") matchWhere.sessionId = { in: ids };
   }
 
   const matches = await prisma.match.findMany({

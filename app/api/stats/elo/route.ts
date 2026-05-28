@@ -1,22 +1,19 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { computeElo, type EloMatch } from "@/lib/elo";
+import { parseStatsScope, resolveSessionIds } from "@/lib/stats-filter";
 
 // All-time ELO ratings + Strength of Wins / Schedule / upset count per player.
 // Margin-aware sqrt formula applies when both scores are recorded; binary
-// otherwise. Filter by ?year=YYYY.
-function yearBounds(year: number) {
-  return { gte: new Date(`${year}-01-01T00:00:00Z`), lt: new Date(`${year + 1}-01-01T00:00:00Z`) };
-}
-
+// otherwise. Supports ?year, ?month, ?venue, ?lastN.
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const yearParam = searchParams.get("year");
+  const scope = parseStatsScope(req.url);
+  const ids = await resolveSessionIds(scope);
 
   const matches = await prisma.match.findMany({
     where: {
       winner: { not: null },
-      ...(yearParam ? { session: { date: yearBounds(parseInt(yearParam)) } } : {}),
+      ...(ids === "all" ? {} : { sessionId: { in: ids } }),
     },
     select: {
       id: true,

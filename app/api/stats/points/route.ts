@@ -1,27 +1,18 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { parseStatsScope, resolveSessionIds } from "@/lib/stats-filter";
 
 // Per-player aggregate points: total earned, best single match, points conceded,
-// differential, average per match, biggest win margin.
-// Only counts matches where BOTH teamAScore and teamBScore are present.
-// Optional ?year=YYYY filter.
-function yearBounds(year: number) {
-  return {
-    gte: new Date(`${year}-01-01T00:00:00Z`),
-    lt: new Date(`${year + 1}-01-01T00:00:00Z`),
-  };
-}
-
+// differential, average per match. Only counts matches with both scores recorded.
+// Supports ?year=YYYY, ?month=1-12, ?venue=name, ?lastN=N.
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const yearParam = searchParams.get("year");
-  const sessionFilter = yearParam ? { date: yearBounds(parseInt(yearParam)) } : undefined;
-
+  const scope = parseStatsScope(req.url);
+  const ids = await resolveSessionIds(scope);
   const matches = await prisma.match.findMany({
     where: {
       teamAScore: { not: null },
       teamBScore: { not: null },
-      ...(sessionFilter ? { session: sessionFilter } : {}),
+      ...(ids === "all" ? {} : { sessionId: { in: ids } }),
     },
     include: {
       participants: { include: { player: { select: { id: true, name: true } } } },
