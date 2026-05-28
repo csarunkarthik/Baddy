@@ -39,9 +39,17 @@ body {
     linear-gradient(135deg, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.42)),
     url("/header-home.jpg");
   background-size: cover, cover;
-  background-position: center, center;
+  background-position: center, 70% center;
   background-repeat: no-repeat, no-repeat;
   color: white;
+}
+/* On wider screens the header is short relative to the image width, so the
+   visible vertical slice gets too thin to see the player. Give it more room. */
+@media (min-width: 768px) {
+  .app-header { min-height: 260px; }
+}
+@media (min-width: 1280px) {
+  .app-header { min-height: 320px; }
 }
 .app-header-subtle { color: rgba(255, 255, 255, 0.88); }
 
