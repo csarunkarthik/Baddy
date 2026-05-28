@@ -34,22 +34,16 @@ body {
 }
 .app-header {
   /* Shared badminton photo, layered under a black transparent wash so the
-     white title text stays readable. */
+     white title text stays readable. Position targets the player's head
+     (~60% x, ~25% y) so it stays in the visible slice on both phones and
+     laptops where the header is short relative to image height. */
   background-image:
     linear-gradient(135deg, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.42)),
     url("/header-home.jpg");
   background-size: cover, cover;
-  background-position: center, 70% center;
+  background-position: center, 60% 25%;
   background-repeat: no-repeat, no-repeat;
   color: white;
-}
-/* On wider screens the header is short relative to the image width, so the
-   visible vertical slice gets too thin to see the player. Give it more room. */
-@media (min-width: 768px) {
-  .app-header { min-height: 260px; }
-}
-@media (min-width: 1280px) {
-  .app-header { min-height: 320px; }
 }
 .app-header-subtle { color: rgba(255, 255, 255, 0.88); }
 
