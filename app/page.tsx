@@ -102,10 +102,11 @@ export default function Home() {
   return (
     <div className="app-bg">
       {/* Header */}
-      <div className="relative overflow-hidden app-header px-5 pt-12 pb-8">
-        <div className="absolute inset-0 opacity-10">
-          <Shuttlecock className="absolute -top-6 -right-4 w-44 h-44 text-white -rotate-12" />
-        </div>
+      <div
+        className="relative overflow-hidden app-header px-5 pt-12 pb-8"
+        style={{ ["--header-bg" as never]: "url('/header-home.jpg')" }}
+      >
+        <Shuttlecock className="absolute top-2 right-2 w-16 h-16 text-white/40 -rotate-12 pointer-events-none" />
         <div className="relative">
           <h1 className="text-4xl font-extrabold tracking-tight">Baddy</h1>
           <p className="app-header-subtle mt-1 text-sm font-medium">{formatDisplay(selectedDate)}</p>
