@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { isSessionLocked } from "@/lib/locking";
+import { usePullToRefresh } from "../hooks/usePullToRefresh";
+import PullIndicator from "../components/PullIndicator";
 
 type Player = { id: number; name: string };
 type Session = {
@@ -20,15 +22,17 @@ export default function HistoryPage() {
   const [toggling, setToggling] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState<Set<number>>(new Set());
 
+  async function loadAll() {
+    const [h, p] = await Promise.all([fetch("/api/history"), fetch("/api/players")]);
+    const [historyData, playersData] = await Promise.all([h.json(), p.json()]);
+    setSessions(historyData);
+    setPlayers(playersData);
+    setLoading(false);
+  }
   useEffect(() => {
-    Promise.all([fetch("/api/history"), fetch("/api/players")])
-      .then(([h, p]) => Promise.all([h.json(), p.json()]))
-      .then(([historyData, playersData]) => {
-        setSessions(historyData);
-        setPlayers(playersData);
-        setLoading(false);
-      });
+    loadAll();
   }, []);
+  const pull = usePullToRefresh(loadAll);
 
   const IST = "Asia/Kolkata";
 
@@ -86,6 +90,7 @@ export default function HistoryPage() {
 
   return (
     <div className="app-bg">
+      <PullIndicator distance={pull.distance} refreshing={pull.refreshing} threshold={pull.threshold} />
       {/* Header */}
       <div className="relative overflow-hidden app-header px-5 pt-12 pb-8">
         <div className="absolute inset-0 opacity-10">

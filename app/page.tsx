@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { isSessionLocked } from "@/lib/locking";
+import Shuttlecock from "./components/Shuttlecock";
 
 type Player = { id: number; name: string };
 type Session = { id: number; venue: string; date: string; attendance: { player: Player }[] };
@@ -103,7 +104,7 @@ export default function Home() {
       {/* Header */}
       <div className="relative overflow-hidden app-header px-5 pt-12 pb-8">
         <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-4 right-8 text-8xl">🏸</div>
+          <Shuttlecock className="absolute -top-6 -right-4 w-44 h-44 text-white -rotate-12" />
           <div className="absolute -bottom-4 -left-4 w-32 h-32 rounded-full bg-white" />
         </div>
         <div className="relative">

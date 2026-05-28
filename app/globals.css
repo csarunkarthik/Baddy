@@ -21,10 +21,15 @@ body {
 /* Night Match palette — central design tokens.
    Change values here to re-skin the whole app. */
 .app-bg {
-  background-image: linear-gradient(to bottom right,
-    var(--color-slate-50),
-    var(--color-indigo-50),
-    var(--color-violet-50));
+  background-image:
+    url("/court-pattern.svg"),
+    linear-gradient(to bottom right,
+      var(--color-slate-50),
+      var(--color-indigo-50),
+      var(--color-violet-50));
+  background-size: 320px 320px, cover;
+  background-repeat: repeat, no-repeat;
+  background-attachment: fixed, fixed;
   min-height: 100vh;
 }
 .app-header {
