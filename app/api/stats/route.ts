@@ -4,7 +4,7 @@ import { parseStatsScope, resolveSessionIds } from "@/lib/stats-filter";
 
 export async function GET(req: Request) {
   const scope = parseStatsScope(req.url);
-  const fallbackYear = scope.year ?? new Date().getUTCFullYear();
+  const fallbackYear = scope.years?.[0] ?? new Date().getUTCFullYear();
   const ids = await resolveSessionIds(scope);
   const sessionFilter = ids === "all" ? undefined : { id: { in: ids } };
 

@@ -27,10 +27,11 @@ const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct"
 
 export default function StatsPage() {
   const currentYear = new Date().getFullYear();
-  const [year, setYear] = useState<number | null>(currentYear);
-  const [month, setMonth] = useState<number | null>(null);
-  const [venue, setVenue] = useState<string | null>(null);
+  const [years, setYears] = useState<number[]>([currentYear]);
+  const [months, setMonths] = useState<number[]>([]);
+  const [venuesSel, setVenuesSel] = useState<string[]>([]);
   const [lastN, setLastN] = useState<number | null>(null);
+  const [filterOpen, setFilterOpen] = useState(false);
   const [stats, setStats] = useState<PlayerStat[]>([]);
   const [venues, setVenues] = useState<VenueStat[]>([]);
   const [wins, setWins] = useState<Record<number, WinStat>>({});
@@ -41,18 +42,18 @@ export default function StatsPage() {
   const [availableYears, setAvailableYears] = useState<number[]>([currentYear]);
   const [loading, setLoading] = useState(true);
 
-  function buildQuery(y: number | null, m: number | null, v: string | null, n: number | null) {
+  function buildQuery(ys: number[], ms: number[], vs: string[], n: number | null) {
     const params = new URLSearchParams();
-    if (y) params.set("year", String(y));
-    if (m) params.set("month", String(m));
-    if (v) params.set("venue", v);
+    if (ys.length) params.set("year", ys.join(","));
+    if (ms.length) params.set("month", ms.join(","));
+    if (vs.length) params.set("venue", vs.join(","));
     if (n) params.set("lastN", String(n));
     return params.toString();
   }
 
-  async function loadStats(y: number | null, m: number | null, v: string | null, n: number | null) {
+  async function loadStats(ys: number[], ms: number[], vs: string[], n: number | null) {
     setLoading(true);
-    const qs = buildQuery(y, m, v, n);
+    const qs = buildQuery(ys, ms, vs, n);
     const [statsRes, venuesRes, winsRes, partnersRes, pointsRes, diversityRes] = await Promise.all([
       fetch(`/api/stats?${qs}`),
       fetch(`/api/venues`),
@@ -84,23 +85,33 @@ export default function StatsPage() {
     setLoading(false);
   }
 
-  useEffect(() => { loadStats(year, month, venue, lastN); }, []);
+  useEffect(() => { loadStats(years, months, venuesSel, lastN); }, []);
 
-  function handleYearChange(y: number | null) { setYear(y); loadStats(y, month, venue, lastN); }
-  function handleMonthChange(m: number | null) { setMonth(m); loadStats(year, m, venue, lastN); }
-  function handleVenueChange(v: string | null) { setVenue(v); loadStats(year, month, v, lastN); }
-  function handleLastNChange(n: number | null) { setLastN(n); loadStats(year, month, venue, n); }
+  function toggleYear(y: number) {
+    const next = years.includes(y) ? years.filter((x) => x !== y) : [...years, y].sort((a, b) => b - a);
+    setYears(next); loadStats(next, months, venuesSel, lastN);
+  }
+  function toggleMonth(m: number) {
+    const next = months.includes(m) ? months.filter((x) => x !== m) : [...months, m].sort((a, b) => a - b);
+    setMonths(next); loadStats(years, next, venuesSel, lastN);
+  }
+  function toggleVenue(v: string) {
+    const next = venuesSel.includes(v) ? venuesSel.filter((x) => x !== v) : [...venuesSel, v];
+    setVenuesSel(next); loadStats(years, months, next, lastN);
+  }
+  function handleLastNChange(n: number | null) { setLastN(n); loadStats(years, months, venuesSel, n); }
   function clearFilters() {
-    setYear(null); setMonth(null); setVenue(null); setLastN(null);
-    loadStats(null, null, null, null);
+    setYears([]); setMonths([]); setVenuesSel([]); setLastN(null);
+    loadStats([], [], [], null);
   }
 
   const sliceLabel = [
-    year ? String(year) : "All time",
-    month ? MONTH_NAMES[month - 1] : null,
-    venue,
+    years.length === 0 ? "All time" : years.length <= 2 ? years.join(", ") : `${years.length} years`,
+    months.length === 0 ? null : months.length <= 3 ? months.map((m) => MONTH_NAMES[m - 1]).join(", ") : `${months.length} months`,
+    venuesSel.length === 0 ? null : venuesSel.length <= 2 ? venuesSel.join(", ") : `${venuesSel.length} venues`,
     lastN ? `last ${lastN}` : null,
   ].filter(Boolean).join(" · ");
+  const hasActiveFilter = years.length > 0 || months.length > 0 || venuesSel.length > 0 || lastN !== null;
 
   const max = stats[0]?.sessions ?? 1;
   const maxVenue = venues[0]?.count ?? 1;
@@ -115,57 +126,97 @@ export default function StatsPage() {
             <p className="app-header-subtle text-sm mt-0.5">{sliceLabel} · {totalDays} {totalDays === 1 ? "day" : "days"} · {stats.length} players</p>
           </div>
         </div>
-        {/* Filter pills: Year / Month / Venue / Last-N */}
-        <div className="relative mt-4 flex gap-2 flex-wrap items-center">
-          <select
-            value={year ?? ""}
-            onChange={(e) => handleYearChange(e.target.value ? parseInt(e.target.value) : null)}
-            className="bg-white/20 text-white text-xs font-bold px-3 py-1.5 rounded-full focus:outline-none cursor-pointer"
+        {/* Filter toggle */}
+        <div className="relative mt-4 flex items-center gap-2">
+          <button
+            onClick={() => setFilterOpen((v) => !v)}
+            className="bg-white/20 hover:bg-white/30 text-white text-xs font-bold px-3 py-1.5 rounded-full transition-colors"
           >
-            <option value="">All years</option>
-            {availableYears.map((y) => (
-              <option key={y} value={y} className="text-gray-800">{y}</option>
-            ))}
-          </select>
-          <select
-            value={month ?? ""}
-            onChange={(e) => handleMonthChange(e.target.value ? parseInt(e.target.value) : null)}
-            className="bg-white/20 text-white text-xs font-bold px-3 py-1.5 rounded-full focus:outline-none cursor-pointer"
-          >
-            <option value="">All months</option>
-            {MONTH_NAMES.map((m, i) => (
-              <option key={m} value={i + 1} className="text-gray-800">{m}</option>
-            ))}
-          </select>
-          <select
-            value={venue ?? ""}
-            onChange={(e) => handleVenueChange(e.target.value || null)}
-            className="bg-white/20 text-white text-xs font-bold px-3 py-1.5 rounded-full focus:outline-none cursor-pointer"
-          >
-            <option value="">All venues</option>
-            {venues.map((v) => (
-              <option key={v.venue} value={v.venue} className="text-gray-800">{v.venue}</option>
-            ))}
-          </select>
-          <select
-            value={lastN ?? ""}
-            onChange={(e) => handleLastNChange(e.target.value ? parseInt(e.target.value) : null)}
-            className="bg-white/20 text-white text-xs font-bold px-3 py-1.5 rounded-full focus:outline-none cursor-pointer"
-          >
-            <option value="">All sessions</option>
-            <option value="5" className="text-gray-800">Last 5</option>
-            <option value="10" className="text-gray-800">Last 10</option>
-            <option value="25" className="text-gray-800">Last 25</option>
-          </select>
-          {(year || month || venue || lastN) && (
+            {filterOpen ? "Hide filters" : "Filters"}
+            {hasActiveFilter && !filterOpen && <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-white text-indigo-600 text-[10px]">
+              {years.length + months.length + venuesSel.length + (lastN ? 1 : 0)}
+            </span>}
+          </button>
+          {hasActiveFilter && (
             <button
               onClick={clearFilters}
               className="text-xs text-white/80 hover:text-white underline px-1"
             >
-              Clear
+              Clear all
             </button>
           )}
         </div>
+        {filterOpen && (
+          <div className="relative mt-3 space-y-3">
+            {/* Year chips */}
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-white/70 mb-1.5">Year</div>
+              <div className="flex flex-wrap gap-1.5">
+                {availableYears.map((y) => {
+                  const on = years.includes(y);
+                  return (
+                    <button key={y} onClick={() => toggleYear(y)}
+                      className={`text-xs font-bold px-2.5 py-1 rounded-full transition-colors ${on ? "bg-white text-indigo-700" : "bg-white/20 text-white hover:bg-white/30"}`}>
+                      {y}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            {/* Month chips */}
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-white/70 mb-1.5">Month</div>
+              <div className="flex flex-wrap gap-1.5">
+                {MONTH_NAMES.map((m, i) => {
+                  const on = months.includes(i + 1);
+                  return (
+                    <button key={m} onClick={() => toggleMonth(i + 1)}
+                      className={`text-xs font-bold px-2.5 py-1 rounded-full transition-colors ${on ? "bg-white text-indigo-700" : "bg-white/20 text-white hover:bg-white/30"}`}>
+                      {m}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            {/* Venue chips */}
+            {venues.length > 0 && (
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-white/70 mb-1.5">Venue</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {venues.map((v) => {
+                    const on = venuesSel.includes(v.venue);
+                    return (
+                      <button key={v.venue} onClick={() => toggleVenue(v.venue)}
+                        className={`text-xs font-bold px-2.5 py-1 rounded-full transition-colors ${on ? "bg-white text-indigo-700" : "bg-white/20 text-white hover:bg-white/30"}`}>
+                        {v.venue}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {/* Last-N (single-select) */}
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-white/70 mb-1.5">Recent sessions</div>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { label: "All", v: null as number | null },
+                  { label: "Last 5", v: 5 },
+                  { label: "Last 10", v: 10 },
+                  { label: "Last 25", v: 25 },
+                ].map((opt) => {
+                  const on = lastN === opt.v;
+                  return (
+                    <button key={opt.label} onClick={() => handleLastNChange(opt.v)}
+                      className={`text-xs font-bold px-2.5 py-1 rounded-full transition-colors ${on ? "bg-white text-indigo-700" : "bg-white/20 text-white hover:bg-white/30"}`}>
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="px-4 py-5 max-w-lg mx-auto space-y-4">

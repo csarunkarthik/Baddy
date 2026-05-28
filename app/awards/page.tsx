@@ -72,32 +72,31 @@ export default function AwardsPage() {
           </div>
         ) : (
           <>
-            {/* Trophy gallery — one card per awarded trophy */}
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5">
-              <h2 className="font-bold text-gray-800 text-sm mb-4 flex items-center gap-2">
+            {/* Trophy gallery — dense single-line rows */}
+            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4">
+              <h2 className="font-bold text-gray-800 text-sm mb-2 flex items-center gap-2">
                 🏆 Trophies
                 <span className="text-xs text-gray-400 font-semibold ml-auto">{awarded.length} awarded</span>
               </h2>
-              <div className="grid grid-cols-1 gap-2">
+              <div className="divide-y divide-amber-50">
                 {awarded.map((t) => (
-                  <div key={t.key} className="flex items-start gap-3 p-3 rounded-2xl bg-gradient-to-br from-amber-50 to-yellow-50 border border-amber-100">
-                    <div className="text-2xl shrink-0">{t.emoji}</div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <span className="font-bold text-gray-800 text-sm truncate">{t.label}</span>
-                        <span className="text-xs font-bold text-amber-700 truncate">{t.winner?.name}</span>
-                      </div>
-                      <p className="text-[11px] text-gray-500 mt-0.5">{t.criteria}</p>
-                    </div>
+                  <div
+                    key={t.key}
+                    title={t.criteria}
+                    className="flex items-center gap-2 px-1 py-1.5 text-xs"
+                  >
+                    <span className="text-base leading-none shrink-0">{t.emoji}</span>
+                    <span className="font-semibold text-gray-800 truncate flex-1 min-w-0">{t.label}</span>
+                    <span className="font-bold text-amber-700 truncate shrink-0 max-w-[40%] text-right">{t.winner?.name}</span>
                   </div>
                 ))}
               </div>
               {unclaimed.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Awaiting data ({unclaimed.length})</p>
-                  <div className="flex flex-wrap gap-1.5">
+                <div className="mt-3 pt-3 border-t border-gray-100">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Awaiting data ({unclaimed.length})</p>
+                  <div className="flex flex-wrap gap-1">
                     {unclaimed.map((t) => (
-                      <span key={t.key} title={t.criteria} className="px-2.5 py-1 rounded-full text-xs font-semibold text-gray-500 bg-gray-100">
+                      <span key={t.key} title={t.criteria} className="px-2 py-0.5 rounded-full text-[10px] font-semibold text-gray-500 bg-gray-100">
                         {t.emoji} {t.label}
                       </span>
                     ))}
@@ -106,24 +105,22 @@ export default function AwardsPage() {
               )}
             </div>
 
-            {/* Team awards — top duos */}
+            {/* Team awards — top duos (dense rows) */}
             {partners && partners.topDuos.length > 0 && (
-              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5">
-                <h2 className="font-bold text-gray-800 text-sm mb-3 flex items-center gap-2">
+              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4">
+                <h2 className="font-bold text-gray-800 text-sm mb-2 flex items-center gap-2">
                   🤝 Team awards
+                  <span className="text-[10px] text-gray-400 font-semibold ml-auto">top duos · min 2</span>
                 </h2>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Top duos (min 2 together)</p>
-                <div className="space-y-1.5">
+                <div className="divide-y divide-emerald-50">
                   {partners.topDuos.map((d, i) => (
-                    <div key={`${d.p1}-${d.p2}`} className="flex items-center justify-between px-3 py-2 rounded-xl bg-emerald-50 text-xs">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-[10px] font-bold text-emerald-700 w-5 shrink-0">{i + 1}.</span>
-                        <span className="font-semibold text-emerald-900 truncate">
-                          {d.p1} <span className="text-emerald-400">+</span> {d.p2}
-                        </span>
-                      </div>
+                    <div key={`${d.p1}-${d.p2}`} className="flex items-center gap-2 px-1 py-1.5 text-xs">
+                      <span className="text-[10px] font-bold text-emerald-700 w-4 shrink-0">{i + 1}</span>
+                      <span className="font-semibold text-emerald-900 truncate flex-1 min-w-0">
+                        {d.p1} <span className="text-emerald-400">+</span> {d.p2}
+                      </span>
                       <span className="font-bold text-emerald-700 shrink-0 whitespace-nowrap">
-                        {d.wins}W/{d.played}P <span className="text-emerald-400 ml-1">{d.winPct}%</span>
+                        {d.wins}/{d.played} <span className="text-emerald-400 ml-0.5">{d.winPct}%</span>
                       </span>
                     </div>
                   ))}
@@ -131,43 +128,43 @@ export default function AwardsPage() {
               </div>
             )}
 
-            {/* Per-player overview */}
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5">
-              <h2 className="font-bold text-gray-800 text-sm mb-3 flex items-center gap-2">
+            {/* Per-player overview — dense */}
+            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4">
+              <h2 className="font-bold text-gray-800 text-sm mb-2 flex items-center gap-2">
                 👥 By player
+                <span className="text-[10px] text-gray-400 font-semibold ml-auto">{perPlayerList.length} players</span>
               </h2>
-              <div className="space-y-3">
+              <div className="divide-y divide-gray-50">
                 {perPlayerList.map((p) => (
-                  <div key={p.id} className="border-b border-gray-50 last:border-0 pb-3 last:pb-0">
-                    <div className="flex items-baseline justify-between mb-1">
-                      <span className="font-bold text-gray-800 text-sm">{p.name}</span>
-                      <span className="text-[10px] text-gray-400 font-semibold">
-                        {p.trophies.length} trophy{p.trophies.length === 1 ? "" : "s"} · {p.milestones.length} milestone{p.milestones.length === 1 ? "" : "s"}
-                      </span>
+                  <div key={p.id} className="py-1.5 flex items-start gap-2">
+                    <div className="flex flex-col shrink-0 w-[88px]">
+                      <span className="font-bold text-gray-800 text-xs truncate">{p.name}</span>
+                      <span className="text-[9px] text-gray-400 font-semibold">{p.trophies.length}T · {p.milestones.length}M</span>
                     </div>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-1 flex-1 min-w-0">
                       {p.trophies.map((t) => (
                         <span
                           key={t.key}
                           title={`${t.label} — ${t.criteria}`}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 text-[10px] font-bold"
+                          className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-800 text-[10px] font-bold"
                         >
-                          {t.emoji} {t.label}
+                          {t.emoji}
                         </span>
                       ))}
                       {p.milestones.map((m) => (
                         <span
                           key={m.key}
                           title={m.label}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-50 text-slate-600 text-[10px] font-semibold"
+                          className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-slate-50 text-slate-600 text-[10px] font-semibold"
                         >
-                          {m.emoji} {m.label}
+                          {m.emoji}
                         </span>
                       ))}
                     </div>
                   </div>
                 ))}
               </div>
+              <p className="text-[10px] text-gray-400 mt-2">Tap-hold any badge to see the trophy name.</p>
             </div>
           </>
         )}
