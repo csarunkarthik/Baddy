@@ -27,7 +27,7 @@ const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct"
 
 export default function StatsPage() {
   const currentYear = new Date().getFullYear();
-  const [year, setYear] = useState<number | null>(currentYear);
+  const [year, setYear] = useState<number | null>(null);
   const [month, setMonth] = useState<number | null>(null);
   const [venue, setVenue] = useState<string | null>(null);
   const [lastN, setLastN] = useState<number | null>(null);
@@ -70,13 +70,6 @@ export default function StatsPage() {
     setTotalDays(statsData.totalDays);
     const yrs: number[] = statsData.availableYears.length ? statsData.availableYears : [currentYear];
     setAvailableYears(yrs);
-    // Auto-fallback: if the currently-selected year has no sessions yet (e.g. early in a new year),
-    // jump to the most recent year with data so the page isn't blank by default.
-    if (y && !yrs.includes(y) && yrs.length > 0) {
-      setYear(yrs[0]);
-      loadStats(yrs[0], m, v, n);
-      return;
-    }
     setVenues(await venuesRes.json());
     const winsArr: WinStat[] = winsRes.ok ? await winsRes.json() : [];
     setWins(Object.fromEntries(winsArr.map((w) => [w.id, w])));
@@ -98,8 +91,8 @@ export default function StatsPage() {
   function handleVenueChange(v: string | null) { setVenue(v); loadStats(year, month, v, lastN); }
   function handleLastNChange(n: number | null) { setLastN(n); loadStats(year, month, venue, n); }
   function clearFilters() {
-    setMonth(null); setVenue(null); setLastN(null);
-    loadStats(year, null, null, null);
+    setYear(null); setMonth(null); setVenue(null); setLastN(null);
+    loadStats(null, null, null, null);
   }
 
   const sliceLabel = [
@@ -164,7 +157,7 @@ export default function StatsPage() {
             <option value="10" className="text-gray-800">Last 10</option>
             <option value="25" className="text-gray-800">Last 25</option>
           </select>
-          {(month || venue || lastN) && (
+          {(year || month || venue || lastN) && (
             <button
               onClick={clearFilters}
               className="text-xs text-white/80 hover:text-white underline px-1"
