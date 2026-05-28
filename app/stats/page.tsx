@@ -27,7 +27,7 @@ const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct"
 
 export default function StatsPage() {
   const currentYear = new Date().getFullYear();
-  const [year, setYear] = useState<number | null>(null);
+  const [year, setYear] = useState<number | null>(currentYear);
   const [month, setMonth] = useState<number | null>(null);
   const [venue, setVenue] = useState<string | null>(null);
   const [lastN, setLastN] = useState<number | null>(null);
