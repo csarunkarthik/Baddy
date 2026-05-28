@@ -80,14 +80,13 @@ export default function AwardsPage() {
               </h2>
               <div className="divide-y divide-amber-50">
                 {awarded.map((t) => (
-                  <div
-                    key={t.key}
-                    title={t.criteria}
-                    className="flex items-center gap-2 px-1 py-1.5 text-xs"
-                  >
-                    <span className="text-base leading-none shrink-0">{t.emoji}</span>
-                    <span className="font-semibold text-gray-800 truncate flex-1 min-w-0">{t.label}</span>
-                    <span className="font-bold text-amber-700 truncate shrink-0 max-w-[40%] text-right">{t.winner?.name}</span>
+                  <div key={t.key} className="px-1 py-1.5">
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="text-base leading-none shrink-0">{t.emoji}</span>
+                      <span className="font-semibold text-gray-800 truncate flex-1 min-w-0">{t.label}</span>
+                      <span className="font-bold text-amber-700 truncate shrink-0 max-w-[40%] text-right">{t.winner?.name}</span>
+                    </div>
+                    <p className="text-[10px] text-gray-500 mt-0.5 pl-6 leading-snug">{t.criteria}</p>
                   </div>
                 ))}
               </div>
@@ -128,43 +127,43 @@ export default function AwardsPage() {
               </div>
             )}
 
-            {/* Per-player overview — dense */}
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4">
-              <h2 className="font-bold text-gray-800 text-sm mb-2 flex items-center gap-2">
+            {/* Per-player overview */}
+            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5">
+              <h2 className="font-bold text-gray-800 text-sm mb-3 flex items-center gap-2">
                 👥 By player
-                <span className="text-[10px] text-gray-400 font-semibold ml-auto">{perPlayerList.length} players</span>
               </h2>
-              <div className="divide-y divide-gray-50">
+              <div className="space-y-3">
                 {perPlayerList.map((p) => (
-                  <div key={p.id} className="py-1.5 flex items-start gap-2">
-                    <div className="flex flex-col shrink-0 w-[88px]">
-                      <span className="font-bold text-gray-800 text-xs truncate">{p.name}</span>
-                      <span className="text-[9px] text-gray-400 font-semibold">{p.trophies.length}T · {p.milestones.length}M</span>
+                  <div key={p.id} className="border-b border-gray-50 last:border-0 pb-3 last:pb-0">
+                    <div className="flex items-baseline justify-between mb-1">
+                      <span className="font-bold text-gray-800 text-sm">{p.name}</span>
+                      <span className="text-[10px] text-gray-400 font-semibold">
+                        {p.trophies.length} trophy{p.trophies.length === 1 ? "" : "s"} · {p.milestones.length} milestone{p.milestones.length === 1 ? "" : "s"}
+                      </span>
                     </div>
-                    <div className="flex flex-wrap gap-1 flex-1 min-w-0">
+                    <div className="flex flex-wrap gap-1.5">
                       {p.trophies.map((t) => (
                         <span
                           key={t.key}
                           title={`${t.label} — ${t.criteria}`}
-                          className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-800 text-[10px] font-bold"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 text-[10px] font-bold"
                         >
-                          {t.emoji}
+                          {t.emoji} {t.label}
                         </span>
                       ))}
                       {p.milestones.map((m) => (
                         <span
                           key={m.key}
                           title={m.label}
-                          className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-slate-50 text-slate-600 text-[10px] font-semibold"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-50 text-slate-600 text-[10px] font-semibold"
                         >
-                          {m.emoji}
+                          {m.emoji} {m.label}
                         </span>
                       ))}
                     </div>
                   </div>
                 ))}
               </div>
-              <p className="text-[10px] text-gray-400 mt-2">Tap-hold any badge to see the trophy name.</p>
             </div>
           </>
         )}
