@@ -131,6 +131,33 @@ export default function MatchesPage() {
     if (data && data.matches.length > 0) setOpenSetup(false);
   }, [data?.session.id, data?.matches.length]);
 
+  // Frozen fixture display order. Pending matches top, completed bottom on first
+  // load — but we DON'T re-sort when a winner is set mid-session, otherwise the
+  // match you're currently editing jumps out from under you.
+  const frozenOrderIds = useMemo<number[]>(() => {
+    if (!data) return [];
+    const pending = data.matches.filter((m) => !m.winner).sort((a, b) => a.matchNumber - b.matchNumber);
+    const completed = data.matches.filter((m) => m.winner).sort((a, b) => a.matchNumber - b.matchNumber);
+    return [...pending.map((m) => m.id), ...completed.map((m) => m.id)];
+    // intentionally only depend on session id + match count — keeps the order
+    // stable while you tap through winners and scores on the current match.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.session.id, data?.matches.length]);
+
+  // 10-second sticky "current": after you change a score, the match stays the
+  // Current match for 10s of no further changes. After that the label moves on.
+  const STICKY_MS = 10_000;
+  const [lastEdited, setLastEdited] = useState<{ id: number; at: number } | null>(null);
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (!lastEdited) return;
+    const remaining = STICKY_MS - (Date.now() - lastEdited.at);
+    if (remaining <= 0) { setLastEdited(null); return; }
+    const t = setTimeout(() => setTick((v) => v + 1), Math.min(1000, remaining));
+    return () => clearTimeout(t);
+  }, [lastEdited, tick]);
+  const stickyActiveId = lastEdited && (Date.now() - lastEdited.at < STICKY_MS) ? lastEdited.id : null;
+
   const attendingCount = data?.session.attending.length ?? 0;
   const canGenerate = attendingCount >= 4;
 
@@ -527,6 +554,7 @@ export default function MatchesPage() {
 
   async function saveScores(matchId: number, aScore: number | null, bScore: number | null) {
     if (!data) return;
+    setLastEdited({ id: matchId, at: Date.now() });
     setData({
       ...data,
       matches: data.matches.map((m) => {
@@ -958,28 +986,21 @@ export default function MatchesPage() {
                   )}
 
                 {(() => {
-                  // Pending first (natural match-number order), then completed at the bottom.
-                  // The very first pending match is the "current" / "next up" — highlighted + enlarged.
-                  const pending = data.matches.filter((m) => !m.winner).sort((a, b) => a.matchNumber - b.matchNumber);
-                  const completed = data.matches.filter((m) => m.winner).sort((a, b) => a.matchNumber - b.matchNumber);
-                  const items: { m: typeof data.matches[number]; isActive: boolean; sectionLabel?: string }[] = [];
-                  pending.forEach((m, i) => {
-                    items.push({
-                      m,
-                      isActive: i === 0,
-                      sectionLabel: i === 0 ? "▶ Current match" : i === 1 ? "Up next" : undefined,
-                    });
+                  // Frozen order keeps positions stable while you edit. Active match =
+                  // whatever you've edited in the last 10s, otherwise the first match
+                  // without a winner. After 10s of no change, the label moves on naturally.
+                  const lookup = new Map(data.matches.map((m) => [m.id, m]));
+                  const ordered = frozenOrderIds.map((id) => lookup.get(id)).filter(Boolean) as typeof data.matches;
+                  const firstPendingIdx = ordered.findIndex((m) => !m.winner);
+                  const stickyIdx = stickyActiveId !== null ? ordered.findIndex((m) => m.id === stickyActiveId) : -1;
+                  const activeIdx = stickyIdx >= 0 ? stickyIdx : firstPendingIdx;
+                  return ordered.map((m, idx) => {
+                    const isActive = idx === activeIdx;
+                    let sectionLabel: string | undefined;
+                    if (isActive) sectionLabel = "▶ Current match";
+                    else if (firstPendingIdx >= 0 && idx === firstPendingIdx && stickyIdx >= 0 && stickyIdx !== firstPendingIdx) sectionLabel = "Up next";
+                    return { m, isActive, sectionLabel };
                   });
-                  if (completed.length > 0) {
-                    completed.forEach((m, i) => {
-                      items.push({
-                        m,
-                        isActive: false,
-                        sectionLabel: i === 0 ? "Completed" : undefined,
-                      });
-                    });
-                  }
-                  return items;
                 })().map(({ m, isActive, sectionLabel }) => {
                   const isEditing = editingMatchId === m.id;
                   const four = [...m.teamA, ...m.teamB].map((p) => p.id);
