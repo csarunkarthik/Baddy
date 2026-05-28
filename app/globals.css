@@ -33,16 +33,14 @@ body {
   min-height: 100vh;
 }
 .app-header {
-  /* Per-page real badminton photo, layered under an indigo/violet wash so the
-     white title text stays readable. Each page sets --header-bg via inline
-     style or a modifier class. Defaults to /header-home.jpg. */
-  --header-bg: url("/header-home.jpg");
+  /* Shared badminton photo, layered under an indigo/violet wash so the
+     white title text stays readable. */
   background-image:
     linear-gradient(to bottom right,
       rgba(67, 56, 202, 0.72),
       rgba(124, 58, 237, 0.65),
       rgba(126, 34, 206, 0.72)),
-    var(--header-bg);
+    url("/header-home.jpg");
   background-size: cover, cover;
   background-position: center, center;
   background-repeat: no-repeat, no-repeat;

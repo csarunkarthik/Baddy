@@ -720,11 +720,7 @@ export default function MatchesPage() {
   return (
     <div className="app-bg">
       <PullIndicator distance={pull.distance} refreshing={pull.refreshing} threshold={pull.threshold} />
-      <div
-        className="relative overflow-hidden app-header px-5 pt-12 pb-8"
-        style={{ ["--header-bg" as never]: "url('/header-matches.jpg')" }}
-      >
-        <div className="absolute top-3 right-3 text-3xl opacity-50 pointer-events-none">🏆</div>
+      <div className="relative overflow-hidden app-header px-5 pt-12 pb-8">
         <div className="relative flex items-start gap-3">
           <Link href="/" className="mt-1 w-9 h-9 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors font-bold">
             ←
