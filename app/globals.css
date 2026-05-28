@@ -33,13 +33,20 @@ body {
   min-height: 100vh;
 }
 .app-header {
-  background-image: linear-gradient(to bottom right,
-    var(--color-indigo-600),
-    var(--color-violet-600),
-    var(--color-purple-600));
+  /* Real badminton court photo with an indigo/violet wash so white text stays
+     readable while still letting the photo show through. */
+  background-image:
+    linear-gradient(to bottom right,
+      rgba(67, 56, 202, 0.78),
+      rgba(124, 58, 237, 0.72),
+      rgba(126, 34, 206, 0.78)),
+    url("/header-bg.jpg");
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
   color: white;
 }
-.app-header-subtle { color: var(--color-indigo-100); }
+.app-header-subtle { color: rgba(255, 255, 255, 0.85); }
 
 /* Semantic states — winners and trophies use Night Match accents */
 .state-win-bg { background-color: var(--color-cyan-50); }

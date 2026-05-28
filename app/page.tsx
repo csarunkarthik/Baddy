@@ -105,7 +105,6 @@ export default function Home() {
       <div className="relative overflow-hidden app-header px-5 pt-12 pb-8">
         <div className="absolute inset-0 opacity-10">
           <Shuttlecock className="absolute -top-6 -right-4 w-44 h-44 text-white -rotate-12" />
-          <div className="absolute -bottom-4 -left-4 w-32 h-32 rounded-full bg-white" />
         </div>
         <div className="relative">
           <h1 className="text-4xl font-extrabold tracking-tight">Baddy</h1>

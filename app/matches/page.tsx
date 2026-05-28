@@ -133,26 +133,31 @@ export default function MatchesPage() {
 
   // Frozen fixture display order. Pending matches top, completed bottom on first
   // load — but we DON'T re-sort when a winner is set mid-session, otherwise the
-  // match you're currently editing jumps out from under you.
+  // match you're currently editing jumps out from under you. Bumps once the
+  // sticky window closes so completed matches sink to the bottom.
+  const [freezeEpoch, setFreezeEpoch] = useState(0);
   const frozenOrderIds = useMemo<number[]>(() => {
     if (!data) return [];
     const pending = data.matches.filter((m) => !m.winner).sort((a, b) => a.matchNumber - b.matchNumber);
     const completed = data.matches.filter((m) => m.winner).sort((a, b) => a.matchNumber - b.matchNumber);
     return [...pending.map((m) => m.id), ...completed.map((m) => m.id)];
-    // intentionally only depend on session id + match count — keeps the order
-    // stable while you tap through winners and scores on the current match.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data?.session.id, data?.matches.length]);
+  }, [data?.session.id, data?.matches.length, freezeEpoch]);
 
   // 10-second sticky "current": after you change a score, the match stays the
-  // Current match for 10s of no further changes. After that the label moves on.
+  // Current match for 10s of no further changes. After that the label moves on
+  // and the frozen order re-evaluates (so completed matches slide to the bottom).
   const STICKY_MS = 10_000;
   const [lastEdited, setLastEdited] = useState<{ id: number; at: number } | null>(null);
   const [tick, setTick] = useState(0);
   useEffect(() => {
     if (!lastEdited) return;
     const remaining = STICKY_MS - (Date.now() - lastEdited.at);
-    if (remaining <= 0) { setLastEdited(null); return; }
+    if (remaining <= 0) {
+      setLastEdited(null);
+      setFreezeEpoch((v) => v + 1);
+      return;
+    }
     const t = setTimeout(() => setTick((v) => v + 1), Math.min(1000, remaining));
     return () => clearTimeout(t);
   }, [lastEdited, tick]);
@@ -718,7 +723,6 @@ export default function MatchesPage() {
       <div className="relative overflow-hidden app-header px-5 pt-12 pb-8">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-4 right-8 text-8xl">🏆</div>
-          <div className="absolute -bottom-4 -left-4 w-32 h-32 rounded-full bg-white" />
         </div>
         <div className="relative flex items-start gap-3">
           <Link href="/" className="mt-1 w-9 h-9 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors font-bold">

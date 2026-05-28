@@ -83,7 +83,6 @@ export default function StatsPage() {
       <div className="relative overflow-hidden app-header px-5 pt-12 pb-8">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-4 right-8 text-8xl">📊</div>
-          <div className="absolute -bottom-4 -left-4 w-32 h-32 rounded-full bg-white" />
         </div>
         <div className="relative flex items-start gap-3">
           <Link href="/" className="mt-1 w-9 h-9 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors font-bold">←</Link>
