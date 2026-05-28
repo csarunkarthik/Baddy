@@ -27,7 +27,7 @@ const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct"
 
 export default function StatsPage() {
   const currentYear = new Date().getFullYear();
-  const [year, setYear] = useState(currentYear);
+  const [year, setYear] = useState<number | null>(currentYear);
   const [month, setMonth] = useState<number | null>(null);
   const [venue, setVenue] = useState<string | null>(null);
   const [lastN, setLastN] = useState<number | null>(null);
@@ -41,15 +41,16 @@ export default function StatsPage() {
   const [availableYears, setAvailableYears] = useState<number[]>([currentYear]);
   const [loading, setLoading] = useState(true);
 
-  function buildQuery(y: number, m: number | null, v: string | null, n: number | null) {
-    const params = new URLSearchParams({ year: String(y) });
+  function buildQuery(y: number | null, m: number | null, v: string | null, n: number | null) {
+    const params = new URLSearchParams();
+    if (y) params.set("year", String(y));
     if (m) params.set("month", String(m));
     if (v) params.set("venue", v);
     if (n) params.set("lastN", String(n));
     return params.toString();
   }
 
-  async function loadStats(y: number, m: number | null, v: string | null, n: number | null) {
+  async function loadStats(y: number | null, m: number | null, v: string | null, n: number | null) {
     setLoading(true);
     const qs = buildQuery(y, m, v, n);
     const [statsRes, venuesRes, winsRes, partnersRes, pointsRes, diversityRes] = await Promise.all([
@@ -67,7 +68,15 @@ export default function StatsPage() {
     }));
     setStats(ranked);
     setTotalDays(statsData.totalDays);
-    setAvailableYears(statsData.availableYears.length ? statsData.availableYears : [currentYear]);
+    const yrs: number[] = statsData.availableYears.length ? statsData.availableYears : [currentYear];
+    setAvailableYears(yrs);
+    // Auto-fallback: if the currently-selected year has no sessions yet (e.g. early in a new year),
+    // jump to the most recent year with data so the page isn't blank by default.
+    if (y && !yrs.includes(y) && yrs.length > 0) {
+      setYear(yrs[0]);
+      loadStats(yrs[0], m, v, n);
+      return;
+    }
     setVenues(await venuesRes.json());
     const winsArr: WinStat[] = winsRes.ok ? await winsRes.json() : [];
     setWins(Object.fromEntries(winsArr.map((w) => [w.id, w])));
@@ -84,7 +93,7 @@ export default function StatsPage() {
 
   useEffect(() => { loadStats(year, month, venue, lastN); }, []);
 
-  function handleYearChange(y: number) { setYear(y); loadStats(y, month, venue, lastN); }
+  function handleYearChange(y: number | null) { setYear(y); loadStats(y, month, venue, lastN); }
   function handleMonthChange(m: number | null) { setMonth(m); loadStats(year, m, venue, lastN); }
   function handleVenueChange(v: string | null) { setVenue(v); loadStats(year, month, v, lastN); }
   function handleLastNChange(n: number | null) { setLastN(n); loadStats(year, month, venue, n); }
@@ -94,7 +103,7 @@ export default function StatsPage() {
   }
 
   const sliceLabel = [
-    String(year),
+    year ? String(year) : "All time",
     month ? MONTH_NAMES[month - 1] : null,
     venue,
     lastN ? `last ${lastN}` : null,
@@ -113,22 +122,18 @@ export default function StatsPage() {
             <p className="app-header-subtle text-sm mt-0.5">{sliceLabel} · {totalDays} {totalDays === 1 ? "day" : "days"} · {stats.length} players</p>
           </div>
         </div>
-        {/* Year selector */}
-        <div className="relative mt-4 flex gap-2 flex-wrap">
-          {availableYears.map((y) => (
-            <button
-              key={y}
-              onClick={() => handleYearChange(y)}
-              className={`px-4 py-1.5 rounded-full text-sm font-bold transition-all ${
-                y === year ? "bg-white text-indigo-600" : "bg-white/20 text-white hover:bg-white/30"
-              }`}
-            >
-              {y}
-            </button>
-          ))}
-        </div>
-        {/* Filter pills: Month / Venue / Last-N */}
-        <div className="relative mt-2 flex gap-2 flex-wrap items-center">
+        {/* Filter pills: Year / Month / Venue / Last-N */}
+        <div className="relative mt-4 flex gap-2 flex-wrap items-center">
+          <select
+            value={year ?? ""}
+            onChange={(e) => handleYearChange(e.target.value ? parseInt(e.target.value) : null)}
+            className="bg-white/20 text-white text-xs font-bold px-3 py-1.5 rounded-full focus:outline-none cursor-pointer"
+          >
+            <option value="">All years</option>
+            {availableYears.map((y) => (
+              <option key={y} value={y} className="text-gray-800">{y}</option>
+            ))}
+          </select>
           <select
             value={month ?? ""}
             onChange={(e) => handleMonthChange(e.target.value ? parseInt(e.target.value) : null)}
