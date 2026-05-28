@@ -33,13 +33,10 @@ body {
   min-height: 100vh;
 }
 .app-header {
-  /* Shared badminton photo, layered under an indigo/violet wash so the
+  /* Shared badminton photo, layered under a black transparent wash so the
      white title text stays readable. */
   background-image:
-    linear-gradient(to bottom right,
-      rgba(67, 56, 202, 0.72),
-      rgba(124, 58, 237, 0.65),
-      rgba(126, 34, 206, 0.72)),
+    linear-gradient(135deg, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.42)),
     url("/header-home.jpg");
   background-size: cover, cover;
   background-position: center, center;
