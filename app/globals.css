@@ -59,6 +59,10 @@ body {
 }
 .app-header-subtle { color: rgba(255, 255, 255, 0.88); }
 
+/* Hide the scrollbar on horizontally-scrolling chip rows (e.g. venues). */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
 /* Semantic states — winners and trophies use Night Match accents */
 .state-win-bg { background-color: var(--color-cyan-50); }
 .state-win-border { border-color: var(--color-cyan-300); }

@@ -171,9 +171,9 @@ export default function StatsPage() {
               {venues.length > 0 && (
                 <div className="flex items-start gap-2">
                   <span className={label}>Venue</span>
-                  <div className="flex flex-wrap gap-1 flex-1 min-w-0">
+                  <div className="flex gap-1 flex-1 min-w-0 overflow-x-auto no-scrollbar">
                     {venues.map((v) => (
-                      <button key={v.venue} onClick={() => toggleVenue(v.venue)} className={chip(venuesSel.includes(v.venue))}>{v.venue}</button>
+                      <button key={v.venue} onClick={() => toggleVenue(v.venue)} className={`${chip(venuesSel.includes(v.venue))} shrink-0 whitespace-nowrap`}>{v.venue}</button>
                     ))}
                   </div>
                 </div>
