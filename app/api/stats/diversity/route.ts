@@ -40,7 +40,7 @@ export async function GET(req: Request) {
   } else {
     const scope = parseStatsScope(req.url);
     const ids = await resolveSessionIds(scope);
-    if (ids !== "all") matchWhere.sessionId = { in: ids };
+    matchWhere.sessionId = { in: ids };
   }
 
   const matches = await prisma.match.findMany({

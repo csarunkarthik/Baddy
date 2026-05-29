@@ -6,7 +6,7 @@ export async function GET(req: Request) {
   const scope = parseStatsScope(req.url);
   const fallbackYear = scope.years?.[0] ?? new Date().getUTCFullYear();
   const ids = await resolveSessionIds(scope);
-  const sessionFilter = ids === "all" ? undefined : { id: { in: ids } };
+  const sessionFilter = { id: { in: ids } };
 
   const [players, totalDays, allDates] = await Promise.all([
     prisma.player.findMany({
@@ -14,14 +14,15 @@ export async function GET(req: Request) {
         id: true,
         name: true,
         attendance: {
-          where: sessionFilter ? { session: sessionFilter } : undefined,
+          where: { session: sessionFilter },
           select: { id: true },
         },
       },
       orderBy: { name: "asc" },
     }),
-    prisma.session.count(sessionFilter ? { where: sessionFilter } : undefined),
+    prisma.session.count({ where: sessionFilter }),
     prisma.session.findMany({
+      where: { sport: scope.sport ?? "BADMINTON" },
       select: { date: true },
       orderBy: { date: "asc" },
       distinct: ["date"],

@@ -5,7 +5,8 @@ import Link from "next/link";
 import { isSessionLocked } from "@/lib/locking";
 
 type Player = { id: number; name: string };
-type Session = { id: number; venue: string; date: string; attendance: { player: Player }[] };
+type Sport = "BADMINTON" | "PICKLEBALL";
+type Session = { id: number; venue: string; date: string; sport: Sport; attendance: { player: Player }[] };
 type VenueSuggestion = { venue: string; count: number };
 
 const IST = "Asia/Kolkata";
@@ -26,6 +27,7 @@ export default function Home() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [venueSuggestions, setVenueSuggestions] = useState<VenueSuggestion[]>([]);
   const [selectedDate, setSelectedDate] = useState(todayStr);
+  const [sport, setSport] = useState<Sport>("BADMINTON");
   const [venue, setVenue] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -40,12 +42,12 @@ export default function Home() {
     ? venueSuggestions.filter((s) => s.venue.toLowerCase().includes(venue.toLowerCase()) && s.venue !== venue)
     : venueSuggestions;
 
-  async function loadSession(date: string) {
+  async function loadSession(date: string, sportArg: Sport) {
     setLoading(true);
     setVenue("");
     setSelectedIds(new Set());
     setSaved(false);
-    const res = await fetch(`/api/sessions?date=${date}`);
+    const res = await fetch(`/api/sessions?date=${date}&sport=${sportArg}`);
     const s: Session | null = await res.json();
     if (s) {
       setVenue(s.venue);
@@ -63,12 +65,18 @@ export default function Home() {
       setPlayers(p);
       setVenueSuggestions(v);
     });
-    loadSession(todayStr);
+    loadSession(todayStr, "BADMINTON");
   }, []);
 
   function handleDateChange(date: string) {
     setSelectedDate(date);
-    loadSession(date);
+    loadSession(date, sport);
+  }
+
+  function handleSportChange(next: Sport) {
+    if (next === sport) return;
+    setSport(next);
+    loadSession(selectedDate, next);
   }
 
   function togglePlayer(id: number) {
@@ -90,6 +98,7 @@ export default function Home() {
       body: JSON.stringify({
         venue: venue.trim(),
         date: selectedDate,
+        sport,
         playerIds: [...selectedIds],
       }),
     });
@@ -144,6 +153,36 @@ export default function Home() {
               🔒 This date is locked — entries can only be made or edited within 2 days of the session.
             </p>
           )}
+        </div>
+
+        {/* Sport */}
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🎽</span>
+            <h2 className="font-bold text-gray-800">Sport</h2>
+          </div>
+          <div className="flex gap-2">
+            {([
+              { v: "BADMINTON" as Sport, label: "🏸 Badminton" },
+              { v: "PICKLEBALL" as Sport, label: "🥒 Pickleball" },
+            ]).map((opt) => {
+              const on = sport === opt.v;
+              return (
+                <button
+                  key={opt.v}
+                  onClick={() => handleSportChange(opt.v)}
+                  disabled={locked}
+                  className={`flex-1 py-2.5 rounded-2xl text-sm font-bold transition-colors active:scale-[0.98] disabled:opacity-60 ${
+                    on
+                      ? "bg-indigo-500 text-white shadow-md shadow-indigo-200"
+                      : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Venue */}

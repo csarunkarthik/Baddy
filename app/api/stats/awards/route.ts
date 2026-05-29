@@ -28,12 +28,17 @@ const MILESTONES: { key: string; label: string; emoji: string; threshold: number
 ];
 
 export async function GET() {
+  // Awards are badminton-only by design. Scope every query to badminton
+  // sessions so the new pickleball matches don't bleed into trophies.
   const [allPlayers, sessions, matches, mps, attendance] = await Promise.all([
     prisma.player.findMany({ orderBy: { createdAt: "asc" } }),
-    prisma.session.findMany({ orderBy: { date: "asc" } }),
-    prisma.match.findMany({ orderBy: [{ sessionId: "asc" }, { matchNumber: "asc" }] }),
-    prisma.matchPlayer.findMany(),
-    prisma.attendance.findMany(),
+    prisma.session.findMany({ where: { sport: "BADMINTON" }, orderBy: { date: "asc" } }),
+    prisma.match.findMany({
+      where: { session: { sport: "BADMINTON" } },
+      orderBy: [{ sessionId: "asc" }, { matchNumber: "asc" }],
+    }),
+    prisma.matchPlayer.findMany({ where: { match: { session: { sport: "BADMINTON" } } } }),
+    prisma.attendance.findMany({ where: { session: { sport: "BADMINTON" } } }),
   ]);
 
   const totalSessions = sessions.length;

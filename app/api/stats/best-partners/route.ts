@@ -10,7 +10,7 @@ export async function GET(req: Request) {
   const matches = await prisma.match.findMany({
     where: {
       winner: { not: null },
-      ...(ids === "all" ? {} : { sessionId: { in: ids } }),
+      sessionId: { in: ids },
     },
     select: {
       id: true,

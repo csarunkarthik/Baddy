@@ -17,7 +17,8 @@ model Player {
 
 model Session {
   id                 Int          @id @default(autoincrement())
-  date               DateTime     @unique @db.Date
+  date               DateTime     @db.Date
+  sport              Sport        @default(BADMINTON)
   venue              String       @default("")
   createdAt          DateTime     @default(now())
   totalMatches       Int          @default(15)
@@ -26,6 +27,13 @@ model Session {
   avinashSharmiliKid Boolean      @default(false)
   attendance         Attendance[]
   matches            Match[]
+
+  @@unique([date, sport])
+}
+
+enum Sport {
+  BADMINTON
+  PICKLEBALL
 }
 
 model Match {

@@ -21,6 +21,7 @@ type Couple = { key: CoupleKey; label: string; bothAttending: boolean; player1Id
 type SessionInfo = {
   id: number;
   date: string;
+  sport: "BADMINTON" | "PICKLEBALL";
   venue: string;
   totalMatches: number;
   bamHariKid: boolean;
@@ -60,6 +61,7 @@ export default function MatchesPage() {
   const todayStr = toDateInput(new Date());
 
   const [selectedDate, setSelectedDate] = useState(todayStr);
+  const [selectedSport, setSelectedSport] = useState<"BADMINTON" | "PICKLEBALL">("BADMINTON");
   const [data, setData] = useState<MatchesPayload | null>(null);
   const [winStats, setWinStats] = useState<WinStat[]>([]);
   const [noSession, setNoSession] = useState(false);
@@ -83,13 +85,13 @@ export default function MatchesPage() {
 
   const locked = !!data?.session.locked;
 
-  async function load(dateStr: string) {
+  async function load(dateStr: string, sportArg: "BADMINTON" | "PICKLEBALL" = selectedSport) {
     setLoading(true);
     setError(null);
     setData(null);
     setNoSession(false);
     try {
-      const sRes = await fetch(`/api/sessions?date=${dateStr}`);
+      const sRes = await fetch(`/api/sessions?date=${dateStr}&sport=${sportArg}`);
       const session: { id: number } | null = await sRes.json();
       if (!session) {
         setNoSession(true);
@@ -120,9 +122,9 @@ export default function MatchesPage() {
   }
 
   useEffect(() => {
-    load(selectedDate);
+    load(selectedDate, selectedSport);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDate]);
+  }, [selectedDate, selectedSport]);
 
   const pull = usePullToRefresh(() => load(selectedDate));
 
@@ -431,7 +433,8 @@ export default function MatchesPage() {
     const lines: string[] = [];
     const date = formatDisplay(data.session.date);
     const venue = data.session.venue ? ` · ${data.session.venue}` : "";
-    lines.push(`🏸 Baddy · ${date}${venue}`);
+    const sportEmoji = data.session.sport === "PICKLEBALL" ? "🥒" : "🏸";
+    lines.push(`${sportEmoji} Baddy · ${date}${venue}`);
     const playedCount = data.matches.filter((m) => m.winner).length;
     lines.push(`${playedCount}/${data.matches.length} matches played`);
     if (mvps.length > 0) {
@@ -726,7 +729,12 @@ export default function MatchesPage() {
             ←
           </Link>
           <div>
-            <h1 className="text-3xl font-extrabold tracking-tight">Matches</h1>
+            <h1 className="text-3xl font-extrabold tracking-tight flex items-center gap-2">
+              Matches
+              {data?.session.sport === "PICKLEBALL" && (
+                <span className="text-[11px] font-bold bg-white/20 text-white px-2 py-0.5 rounded-full">🥒 Pickleball</span>
+              )}
+            </h1>
             <p className="app-header-subtle text-sm mt-0.5">Win/loss tracker · {formatDisplay(selectedDate)}</p>
           </div>
         </div>
@@ -751,6 +759,27 @@ export default function MatchesPage() {
               Today
             </button>
           )}
+        </div>
+
+        {/* Sport — compact segmented control */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-1 flex gap-1">
+          {([
+            { v: "BADMINTON" as const, label: "🏸 Badminton" },
+            { v: "PICKLEBALL" as const, label: "🥒 Pickleball" },
+          ]).map((opt) => {
+            const on = selectedSport === opt.v;
+            return (
+              <button
+                key={opt.v}
+                onClick={() => setSelectedSport(opt.v)}
+                className={`flex-1 py-2 rounded-xl text-xs font-bold transition-colors ${
+                  on ? "bg-indigo-500 text-white" : "text-slate-500 hover:bg-slate-50"
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
         </div>
 
         {locked && (
@@ -1154,7 +1183,7 @@ export default function MatchesPage() {
                       })()}
 
                       {!isEditing && !locked && (
-                        <ScoreRow match={m} onSave={saveScores} />
+                        <ScoreRow match={m} sport={data.session.sport} onSave={saveScores} />
                       )}
                       {!isEditing && locked && (m.teamAScore !== null && m.teamBScore !== null) && (
                         <div className="px-4 py-1.5 text-[11px] font-semibold text-gray-600 border-t border-gray-100 bg-gray-50 text-center">
@@ -1419,7 +1448,7 @@ function PlayerRow({ stat }: { stat: WinStat }) {
   );
 }
 
-function ScoreRow({ match, onSave }: { match: Match; onSave: (id: number, a: number | null, b: number | null) => void }) {
+function ScoreRow({ match, sport, onSave }: { match: Match; sport: "BADMINTON" | "PICKLEBALL"; onSave: (id: number, a: number | null, b: number | null) => void }) {
   const [a, setA] = useState<number | null>(match.teamAScore);
   const [b, setB] = useState<number | null>(match.teamBScore);
 
@@ -1434,11 +1463,14 @@ function ScoreRow({ match, onSave }: { match: Match; onSave: (id: number, a: num
     onSave(match.id, aVal, bVal);
   }
 
-  // Default to 21 when unset. First +/- tap commits BOTH scores so the
-  // auto-winner-from-scores logic can fire (it needs both non-null).
+  const defaultScore = sport === "PICKLEBALL" ? 11 : 21;
+
+  // First +/- tap commits BOTH scores so the auto-winner-from-scores logic
+  // can fire (it needs both non-null). Default matches the sport's typical
+  // game cap (badminton 21, pickleball 11).
   function bumpFromDefault(team: "A" | "B", delta: number) {
-    const aBase = a ?? 21;
-    const bBase = b ?? 21;
+    const aBase = a ?? defaultScore;
+    const bBase = b ?? defaultScore;
     if (team === "A") {
       const aNext = clamp(aBase + delta);
       setA(aNext);
@@ -1451,8 +1483,8 @@ function ScoreRow({ match, onSave }: { match: Match; onSave: (id: number, a: num
       persist(aBase, bNext);
     }
   }
-  const aDisplay = a ?? 21;
-  const bDisplay = b ?? 21;
+  const aDisplay = a ?? defaultScore;
+  const bDisplay = b ?? defaultScore;
   const aMuted = a === null;
   const bMuted = b === null;
 
