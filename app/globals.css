@@ -35,7 +35,11 @@ body {
 .app-header {
   /* Shared badminton photo, layered under a black transparent wash so the
      white title text stays readable. On laptops the image fits via `cover`
-     and 60% x / 25% y keeps the player's head in the visible slice. */
+     and 60% x / 25% y keeps the player's head in the visible slice. The
+     dark background-color fills any area the photo doesn't reach (e.g. when
+     the stats filter section expands the header past the photo's height
+     under the mobile `auto` sizing). */
+  background-color: #0c1a2a;
   background-image:
     linear-gradient(135deg, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.42)),
     url("/header-home.jpg");
