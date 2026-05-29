@@ -4,12 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const TABS: { href: string; label: string; emoji: string; match: (p: string) => boolean }[] = [
-  { href: "/", label: "Home", emoji: "🏸", match: (p) => p === "/" },
-  { href: "/matches", label: "Matches", emoji: "🏆", match: (p) => p.startsWith("/matches") },
-  { href: "/stats", label: "Stats", emoji: "📊", match: (p) => p.startsWith("/stats") },
+  { href: "/", label: "Home", emoji: "🏟️", match: (p) => p === "/" },
+  { href: "/matches", label: "Matches", emoji: "⚔️", match: (p) => p.startsWith("/matches") },
+  { href: "/stats", label: "Stats", emoji: "🎯", match: (p) => p.startsWith("/stats") },
   { href: "/awards", label: "Awards", emoji: "🏅", match: (p) => p.startsWith("/awards") },
-  { href: "/history", label: "History", emoji: "📅", match: (p) => p.startsWith("/history") },
-  { href: "/players", label: "Players", emoji: "👥", match: (p) => p.startsWith("/players") },
+  { href: "/history", label: "History", emoji: "📜", match: (p) => p.startsWith("/history") },
+  { href: "/players", label: "Players", emoji: "🫂", match: (p) => p.startsWith("/players") },
 ];
 
 export default function BottomNav() {
