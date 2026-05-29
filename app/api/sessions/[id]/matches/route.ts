@@ -110,11 +110,11 @@ export async function GET(
     const teamA = m.participants
       .filter((p) => p.team === "A")
       .sort((a, b) => a.position - b.position)
-      .map((p) => ({ id: p.player.id, name: p.player.name }));
+      .map((p) => ({ id: p.player.id, name: p.player.name, avatar: p.player.avatar }));
     const teamB = m.participants
       .filter((p) => p.team === "B")
       .sort((a, b) => a.position - b.position)
-      .map((p) => ({ id: p.player.id, name: p.player.name }));
+      .map((p) => ({ id: p.player.id, name: p.player.name, avatar: p.player.avatar }));
     return {
       id: m.id,
       matchNumber: m.matchNumber,
@@ -137,7 +137,7 @@ export async function GET(
       avinashSharmiliKid: session.avinashSharmiliKid,
       locked: isSessionLocked(session.date),
       attending: session.attendance
-        .map((a) => ({ id: a.player.id, name: a.player.name }))
+        .map((a) => ({ id: a.player.id, name: a.player.name, avatar: a.player.avatar }))
         .sort((a, b) => a.name.localeCompare(b.name)),
     },
     matches,

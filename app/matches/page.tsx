@@ -6,7 +6,7 @@ import confetti from "canvas-confetti";
 import { usePullToRefresh } from "../hooks/usePullToRefresh";
 import PullIndicator from "../components/PullIndicator";
 
-type Player = { id: number; name: string };
+type Player = { id: number; name: string; avatar?: string | null };
 type CoupleKey = "bamHari" | "arunDeep" | "avinashSharmili";
 type Match = {
   id: number;
@@ -803,7 +803,7 @@ export default function MatchesPage() {
                 <div className="flex flex-wrap gap-1.5">
                   {data.session.attending.map((p) => (
                     <span key={p.id} className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 text-xs font-semibold">
-                      {p.name}
+                      {p.avatar && <span className="mr-1">{p.avatar}</span>}{p.name}
                     </span>
                   ))}
                 </div>
@@ -823,7 +823,7 @@ export default function MatchesPage() {
                           onClick={() => addAttendee(p.id)}
                           className="px-2.5 py-1 rounded-full bg-slate-50 text-slate-600 text-xs font-semibold border border-dashed border-slate-300 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-300 active:scale-95 transition-all"
                         >
-                          + {p.name}
+                          + {p.avatar && <span className="mr-0.5">{p.avatar}</span>}{p.name}
                         </button>
                       ))}
                     </div>
@@ -1123,7 +1123,7 @@ export default function MatchesPage() {
                                 </div>
                                 {players.map((p) => (
                                   <div key={p.id} className={`text-sm font-semibold ${isWinner ? "text-emerald-900" : "text-gray-700"}`}>
-                                    {p.name}
+                                    {p.avatar && <span className="mr-1">{p.avatar}</span>}{p.name}
                                   </div>
                                 ))}
                               </button>
