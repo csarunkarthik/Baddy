@@ -17,6 +17,12 @@ export const AVATARS: AvatarOption[] = [
   { emoji: "👨‍🍳", gender: "M", label: "Chef" },
   { emoji: "🎅", gender: "M", label: "Santa" },
   { emoji: "🕵️‍♂️", gender: "M", label: "Sleuth" },
+  { emoji: "🧙‍♂️", gender: "M", label: "Wizard" },
+  { emoji: "🥷", gender: "M", label: "Ninja" },
+  { emoji: "🤠", gender: "M", label: "Cowboy" },
+  { emoji: "👨‍🚀", gender: "M", label: "Astro" },
+  { emoji: "👨‍🎤", gender: "M", label: "Rocker" },
+  { emoji: "🦹‍♂️", gender: "M", label: "Villain" },
 
   // Female
   { emoji: "🧛‍♀️", gender: "F", label: "Vamp" },
@@ -29,6 +35,12 @@ export const AVATARS: AvatarOption[] = [
   { emoji: "🤶", gender: "F", label: "Santa" },
   { emoji: "💃", gender: "F", label: "Salsa" },
   { emoji: "🕵️‍♀️", gender: "F", label: "Sleuth" },
+  { emoji: "🧙‍♀️", gender: "F", label: "Wizard" },
+  { emoji: "🦹‍♀️", gender: "F", label: "Villain" },
+  { emoji: "👩‍🚀", gender: "F", label: "Astro" },
+  { emoji: "👩‍🎤", gender: "F", label: "Rocker" },
+  { emoji: "🤹‍♀️", gender: "F", label: "Juggler" },
+  { emoji: "🧖‍♀️", gender: "F", label: "Spa" },
 ];
 
 const byEmoji = new Map(AVATARS.map((a) => [a.emoji, a]));
