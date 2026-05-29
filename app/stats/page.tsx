@@ -146,77 +146,54 @@ export default function StatsPage() {
             </button>
           )}
         </div>
-        {filterOpen && (
-          <div className="relative mt-3 space-y-3">
-            {/* Year chips */}
-            <div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-white/70 mb-1.5">Year</div>
-              <div className="flex flex-wrap gap-1.5">
-                {availableYears.map((y) => {
-                  const on = years.includes(y);
-                  return (
-                    <button key={y} onClick={() => toggleYear(y)}
-                      className={`text-xs font-bold px-2.5 py-1 rounded-full transition-colors ${on ? "bg-white text-indigo-700" : "bg-white/20 text-white hover:bg-white/30"}`}>
-                      {y}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            {/* Month chips */}
-            <div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-white/70 mb-1.5">Month</div>
-              <div className="flex flex-wrap gap-1.5">
-                {MONTH_NAMES.map((m, i) => {
-                  const on = months.includes(i + 1);
-                  return (
-                    <button key={m} onClick={() => toggleMonth(i + 1)}
-                      className={`text-xs font-bold px-2.5 py-1 rounded-full transition-colors ${on ? "bg-white text-indigo-700" : "bg-white/20 text-white hover:bg-white/30"}`}>
-                      {m}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            {/* Venue chips */}
-            {venues.length > 0 && (
-              <div>
-                <div className="text-[10px] font-bold uppercase tracking-wider text-white/70 mb-1.5">Venue</div>
-                <div className="flex flex-wrap gap-1.5">
-                  {venues.map((v) => {
-                    const on = venuesSel.includes(v.venue);
-                    return (
-                      <button key={v.venue} onClick={() => toggleVenue(v.venue)}
-                        className={`text-xs font-bold px-2.5 py-1 rounded-full transition-colors ${on ? "bg-white text-indigo-700" : "bg-white/20 text-white hover:bg-white/30"}`}>
-                        {v.venue}
-                      </button>
-                    );
-                  })}
+        {filterOpen && (() => {
+          const chip = (on: boolean) =>
+            `text-[11px] font-semibold px-2 py-0.5 rounded-full transition-colors ${on ? "bg-white text-indigo-700" : "bg-white/20 text-white hover:bg-white/30"}`;
+          const label = "text-[10px] font-bold uppercase tracking-wider text-white/70 w-14 shrink-0 pt-1";
+          return (
+            <div className="relative mt-3 space-y-1.5">
+              <div className="flex items-start gap-2">
+                <span className={label}>Year</span>
+                <div className="flex flex-wrap gap-1 flex-1 min-w-0">
+                  {availableYears.map((y) => (
+                    <button key={y} onClick={() => toggleYear(y)} className={chip(years.includes(y))}>{y}</button>
+                  ))}
                 </div>
               </div>
-            )}
-            {/* Last-N (single-select) */}
-            <div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-white/70 mb-1.5">Recent sessions</div>
-              <div className="flex flex-wrap gap-1.5">
-                {[
-                  { label: "All", v: null as number | null },
-                  { label: "Last 5", v: 5 },
-                  { label: "Last 10", v: 10 },
-                  { label: "Last 25", v: 25 },
-                ].map((opt) => {
-                  const on = lastN === opt.v;
-                  return (
-                    <button key={opt.label} onClick={() => handleLastNChange(opt.v)}
-                      className={`text-xs font-bold px-2.5 py-1 rounded-full transition-colors ${on ? "bg-white text-indigo-700" : "bg-white/20 text-white hover:bg-white/30"}`}>
-                      {opt.label}
-                    </button>
-                  );
-                })}
+              <div className="flex items-start gap-2">
+                <span className={label}>Month</span>
+                <div className="flex flex-wrap gap-1 flex-1 min-w-0">
+                  {MONTH_NAMES.map((m, i) => (
+                    <button key={m} onClick={() => toggleMonth(i + 1)} className={chip(months.includes(i + 1))}>{m}</button>
+                  ))}
+                </div>
+              </div>
+              {venues.length > 0 && (
+                <div className="flex items-start gap-2">
+                  <span className={label}>Venue</span>
+                  <div className="flex flex-wrap gap-1 flex-1 min-w-0">
+                    {venues.map((v) => (
+                      <button key={v.venue} onClick={() => toggleVenue(v.venue)} className={chip(venuesSel.includes(v.venue))}>{v.venue}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="flex items-start gap-2">
+                <span className={label}>Recent</span>
+                <div className="flex flex-wrap gap-1 flex-1 min-w-0">
+                  {[
+                    { label: "All", v: null as number | null },
+                    { label: "L5", v: 5 },
+                    { label: "L10", v: 10 },
+                    { label: "L25", v: 25 },
+                  ].map((opt) => (
+                    <button key={opt.label} onClick={() => handleLastNChange(opt.v)} className={chip(lastN === opt.v)}>{opt.label}</button>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
 
       <div className="px-4 py-5 max-w-lg mx-auto space-y-4">
