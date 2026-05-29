@@ -8,24 +8,26 @@ type Trophy = { key: string; label: string; emoji: string; criteria: string; win
 type Milestone = { key: string; label: string; emoji: string; threshold: number; metric: string; reached: boolean };
 type PerPlayerAwards = Record<number, { trophies: { key: string; label: string; emoji: string; criteria: string }[]; milestones: Milestone[] }>;
 type AwardsPayload = { trophies: Trophy[]; perPlayer: PerPlayerAwards };
-type TopDuo = { p1: string; p2: string; wins: number; played: number; winPct: number };
-type PartnersData = { perPlayer: { playerId: number; playerName: string; partnerName: string; wins: number; played: number; winPct: number }[]; topDuos: TopDuo[] };
+type ChemistryRow = { p1: string; p2: string; synergy: number; jointPct: number; soloAvgPct: number; played: number };
+type IronRow = { p1: string; p2: string; played: number; wins: number; winPct: number };
+type DragonRow = { p1: string; p2: string; wins: number; played: number; avgSlainElo: number };
+type TeamAwards = { chemistry: ChemistryRow[]; ironDuos: IronRow[]; dragonSlayerDuos: DragonRow[] };
 type Player = { id: number; name: string };
 
 export default function AwardsPage() {
   const [awards, setAwards] = useState<AwardsPayload | null>(null);
-  const [partners, setPartners] = useState<PartnersData | null>(null);
+  const [teamAwards, setTeamAwards] = useState<TeamAwards | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
       fetch("/api/stats/awards").then((r) => r.json()),
-      fetch("/api/stats/best-partners").then((r) => r.json()),
+      fetch("/api/stats/team-awards").then((r) => r.json()),
       fetch("/api/players").then((r) => r.json()),
-    ]).then(([a, p, pl]) => {
+    ]).then(([a, t, pl]) => {
       setAwards(a);
-      setPartners(p);
+      setTeamAwards(t);
       setPlayers(pl);
       setLoading(false);
     });
@@ -104,26 +106,78 @@ export default function AwardsPage() {
               )}
             </div>
 
-            {/* Team awards — top duos (dense rows) */}
-            {partners && partners.topDuos.length > 0 && (
-              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4">
-                <h2 className="font-bold text-gray-800 text-sm mb-2 flex items-center gap-2">
-                  🤝 Team awards
-                  <span className="text-[10px] text-gray-400 font-semibold ml-auto">top duos · min 2</span>
+            {/* Team awards — three angles that don't duplicate /stats */}
+            {teamAwards && (teamAwards.chemistry.length + teamAwards.ironDuos.length + teamAwards.dragonSlayerDuos.length) > 0 && (
+              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 space-y-4">
+                <h2 className="font-bold text-gray-800 text-sm flex items-center gap-2">
+                  🏟️ Team awards
                 </h2>
-                <div className="divide-y divide-emerald-50">
-                  {partners.topDuos.map((d, i) => (
-                    <div key={`${d.p1}-${d.p2}`} className="flex items-center gap-2 px-1 py-1.5 text-xs">
-                      <span className="text-[10px] font-bold text-emerald-700 w-4 shrink-0">{i + 1}</span>
-                      <span className="font-semibold text-emerald-900 truncate flex-1 min-w-0">
-                        {d.p1} <span className="text-emerald-400">+</span> {d.p2}
-                      </span>
-                      <span className="font-bold text-emerald-700 shrink-0 whitespace-nowrap">
-                        {d.wins}/{d.played} <span className="text-emerald-400 ml-0.5">{d.winPct}%</span>
-                      </span>
+
+                {teamAwards.chemistry.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 flex items-center gap-1">
+                      <span>✨</span> Chemistry
+                      <span className="text-gray-300 normal-case font-medium ml-1">1+1&gt;2</span>
+                    </p>
+                    <div className="divide-y divide-violet-50">
+                      {teamAwards.chemistry.map((d, i) => (
+                        <div key={`chem-${d.p1}-${d.p2}`} className="flex items-center gap-2 px-1 py-1.5 text-xs">
+                          <span className="text-[10px] font-bold text-violet-700 w-4 shrink-0">{i + 1}</span>
+                          <span className="font-semibold text-violet-900 truncate flex-1 min-w-0">
+                            {d.p1} <span className="text-violet-400">+</span> {d.p2}
+                          </span>
+                          <span className="font-bold text-violet-700 shrink-0 whitespace-nowrap">
+                            +{d.synergy}% <span className="text-violet-400 ml-0.5 font-medium">({d.jointPct}% vs {d.soloAvgPct}%)</span>
+                          </span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                )}
+
+                {teamAwards.dragonSlayerDuos.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 flex items-center gap-1">
+                      <span>🐉</span> Dragon Slayer Duo
+                      <span className="text-gray-300 normal-case font-medium ml-1">avg opponent ELO on wins</span>
+                    </p>
+                    <div className="divide-y divide-rose-50">
+                      {teamAwards.dragonSlayerDuos.map((d, i) => (
+                        <div key={`drg-${d.p1}-${d.p2}`} className="flex items-center gap-2 px-1 py-1.5 text-xs">
+                          <span className="text-[10px] font-bold text-rose-700 w-4 shrink-0">{i + 1}</span>
+                          <span className="font-semibold text-rose-900 truncate flex-1 min-w-0">
+                            {d.p1} <span className="text-rose-400">+</span> {d.p2}
+                          </span>
+                          <span className="font-bold text-rose-700 shrink-0 whitespace-nowrap">
+                            {d.avgSlainElo} <span className="text-rose-400 ml-0.5 font-medium">({d.wins}W)</span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {teamAwards.ironDuos.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 flex items-center gap-1">
+                      <span>⛓️</span> Iron Duo
+                      <span className="text-gray-300 normal-case font-medium ml-1">most together</span>
+                    </p>
+                    <div className="divide-y divide-slate-100">
+                      {teamAwards.ironDuos.map((d, i) => (
+                        <div key={`iron-${d.p1}-${d.p2}`} className="flex items-center gap-2 px-1 py-1.5 text-xs">
+                          <span className="text-[10px] font-bold text-slate-600 w-4 shrink-0">{i + 1}</span>
+                          <span className="font-semibold text-slate-800 truncate flex-1 min-w-0">
+                            {d.p1} <span className="text-slate-400">+</span> {d.p2}
+                          </span>
+                          <span className="font-bold text-slate-700 shrink-0 whitespace-nowrap">
+                            {d.played} <span className="text-slate-400 ml-0.5 font-medium">({d.wins}W · {d.winPct}%)</span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
