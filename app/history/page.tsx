@@ -10,6 +10,7 @@ type Player = { id: number; name: string };
 type Session = {
   id: number;
   date: string;
+  sport: "BADMINTON" | "PICKLEBALL";
   venue: string;
   forceUnlocked: boolean;
   attendance: { player: Player }[];
@@ -152,11 +153,12 @@ export default function HistoryPage() {
                 >
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-lg shrink-0 ${today ? "bg-emerald-100" : "bg-gradient-to-br from-orange-100 to-pink-100"}`}>
-                      {today ? "🟢" : locked ? "🔒" : "🏸"}
+                      {today ? "🟢" : locked ? "🔒" : s.sport === "PICKLEBALL" ? "🥒" : "🏸"}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
                         <p className="font-bold text-gray-800 text-sm">{formatDate(s.date)}</p>
+                        {s.sport === "PICKLEBALL" && <span className="text-xs bg-lime-100 text-lime-700 font-bold px-2 py-0.5 rounded-full">🥒 Pickle</span>}
                         {today && <span className="text-xs bg-emerald-100 text-emerald-700 font-bold px-2 py-0.5 rounded-full">Live</span>}
                         {locked && <span className="text-xs bg-amber-100 text-amber-700 font-bold px-2 py-0.5 rounded-full">Locked</span>}
                       </div>

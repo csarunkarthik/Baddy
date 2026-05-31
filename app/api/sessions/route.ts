@@ -12,13 +12,18 @@ function parseDate(dateStr: string) {
   return new Date(dateStr + "T00:00:00Z");
 }
 
+function parseSport(raw: string | null | undefined): "BADMINTON" | "PICKLEBALL" {
+  return raw === "PICKLEBALL" ? "PICKLEBALL" : "BADMINTON";
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const dateParam = searchParams.get("date");
+  const sport = parseSport(searchParams.get("sport"));
   const date = parseDate(dateParam ?? todayIST());
 
   const session = await prisma.session.findUnique({
-    where: { date },
+    where: { date_sport: { date, sport } },
     include: { attendance: { include: { player: true } } },
   });
 
@@ -26,8 +31,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const { venue, date: dateParam, playerIds } = await req.json();
+  const { venue, date: dateParam, playerIds, sport: sportRaw } = await req.json();
   const date = parseDate(dateParam ?? todayIST());
+  const sport = parseSport(sportRaw);
 
   const existingSession = await prisma.session.findUnique({ where: { date }, select: { id: true } });
   if (isSessionLocked(date, new Date(), existingSession ? await isForceUnlocked(existingSession.id) : false)) {
@@ -35,10 +41,10 @@ export async function POST(req: Request) {
   }
 
   const session = await prisma.session.upsert({
-    where: { date },
+    where: { date_sport: { date, sport } },
     update: { venue },
-    create: { date, venue },
-    select: { id: true, date: true, venue: true },
+    create: { date, sport, venue },
+    select: { id: true, date: true, sport: true, venue: true },
   });
 
   if (Array.isArray(playerIds)) {

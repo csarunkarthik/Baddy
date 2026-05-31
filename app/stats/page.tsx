@@ -38,6 +38,7 @@ export default function StatsPage() {
   const [partners, setPartners] = useState<BestPartnersData>({ perPlayer: [], topDuos: [] });
   const [points, setPoints] = useState<PointsStat[]>([]);
   const [diversity, setDiversity] = useState<DiversityStat[]>([]);
+  const [pickleWins, setPickleWins] = useState<WinStat[]>([]);
   const [totalDays, setTotalDays] = useState(0);
   const [availableYears, setAvailableYears] = useState<number[]>([currentYear]);
   const [loading, setLoading] = useState(true);
@@ -54,13 +55,15 @@ export default function StatsPage() {
   async function loadStats(ys: number[], ms: number[], vs: string[], n: number | null) {
     setLoading(true);
     const qs = buildQuery(ys, ms, vs, n);
-    const [statsRes, venuesRes, winsRes, partnersRes, pointsRes, diversityRes] = await Promise.all([
+    const pickleQs = qs ? `${qs}&sport=PICKLEBALL` : "sport=PICKLEBALL";
+    const [statsRes, venuesRes, winsRes, partnersRes, pointsRes, diversityRes, pickleWinsRes] = await Promise.all([
       fetch(`/api/stats?${qs}`),
       fetch(`/api/venues`),
       fetch(`/api/stats/wins?${qs}`),
       fetch(`/api/stats/best-partners?${qs}`),
       fetch(`/api/stats/points?${qs}`),
       fetch(`/api/stats/diversity?${qs}`),
+      fetch(`/api/stats/wins?${pickleQs}`),
     ]);
     const statsData = await statsRes.json();
     const ranked = statsData.players.map((p: Omit<PlayerStat, "rank">) => ({
@@ -82,6 +85,8 @@ export default function StatsPage() {
     setPoints(pointsData);
     const divData: DiversityStat[] = diversityRes.ok ? await diversityRes.json() : [];
     setDiversity(divData);
+    const pickleArr: WinStat[] = pickleWinsRes.ok ? await pickleWinsRes.json() : [];
+    setPickleWins(pickleArr);
     setLoading(false);
   }
 
@@ -411,6 +416,56 @@ export default function StatsPage() {
                 )}
               </div>
             )}
+
+            {/* Pickleball — opt-in mini block, hidden until there's data */}
+            {pickleWins.length > 0 && (() => {
+              const list = pickleWins.filter((w) => w.played > 0);
+              const byPct = [...list].sort((a, b) => b.winPct - a.winPct || b.wins - a.wins || a.name.localeCompare(b.name));
+              return (
+                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 space-y-4 mt-2">
+                  <h2 className="font-bold text-gray-800 text-sm px-2 pb-1 flex items-center gap-2">
+                    🥒 <span>Pickleball</span>
+                    <span className="text-[10px] text-gray-400 font-semibold ml-auto">wins · win %</span>
+                  </h2>
+
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 px-2">By wins</p>
+                    <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 gap-y-1.5 px-2 py-1 text-xs">
+                      <div className="font-bold text-gray-400 uppercase tracking-wider">Player</div>
+                      <div className="font-bold text-gray-400 uppercase tracking-wider text-right">W</div>
+                      <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Played</div>
+                      <div className="font-bold text-gray-400 uppercase tracking-wider text-right">%</div>
+                      {list.map((w) => (
+                        <span key={`pw-${w.id}`} className="contents">
+                          <span className="font-semibold text-gray-700 truncate">{w.name}</span>
+                          <span className="text-right font-bold text-emerald-600">{w.wins}</span>
+                          <span className="text-right text-gray-500">{w.played}</span>
+                          <span className="text-right text-gray-500">{w.winPct}%</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 px-2">By win %</p>
+                    <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 gap-y-1.5 px-2 py-1 text-xs">
+                      <div className="font-bold text-gray-400 uppercase tracking-wider">Player</div>
+                      <div className="font-bold text-gray-400 uppercase tracking-wider text-right">%</div>
+                      <div className="font-bold text-gray-400 uppercase tracking-wider text-right">W</div>
+                      <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Played</div>
+                      {byPct.map((w) => (
+                        <span key={`pp-${w.id}`} className="contents">
+                          <span className="font-semibold text-gray-700 truncate">{w.name}</span>
+                          <span className="text-right font-bold text-indigo-600">{w.winPct}%</span>
+                          <span className="text-right text-gray-500">{w.wins}</span>
+                          <span className="text-right text-gray-500">{w.played}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </>
         )}
       </div>

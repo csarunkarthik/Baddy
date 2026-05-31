@@ -12,7 +12,7 @@ export async function GET(req: Request) {
     where: {
       teamAScore: { not: null },
       teamBScore: { not: null },
-      ...(ids === "all" ? {} : { sessionId: { in: ids } }),
+      sessionId: { in: ids },
     },
     include: {
       participants: { include: { player: { select: { id: true, name: true } } } },

@@ -5,13 +5,8 @@ import { parseStatsScope, resolveSessionIds } from "@/lib/stats-filter";
 export async function GET(req: Request) {
   const scope = parseStatsScope(req.url);
   const ids = await resolveSessionIds(scope);
-  const where =
-    ids === "all"
-      ? undefined
-      : { match: { sessionId: { in: ids } } };
-
   const rows = await prisma.matchPlayer.findMany({
-    where,
+    where: { match: { sessionId: { in: ids } } },
     include: { match: true, player: true },
   });
 

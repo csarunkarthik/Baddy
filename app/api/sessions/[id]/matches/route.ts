@@ -131,6 +131,7 @@ export async function GET(
     session: {
       id: session.id,
       date: session.date,
+      sport: session.sport,
       venue: session.venue,
       totalMatches: session.totalMatches,
       bamHariKid: session.bamHariKid,
