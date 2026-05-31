@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { setUnlocked } from "@/lib/session-unlock";
 
 export async function PATCH(
   req: Request,
@@ -16,10 +17,9 @@ export async function PATCH(
     return NextResponse.json({ error: "forceUnlocked must be boolean" }, { status: 400 });
   }
 
-  const session = await prisma.session.update({
-    where: { id: sessionId },
-    data: { forceUnlocked: body.forceUnlocked },
-    select: { id: true, forceUnlocked: true },
-  });
-  return NextResponse.json(session);
+  const session = await prisma.session.findUnique({ where: { id: sessionId }, select: { id: true } });
+  if (!session) return NextResponse.json({ error: "Session not found" }, { status: 404 });
+
+  await setUnlocked(sessionId, body.forceUnlocked);
+  return NextResponse.json({ id: sessionId, forceUnlocked: body.forceUnlocked });
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isSessionLocked, LOCK_MESSAGE } from "@/lib/locking";
+import { isForceUnlocked } from "@/lib/session-unlock";
 
 // POST — toggle a player's attendance for a session
 export async function POST(
@@ -13,12 +14,12 @@ export async function POST(
 
   const session = await prisma.session.findUnique({
     where: { id: sessionId },
-    select: { date: true, forceUnlocked: true },
+    select: { date: true },
   });
   if (!session) {
     return NextResponse.json({ error: "Session not found" }, { status: 404 });
   }
-  if (isSessionLocked(session.date, new Date(), session.forceUnlocked)) {
+  if (isSessionLocked(session.date, new Date(), await isForceUnlocked(sessionId))) {
     return NextResponse.json({ error: LOCK_MESSAGE }, { status: 423 });
   }
 

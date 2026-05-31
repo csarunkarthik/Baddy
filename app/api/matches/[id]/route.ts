@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isSessionLocked, LOCK_MESSAGE } from "@/lib/locking";
+import { isForceUnlocked } from "@/lib/session-unlock";
 
 async function loadMatchAndCheckLock(matchId: number) {
   const m = await prisma.match.findUnique({
     where: { id: matchId },
-    select: { id: true, session: { select: { date: true, forceUnlocked: true } } },
+    select: { id: true, sessionId: true, session: { select: { date: true } } },
   });
   if (!m) return { error: NextResponse.json({ error: "Match not found" }, { status: 404 }) };
-  if (isSessionLocked(m.session.date, new Date(), m.session.forceUnlocked)) {
+  if (isSessionLocked(m.session.date, new Date(), await isForceUnlocked(m.sessionId))) {
     return { error: NextResponse.json({ error: LOCK_MESSAGE }, { status: 423 }) };
   }
   return { error: null };
