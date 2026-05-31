@@ -136,7 +136,7 @@ export async function GET(
       bamHariKid: session.bamHariKid,
       arunDeepKid: session.arunDeepKid,
       avinashSharmiliKid: session.avinashSharmiliKid,
-      locked: isSessionLocked(session.date),
+      locked: isSessionLocked(session.date, new Date(), session.forceUnlocked),
       attending: session.attendance
         .map((a) => ({ id: a.player.id, name: a.player.name, avatar: a.player.avatar }))
         .sort((a, b) => a.name.localeCompare(b.name)),

@@ -13,12 +13,12 @@ export async function POST(
 
   const session = await prisma.session.findUnique({
     where: { id: sessionId },
-    select: { date: true },
+    select: { date: true, forceUnlocked: true },
   });
   if (!session) {
     return NextResponse.json({ error: "Session not found" }, { status: 404 });
   }
-  if (isSessionLocked(session.date)) {
+  if (isSessionLocked(session.date, new Date(), session.forceUnlocked)) {
     return NextResponse.json({ error: LOCK_MESSAGE }, { status: 423 });
   }
 

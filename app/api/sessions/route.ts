@@ -34,7 +34,8 @@ export async function POST(req: Request) {
   const date = parseDate(dateParam ?? todayIST());
   const sport = parseSport(sportRaw);
 
-  if (isSessionLocked(date)) {
+  const existingSession = await prisma.session.findUnique({ where: { date }, select: { forceUnlocked: true } });
+  if (isSessionLocked(date, new Date(), existingSession?.forceUnlocked ?? false)) {
     return NextResponse.json({ error: LOCK_MESSAGE }, { status: 423 });
   }
 
