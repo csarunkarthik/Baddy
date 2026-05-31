@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isSessionLocked, LOCK_MESSAGE } from "@/lib/locking";
-import { isForceUnlocked } from "@/lib/session-unlock";
 
 export async function DELETE(
   _req: Request,
@@ -17,7 +16,7 @@ export async function DELETE(
   if (!session) {
     return NextResponse.json({ error: "Session not found" }, { status: 404 });
   }
-  if (isSessionLocked(session.date, new Date(), await isForceUnlocked(sessionId))) {
+  if (isSessionLocked(session.date)) {
     return NextResponse.json({ error: LOCK_MESSAGE }, { status: 423 });
   }
 

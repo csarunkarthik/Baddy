@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isSessionLocked, LOCK_MESSAGE } from "@/lib/locking";
-import { isForceUnlocked } from "@/lib/session-unlock";
 
 export async function PATCH(
   req: Request,
@@ -20,7 +19,7 @@ export async function PATCH(
   if (!existing) {
     return NextResponse.json({ error: "Session not found" }, { status: 404 });
   }
-  if (isSessionLocked(existing.date, new Date(), await isForceUnlocked(sessionId))) {
+  if (isSessionLocked(existing.date)) {
     return NextResponse.json({ error: LOCK_MESSAGE }, { status: 423 });
   }
 
