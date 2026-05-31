@@ -24,7 +24,6 @@ model Session {
   bamHariKid         Boolean      @default(false)
   arunDeepKid        Boolean      @default(false)
   avinashSharmiliKid Boolean      @default(false)
-  forceUnlocked      Boolean      @default(false)
   attendance         Attendance[]
   matches            Match[]
 }

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { resolveCouples, activeForbiddenPairs } from "@/lib/couples";
 import { generateFixtures } from "@/lib/fixtures";
 import { isSessionLocked, LOCK_MESSAGE } from "@/lib/locking";
+import { isForceUnlocked } from "@/lib/session-unlock";
 
 // POST /api/sessions/[id]/matches/add — body { count } — append `count` fresh fixtures
 // without disturbing existing matches or their winners. Bumps Session.totalMatches.
@@ -29,7 +30,7 @@ export async function POST(
   if (!session) {
     return NextResponse.json({ error: "Session not found" }, { status: 404 });
   }
-  if (isSessionLocked(session.date, new Date(), session.forceUnlocked)) {
+  if (isSessionLocked(session.date, new Date(), await isForceUnlocked(sessionId))) {
     return NextResponse.json({ error: LOCK_MESSAGE }, { status: 423 });
   }
 

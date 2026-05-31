@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { resolveCouples, activeForbiddenPairs } from "@/lib/couples";
 import { generateFixtures } from "@/lib/fixtures";
 import { isSessionLocked, LOCK_MESSAGE } from "@/lib/locking";
+import { isForceUnlocked } from "@/lib/session-unlock";
 
 export async function POST(
   req: Request,
@@ -16,12 +17,12 @@ export async function POST(
 
   const existing = await prisma.session.findUnique({
     where: { id: sessionId },
-    select: { date: true, forceUnlocked: true },
+    select: { date: true },
   });
   if (!existing) {
     return NextResponse.json({ error: "Session not found" }, { status: 404 });
   }
-  if (isSessionLocked(existing.date, new Date(), existing.forceUnlocked)) {
+  if (isSessionLocked(existing.date, new Date(), await isForceUnlocked(sessionId))) {
     return NextResponse.json({ error: LOCK_MESSAGE }, { status: 423 });
   }
 
