@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolveCouples } from "@/lib/couples";
 import { isSessionLocked } from "@/lib/locking";
-import { isForceUnlocked } from "@/lib/session-unlock";
 import { computeElo, type EloMatch, ELO_START } from "@/lib/elo";
 
 export async function GET(
@@ -137,7 +136,7 @@ export async function GET(
       bamHariKid: session.bamHariKid,
       arunDeepKid: session.arunDeepKid,
       avinashSharmiliKid: session.avinashSharmiliKid,
-      locked: isSessionLocked(session.date, new Date(), await isForceUnlocked(session.id)),
+      locked: isSessionLocked(session.date),
       attending: session.attendance
         .map((a) => ({ id: a.player.id, name: a.player.name, avatar: a.player.avatar }))
         .sort((a, b) => a.name.localeCompare(b.name)),
