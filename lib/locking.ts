@@ -13,7 +13,8 @@ function daysBetween(earlierYmd: string, laterYmd: string): number {
   return Math.floor((Date.parse(laterYmd + "T00:00:00Z") - Date.parse(earlierYmd + "T00:00:00Z")) / 86400000);
 }
 
-export function isSessionLocked(sessionDate: Date | string, now: Date = new Date()): boolean {
+export function isSessionLocked(sessionDate: Date | string, now: Date = new Date(), forceUnlocked = false): boolean {
+  if (forceUnlocked) return false;
   const sessionStr = toISTDate(sessionDate);
   const todayStr = toISTDate(now);
   return daysBetween(sessionStr, todayStr) > LOCK_AFTER_DAYS;

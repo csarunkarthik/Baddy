@@ -14,12 +14,12 @@ export async function PATCH(
 
   const existing = await prisma.session.findUnique({
     where: { id: sessionId },
-    select: { date: true },
+    select: { date: true, forceUnlocked: true },
   });
   if (!existing) {
     return NextResponse.json({ error: "Session not found" }, { status: 404 });
   }
-  if (isSessionLocked(existing.date)) {
+  if (isSessionLocked(existing.date, new Date(), existing.forceUnlocked)) {
     return NextResponse.json({ error: LOCK_MESSAGE }, { status: 423 });
   }
 
