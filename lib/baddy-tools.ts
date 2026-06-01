@@ -105,6 +105,16 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
     },
   },
   {
+    name: "list_venues",
+    description: "List every venue with how many sessions were played at it. Sorted by session count, most-played first. Use this for 'which venue is most popular' or 'where do we play most often'.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        sport: sportEnum,
+      },
+    },
+  },
+  {
     name: "get_venue_stats",
     description: "Stats sliced by venue. With `playerId`: that player's win rate at every venue. Without: overall leaderboard at the given venue.",
     parameters: {
@@ -133,6 +143,7 @@ const TOOL_HANDLERS: Record<string, Handler> = {
   find_matches,
   get_session_summary,
   get_couple_record,
+  list_venues,
   get_venue_stats,
 };
 
@@ -573,6 +584,24 @@ async function get_couple_record(args: Args) {
     isPinnedRealCouple: !!pinnedCouple,
     asTeammates: { matches: teammateMatches, wins: teammateWins, winPct: teammateMatches ? Math.round((teammateWins / teammateMatches) * 1000) / 10 : 0 },
     asOpponents: { matches: asOpponentMatches, p1Wins: p1WinsAsOpp, p2Wins: p2WinsAsOpp },
+  };
+}
+
+async function list_venues(args: Args) {
+  const sport = args.sport === "PICKLEBALL" ? "PICKLEBALL" : "BADMINTON";
+  const sessions = await prisma.session.findMany({
+    where: { sport },
+    select: { venue: true },
+  });
+  const counts = new Map<string, number>();
+  for (const s of sessions) {
+    const v = s.venue || "(no venue)";
+    counts.set(v, (counts.get(v) ?? 0) + 1);
+  }
+  return {
+    venues: Array.from(counts.entries())
+      .map(([venue, sessions]) => ({ venue, sessions }))
+      .sort((a, b) => b.sessions - a.sessions),
   };
 }
 

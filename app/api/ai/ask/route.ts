@@ -6,7 +6,8 @@ import { TOOL_DECLARATIONS, runTool } from "@/lib/baddy-tools";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MODEL = "gemini-2.0-flash";
+// gemini-2.5-flash has the current free tier. gemini-2.0-flash is paid-only.
+const MODEL = "gemini-2.5-flash";
 const MAX_TOOL_ROUNDS = 4;
 
 type ClientMessage = { role: "user" | "assistant"; content: string };
@@ -61,47 +62,58 @@ export async function POST(req: Request) {
   const ai = new GoogleGenAI({ apiKey });
 
   // Tool-call loop.
-  let rounds = 0;
-  let finalText = "";
-  while (rounds < MAX_TOOL_ROUNDS) {
-    rounds += 1;
-    const response = await ai.models.generateContent({
-      model: MODEL,
-      contents,
-      config: {
-        systemInstruction,
-        tools: [{ functionDeclarations: TOOL_DECLARATIONS }],
-      },
-    });
-
-    const calls = response.functionCalls ?? [];
-    if (calls.length === 0) {
-      finalText = response.text ?? "";
-      break;
-    }
-
-    // Append model's function-call turn, then run each tool and append the results.
-    const modelParts: Part[] = calls.map((c) => ({
-      functionCall: { name: c.name ?? "", args: (c.args ?? {}) as Record<string, unknown> },
-    }));
-    contents.push({ role: "model", parts: modelParts });
-
-    const userParts: Part[] = [];
-    for (const c of calls) {
-      const result = await runTool(c.name ?? "", (c.args ?? {}) as Record<string, unknown>);
-      userParts.push({
-        functionResponse: {
-          name: c.name ?? "",
-          response: typeof result === "object" && result !== null ? (result as Record<string, unknown>) : { result },
+  try {
+    let rounds = 0;
+    let finalText = "";
+    while (rounds < MAX_TOOL_ROUNDS) {
+      rounds += 1;
+      const response = await ai.models.generateContent({
+        model: MODEL,
+        contents,
+        config: {
+          systemInstruction,
+          tools: [{ functionDeclarations: TOOL_DECLARATIONS }],
         },
       });
+
+      const calls = response.functionCalls ?? [];
+      if (calls.length === 0) {
+        finalText = response.text ?? "";
+        break;
+      }
+
+      const modelParts: Part[] = calls.map((c) => ({
+        functionCall: { name: c.name ?? "", args: (c.args ?? {}) as Record<string, unknown> },
+      }));
+      contents.push({ role: "model", parts: modelParts });
+
+      const userParts: Part[] = [];
+      for (const c of calls) {
+        const result = await runTool(c.name ?? "", (c.args ?? {}) as Record<string, unknown>);
+        userParts.push({
+          functionResponse: {
+            name: c.name ?? "",
+            response: typeof result === "object" && result !== null ? (result as Record<string, unknown>) : { result },
+          },
+        });
+      }
+      contents.push({ role: "user", parts: userParts });
     }
-    contents.push({ role: "user", parts: userParts });
-  }
 
-  if (!finalText) {
-    finalText = "I tried but ran out of tool-call rounds without forming an answer. Try rephrasing the question?";
+    if (!finalText) {
+      finalText = "I tried but ran out of tool-call rounds without forming an answer. Try rephrasing the question?";
+    }
+    return NextResponse.json({ reply: finalText });
+  } catch (e) {
+    const raw = e instanceof Error ? e.message : String(e);
+    // Quota / rate-limit messages from Gemini are JSON; surface a short human-readable form.
+    let friendly = raw;
+    if (raw.includes("RESOURCE_EXHAUSTED")) {
+      friendly = "Gemini's free-tier quota is exhausted for the moment. Try again in a minute, or switch to a paid model.";
+    } else if (raw.includes("API key not valid") || raw.includes("API_KEY_INVALID")) {
+      friendly = "The GOOGLE_API_KEY is not valid. Generate a fresh key at aistudio.google.com/app/apikey.";
+    }
+    console.error("[ask] gemini error:", raw);
+    return NextResponse.json({ error: friendly }, { status: 502 });
   }
-
-  return NextResponse.json({ reply: finalText });
 }
