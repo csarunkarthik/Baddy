@@ -1,131 +1,111 @@
-import { Type, type FunctionDeclaration } from "@google/genai";
 import { prisma } from "@/lib/prisma";
 import { resolveSessionIds, type StatsScope } from "@/lib/stats-filter";
 import { computeElo, type EloMatch } from "@/lib/elo";
 import { COUPLES } from "@/lib/couples";
 
-// Tool definitions for Gemini. The model calls these by name; each handler
+// OpenAI / Groq tool format. The model calls these by name; each handler
 // runs a Prisma query and returns a small JSON object.
-//
-// Naming convention: tool names are snake_case (Gemini convention) and map
-// to handler functions of the same name in TOOL_HANDLERS below.
 
-const sportEnum = { type: Type.STRING, enum: ["BADMINTON", "PICKLEBALL"], description: "Sport filter; defaults to BADMINTON if omitted." };
+type ToolDecl = {
+  type: "function";
+  function: {
+    name: string;
+    description: string;
+    parameters: {
+      type: "object";
+      required?: string[];
+      properties: Record<string, unknown>;
+    };
+  };
+};
 
-export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
-  {
-    name: "list_players",
-    description: "List every player in the system with id, name, and avatar.",
-    parameters: { type: Type.OBJECT, properties: {} },
-  },
-  {
-    name: "resolve_player_name",
-    description: "Find the player whose name best matches the given string. Use this when the user mentions a partial name or nickname. Returns the player's id and name, or null if no good match.",
-    parameters: {
-      type: Type.OBJECT,
-      required: ["name"],
-      properties: {
-        name: { type: Type.STRING, description: "Name fragment to match against the roster." },
-      },
+const sportEnum = { type: "string", enum: ["BADMINTON", "PICKLEBALL"], description: "Sport filter; defaults to BADMINTON if omitted." };
+
+function tool(name: string, description: string, parameters: ToolDecl["function"]["parameters"]): ToolDecl {
+  return { type: "function", function: { name, description, parameters } };
+}
+
+export const TOOL_DECLARATIONS: ToolDecl[] = [
+  tool("list_players", "List every player in the system with id, name, and avatar.", {
+    type: "object",
+    properties: {},
+  }),
+  tool("resolve_player_name", "Find the player whose name best matches the given string. Use this when the user mentions a partial name or nickname. Returns the player's id and name, or null if no good match.", {
+    type: "object",
+    required: ["name"],
+    properties: {
+      name: { type: "string", description: "Name fragment to match against the roster." },
     },
-  },
-  {
-    name: "get_leaderboard",
-    description: "Top players by a metric. Always specify metric. Optional scope filters: sport, year, month, venue, lastN. Returns at most `limit` players (default 10).",
-    parameters: {
-      type: Type.OBJECT,
-      required: ["metric"],
-      properties: {
-        metric: { type: Type.STRING, enum: ["wins", "winPct", "elo", "diversity", "points", "attendance"], description: "Which leaderboard to compute." },
-        sport: sportEnum,
-        year: { type: Type.NUMBER, description: "4-digit year, optional." },
-        month: { type: Type.NUMBER, description: "1-12, optional." },
-        venue: { type: Type.STRING, description: "Venue name, optional." },
-        lastN: { type: Type.NUMBER, description: "Most recent N sessions, optional." },
-        limit: { type: Type.NUMBER, description: "Max players to return (default 10)." },
-      },
+  }),
+  tool("get_leaderboard", "Top players by a metric. Always specify metric. Optional scope filters: sport, year, month, venue, lastN. Returns at most `limit` players (default 10).", {
+    type: "object",
+    required: ["metric"],
+    properties: {
+      metric: { type: "string", enum: ["wins", "winPct", "elo", "diversity", "points", "attendance"], description: "Which leaderboard to compute." },
+      sport: sportEnum,
+      year: { type: "number", description: "4-digit year, optional." },
+      month: { type: "number", description: "1-12, optional." },
+      venue: { type: "string", description: "Venue name, optional." },
+      lastN: { type: "number", description: "Most recent N sessions, optional." },
+      limit: { type: "number", description: "Max players to return (default 10)." },
     },
-  },
-  {
-    name: "get_player_stats",
-    description: "Comprehensive stats for one player: wins/played/winPct, current ELO, best partner (most wins with), top opponent (most losses to), and partner-diversity score. Optional scope filters.",
-    parameters: {
-      type: Type.OBJECT,
-      required: ["playerId"],
-      properties: {
-        playerId: { type: Type.NUMBER, description: "Player id from list_players or resolve_player_name." },
-        sport: sportEnum,
-        year: { type: Type.NUMBER },
-        month: { type: Type.NUMBER },
-        venue: { type: Type.STRING },
-        lastN: { type: Type.NUMBER },
-      },
+  }),
+  tool("get_player_stats", "Comprehensive stats for one player: wins/played/winPct, current ELO, best partner (most wins with), top opponent (most losses to), and partner-diversity score. Optional scope filters.", {
+    type: "object",
+    required: ["playerId"],
+    properties: {
+      playerId: { type: "number", description: "Player id from list_players or resolve_player_name." },
+      sport: sportEnum,
+      year: { type: "number" },
+      month: { type: "number" },
+      venue: { type: "string" },
+      lastN: { type: "number" },
     },
-  },
-  {
-    name: "find_matches",
-    description: "Find matches matching a set of filters. Use to answer 'when did X and Y last play/lose/win together' or 'show matches at venue Z'. Returns at most `limit` matches (default 10), most recent first.",
-    parameters: {
-      type: Type.OBJECT,
-      properties: {
-        playerIds: { type: Type.ARRAY, items: { type: Type.NUMBER }, description: "All these player ids must be IN THE MATCH (either team). Use to scope to matches involving specific players." },
-        teammateIds: { type: Type.ARRAY, items: { type: Type.NUMBER }, description: "These player ids must be ON THE SAME TEAM. Use for 'X and Y as partners'." },
-        opponentIds: { type: Type.ARRAY, items: { type: Type.NUMBER }, description: "These player ids must be ON OPPOSING TEAMS from teammateIds (or from each other if teammateIds is empty)." },
-        venue: { type: Type.STRING },
-        sport: sportEnum,
-        dateFrom: { type: Type.STRING, description: "YYYY-MM-DD inclusive lower bound." },
-        dateTo: { type: Type.STRING, description: "YYYY-MM-DD inclusive upper bound." },
-        outcome: { type: Type.STRING, enum: ["won", "lost", "any"], description: "Filter to wins/losses for the FIRST teammateId (or first playerId if teammateIds is empty). Defaults to 'any'." },
-        limit: { type: Type.NUMBER, description: "Max matches to return (default 10)." },
-      },
+  }),
+  tool("find_matches", "Find matches matching a set of filters. Use to answer 'when did X and Y last play/lose/win together' or 'show matches at venue Z'. Returns at most `limit` matches (default 10), most recent first.", {
+    type: "object",
+    properties: {
+      playerIds: { type: "array", items: { type: "number" }, description: "All these player ids must be IN THE MATCH (either team). Use to scope to matches involving specific players." },
+      teammateIds: { type: "array", items: { type: "number" }, description: "These player ids must be ON THE SAME TEAM. Use for 'X and Y as partners'." },
+      opponentIds: { type: "array", items: { type: "number" }, description: "These player ids must be ON OPPOSING TEAMS from teammateIds (or from each other if teammateIds is empty)." },
+      venue: { type: "string" },
+      sport: sportEnum,
+      dateFrom: { type: "string", description: "YYYY-MM-DD inclusive lower bound." },
+      dateTo: { type: "string", description: "YYYY-MM-DD inclusive upper bound." },
+      outcome: { type: "string", enum: ["won", "lost", "any"], description: "Filter to wins/losses for the FIRST teammateId (or first playerId if teammateIds is empty). Defaults to 'any'." },
+      limit: { type: "number", description: "Max matches to return (default 10)." },
     },
-  },
-  {
-    name: "get_session_summary",
-    description: "What happened on a specific date: venue, attendees, all matches with winners and scores.",
-    parameters: {
-      type: Type.OBJECT,
-      required: ["date"],
-      properties: {
-        date: { type: Type.STRING, description: "YYYY-MM-DD." },
-        sport: sportEnum,
-      },
+  }),
+  tool("get_session_summary", "What happened on a specific date: venue, attendees, all matches with winners and scores.", {
+    type: "object",
+    required: ["date"],
+    properties: {
+      date: { type: "string", description: "YYYY-MM-DD." },
+      sport: sportEnum,
     },
-  },
-  {
-    name: "get_couple_record",
-    description: "Head-to-head record between two players when they are on opposing teams, plus their record when on the same team. Useful for the three pinned real-life couples but works for any pair.",
-    parameters: {
-      type: Type.OBJECT,
-      required: ["player1Id", "player2Id"],
-      properties: {
-        player1Id: { type: Type.NUMBER },
-        player2Id: { type: Type.NUMBER },
-      },
+  }),
+  tool("get_couple_record", "Head-to-head record between two players when they are on opposing teams, plus their record when on the same team. Useful for the three pinned real-life couples but works for any pair.", {
+    type: "object",
+    required: ["player1Id", "player2Id"],
+    properties: {
+      player1Id: { type: "number" },
+      player2Id: { type: "number" },
     },
-  },
-  {
-    name: "list_venues",
-    description: "List every venue with how many sessions were played at it. Sorted by session count, most-played first. Use this for 'which venue is most popular' or 'where do we play most often'.",
-    parameters: {
-      type: Type.OBJECT,
-      properties: {
-        sport: sportEnum,
-      },
+  }),
+  tool("list_venues", "List every venue with how many sessions were played at it. Sorted by session count, most-played first. Use this for 'which venue is most popular' or 'where do we play most often'.", {
+    type: "object",
+    properties: {
+      sport: sportEnum,
     },
-  },
-  {
-    name: "get_venue_stats",
-    description: "Stats sliced by venue. With `playerId`: that player's win rate at every venue. Without: overall leaderboard at the given venue.",
-    parameters: {
-      type: Type.OBJECT,
-      properties: {
-        venue: { type: Type.STRING, description: "Required when playerId is omitted." },
-        playerId: { type: Type.NUMBER, description: "Required when venue is omitted." },
-        sport: sportEnum,
-      },
+  }),
+  tool("get_venue_stats", "Stats sliced by venue. With `playerId`: that player's win rate at every venue. Without: overall leaderboard at the given venue.", {
+    type: "object",
+    properties: {
+      venue: { type: "string", description: "Required when playerId is omitted." },
+      playerId: { type: "number", description: "Required when venue is omitted." },
+      sport: sportEnum,
     },
-  },
+  }),
 ];
 
 // ────────────────────────────────────────────────────────────────────────────
