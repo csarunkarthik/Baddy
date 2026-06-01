@@ -7,8 +7,11 @@ import { TOOL_DECLARATIONS, runTool } from "@/lib/baddy-tools";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Groq's Llama 3.3 70B. Free tier ~30 RPM / ~14,400 RPD with tool calling.
-const MODEL = "llama-3.3-70b-versatile";
+// GPT-OSS 120B has the best structured tool calling of the open models on
+// Groq. Llama 3.3 70B emitted pseudo-syntax (<function=...>) and Llama 4
+// Scout serialized numbers/arrays as strings, both rejected by Groq's
+// strict schema validator.
+const MODEL = "openai/gpt-oss-120b";
 const MAX_TOOL_ROUNDS = 4;
 
 type ClientMessage = { role: "user" | "assistant"; content: string };
