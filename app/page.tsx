@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { isSessionLocked } from "@/lib/locking";
+import HistoryList from "./components/HistoryList";
 
 type Player = { id: number; name: string };
 type Sport = "BADMINTON" | "PICKLEBALL";
@@ -30,6 +31,7 @@ export default function Home() {
   const [sport, setSport] = useState<Sport>("BADMINTON");
   const [venue, setVenue] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -289,6 +291,25 @@ export default function Home() {
             <p className="text-sm font-medium">Enter a venue to select players</p>
           </div>
         )}
+
+        {/* Past sessions — collapsed by default, expands to inline history editor */}
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100">
+          <button
+            onClick={() => setHistoryOpen((v) => !v)}
+            className="w-full flex items-center justify-between px-5 py-4 text-left"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-lg">📜</span>
+              <h2 className="font-bold text-gray-800">Past sessions</h2>
+            </div>
+            <span className={`text-gray-300 text-xs transition-transform duration-200 ${historyOpen ? "rotate-180" : ""}`}>▼</span>
+          </button>
+          {historyOpen && (
+            <div className="px-3 pb-5 border-t border-gray-50 pt-4">
+              <HistoryList />
+            </div>
+          )}
+        </div>
 
       </div>
     </div>

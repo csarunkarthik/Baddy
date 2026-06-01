@@ -9,7 +9,6 @@ const TABS: { href: string; label: string; emoji: string; match: (p: string) => 
   { href: "/stats", label: "Stats", emoji: "🎯", match: (p) => p.startsWith("/stats") },
   { href: "/ask", label: "Ask", emoji: "🤖", match: (p) => p.startsWith("/ask") },
   { href: "/awards", label: "Awards", emoji: "🏅", match: (p) => p.startsWith("/awards") },
-  { href: "/history", label: "History", emoji: "📜", match: (p) => p.startsWith("/history") },
   { href: "/players", label: "Players", emoji: "🫂", match: (p) => p.startsWith("/players") },
 ];
 
@@ -20,7 +19,7 @@ export default function BottomNav() {
       className="fixed bottom-0 inset-x-0 z-50 bg-white/95 backdrop-blur border-t border-slate-200 pb-[env(safe-area-inset-bottom)]"
       aria-label="Primary"
     >
-      <div className="max-w-lg mx-auto grid grid-cols-7">
+      <div className="max-w-lg mx-auto grid grid-cols-6">
         {TABS.map((t) => {
           const active = t.match(pathname);
           return (
