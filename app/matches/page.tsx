@@ -5,7 +5,7 @@ import Link from "next/link";
 import confetti from "canvas-confetti";
 import { usePullToRefresh } from "../hooks/usePullToRefresh";
 import PullIndicator from "../components/PullIndicator";
-import MatchEntryFab, { MatchMicButton } from "../components/MatchEntryFab";
+import { MatchMicButton } from "../components/MatchEntryFab";
 
 type Player = { id: number; name: string; avatar?: string | null };
 type CoupleKey = "bamHari" | "arunDeep" | "avinashSharmili";
@@ -1439,9 +1439,6 @@ export default function MatchesPage() {
           </>
         ) : null}
       </div>
-      {data && data.matches.length > 0 && !locked && (
-        <MatchEntryFab sessionId={data.session.id} onSaved={() => load(selectedDate, selectedSport)} />
-      )}
     </div>
   );
 }

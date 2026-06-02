@@ -228,26 +228,6 @@ function MatchEntryModal({ open, onClose, sessionId, lockedMatch, onSaved }: Mod
 
 // ──────────────────────────────────────────────────────────────────────────────
 
-type FabProps = { sessionId: number; onSaved: () => void };
-
-export default function MatchEntryFab({ sessionId, onSaved }: FabProps) {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <button
-        onClick={() => setOpen(true)}
-        aria-label="Quick log a match"
-        className="fixed right-4 bottom-24 z-40 w-14 h-14 rounded-full bg-indigo-500 text-white shadow-xl shadow-indigo-300/50 hover:bg-indigo-600 active:scale-95 transition-all flex items-center justify-center text-2xl"
-      >
-        🎤
-      </button>
-      <MatchEntryModal open={open} onClose={() => setOpen(false)} sessionId={sessionId} onSaved={onSaved} />
-    </>
-  );
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
-
 type MicButtonProps = { sessionId: number; match: LockedMatch; onSaved: () => void };
 
 export function MatchMicButton({ sessionId, match, onSaved }: MicButtonProps) {
