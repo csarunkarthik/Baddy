@@ -9,7 +9,7 @@ type Msg = { role: "user" | "assistant"; content: string };
 const STARTER_QUESTIONS = [
   "Who's on a hot streak this month?",
   "Who has the best win rate at Lara?",
-  "Show me the most one-sided match this year",
+  "What's Thalapathy's record against Renga?",
   "Who's the toughest opponent for Avinash?",
 ];
 
