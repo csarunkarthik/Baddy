@@ -5,7 +5,7 @@ import Link from "next/link";
 import confetti from "canvas-confetti";
 import { usePullToRefresh } from "../hooks/usePullToRefresh";
 import PullIndicator from "../components/PullIndicator";
-import MatchEntryFab from "../components/MatchEntryFab";
+import MatchEntryFab, { MatchMicButton } from "../components/MatchEntryFab";
 
 type Player = { id: number; name: string; avatar?: string | null };
 type CoupleKey = "bamHari" | "arunDeep" | "avinashSharmili";
@@ -1068,7 +1068,12 @@ export default function MatchesPage() {
                           )}
                         </span>
                         {!locked && (
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1">
+                            <MatchMicButton
+                              sessionId={data.session.id}
+                              match={{ matchNumber: m.matchNumber, teamA: m.teamA, teamB: m.teamB }}
+                              onSaved={() => load(selectedDate, selectedSport)}
+                            />
                             <button
                               onClick={() => (isEditing ? (setEditingMatchId(null), setEditDraft(null)) : startEdit(m))}
                               className="text-xs font-semibold text-indigo-600 hover:bg-indigo-50 px-2 py-1 rounded-full transition-colors"
