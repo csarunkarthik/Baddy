@@ -31,8 +31,34 @@ function normName(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9 ]+/g, "").trim();
 }
 
-// Find the attending player whose name best matches `q`. Returns null if
-// no candidate scores anything (which means an obvious "we don't know who that is").
+// Edit distance — used as a fallback when substring/prefix matches don't fire.
+// Web Speech often transcribes short nicknames into longer real names
+// ("Hari" → "Harish", "Avi" → "Avy", "Bam" → "bomb"); a small Levenshtein
+// pass catches those.
+function lev(a: string, b: string): number {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  const prev = new Array(b.length + 1).fill(0);
+  for (let j = 0; j <= b.length; j++) prev[j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    let cur = i;
+    let topLeft = prev[0];
+    prev[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1;
+      const next = Math.min(cur + 1, prev[j] + 1, topLeft + cost);
+      topLeft = prev[j];
+      prev[j] = next;
+      cur = next;
+    }
+  }
+  return prev[b.length];
+}
+
+// Find the attending player whose name best matches `q`. Combines:
+//   exact > prefix > token-boundary > substring > reverse-substring > edit-distance
+// Returns null only when nothing comes close.
 function resolveAttendee(q: string, attending: Attending[]): Attending | null {
   const nq = normName(q);
   if (!nq) return null;
@@ -42,10 +68,17 @@ function resolveAttendee(q: string, attending: Attending[]): Attending | null {
     const np = normName(a.name);
     let score = 0;
     if (np === nq) score = 100;
-    else if (np.startsWith(nq)) score = 60;
+    else if (np.startsWith(nq) || nq.startsWith(np)) score = 60;
     else if (np.includes(` ${nq}`) || np.endsWith(` ${nq}`)) score = 50;
     else if (np.includes(nq)) score = 30;
-    else if (nq.includes(np)) score = 15;
+    else if (nq.includes(np)) score = 25;
+    else {
+      // Levenshtein fallback — allow ~1 edit per 3 chars (capped). Helps when
+      // the transcript adds/changes letters: "Harish" vs "Hari" → distance 2.
+      const d = lev(nq, np);
+      const tol = Math.max(2, Math.floor(Math.max(nq.length, np.length) / 3));
+      if (d <= tol) score = Math.max(1, 20 - d * 4);
+    }
     if (score > bestScore) { best = a; bestScore = score; }
   }
   return best;
@@ -128,7 +161,8 @@ export async function POST(
             `Fixtures:\n${matchesContext}\n\n` +
             `${lockedInstruction}\n\n` +
             "Determine the winner team (A or B) using explicit cues like 'beat'/'won'/'lost' AND from the scores if given. Extract scores as integers.\n\n" +
-            "PLAYERS — if the user mentions two players on each side (\"X and Y beat Z and W\"), include them as teamA and teamB arrays. In your response, teamA = the team you decide is 'A' (the winning team's side if they used 'beat'/'won', or the first-named side otherwise). Names should be the closest attending-player name (so the server can map them). If the user describes a different lineup than the fixture, ALWAYS return the lineup they actually said — we will override the fixture players to match.\n\n" +
+            "PLAYERS — the input is from speech-to-text, which often mangles short nicknames into longer real-world names. Common pitfalls: 'Hari' → 'Harish', 'Avi' → 'Avy' or 'Ari', 'Mass' → 'Mas' or 'Mark', 'Bam' → 'bomb' or 'Bham', 'Niki' → 'Nikki', 'Renga' → 'Ranga'. ALWAYS map every player word to the CLOSEST attendee from the roster above — never echo the raw transcript. If a word in the transcript doesn't clearly match any attendee, set confidence='low' and explain in note.\n\n" +
+            "If the user mentions two players on each side (\"X and Y beat Z and W\"), include them as teamA and teamB arrays. In your response, teamA = the team you decide is 'A' (the winning team's side if they used 'beat'/'won', or the first-named side otherwise). If the user describes a different lineup than the fixture, ALWAYS return the lineup they actually said — we will override the fixture players to match.\n\n" +
             "If the user does NOT mention specific players (e.g. just \"21-15, A won\" or just a score), OMIT teamA and teamB entirely so we keep the fixture's existing players.\n\n" +
             'Return ONLY this JSON: { "matchNumber": <int>, "winner": "A" or "B", "teamAScore": <int>, "teamBScore": <int>, "teamA": [<name>, <name>] (optional), "teamB": [<name>, <name>] (optional), "confidence": "high"|"medium"|"low", "note": "<one short human-readable summary>" }\n\n' +
             "Always include matchNumber, winner, teamAScore, teamBScore, confidence, note. teamA and teamB are optional.",
@@ -170,6 +204,11 @@ export async function POST(
   // to attending player ids. If they differ from the fixture, swap them in.
   let overridePlayers: { teamA: Attending[]; teamB: Attending[] } | null = null;
   if (Array.isArray(parsed.teamA) && Array.isArray(parsed.teamB) && parsed.teamA.length === 2 && parsed.teamB.length === 2) {
+    // Refuse to override players if the model itself flagged low confidence —
+    // better to ask the user to retry than silently swap in the wrong people.
+    if (parsed.confidence === "low") {
+      return NextResponse.json({ error: `Couldn't be sure about the players (${parsed.note || "low confidence"}). Try again — maybe name the players a bit more clearly.` }, { status: 400 });
+    }
     const resA = parsed.teamA.map((n) => ({ name: n, hit: resolveAttendee(n, attending) }));
     const resB = parsed.teamB.map((n) => ({ name: n, hit: resolveAttendee(n, attending) }));
     const unresolved = [...resA, ...resB].filter((r) => !r.hit).map((r) => r.name);

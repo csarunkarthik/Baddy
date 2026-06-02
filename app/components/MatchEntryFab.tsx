@@ -68,6 +68,8 @@ function MatchEntryModal({ open, onClose, sessionId, lockedMatch, onSaved }: Mod
   function startVoice() {
     const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!Ctor) return;
+    // Close the keyboard so it doesn't hide the auto-submit hint or buttons.
+    inputRef.current?.blur();
     const rec = new Ctor();
     rec.lang = "en-IN";
     rec.interimResults = true;
@@ -83,7 +85,13 @@ function MatchEntryModal({ open, onClose, sessionId, lockedMatch, onSaved }: Mod
       setText(interim ? `${finalText} ${interim}`.trim() : finalText);
     };
     rec.onerror = (ev) => { setError(`Mic error: ${ev.error}`); setListening(false); };
-    rec.onend = () => { setListening(false); };
+    rec.onend = () => {
+      setListening(false);
+      // Auto-submit when voice ends: typed text rarely produces a clean
+      // ending, but speech does — so this lets the user just speak and walk.
+      const t = finalText.trim();
+      if (t) submit(t);
+    };
     recRef.current = rec;
     setListening(true);
     rec.start();
@@ -96,8 +104,8 @@ function MatchEntryModal({ open, onClose, sessionId, lockedMatch, onSaved }: Mod
     setListening(false);
   }
 
-  async function submit() {
-    const t = text.trim();
+  async function submit(textOverride?: string) {
+    const t = (textOverride ?? text).trim();
     if (!t || submitting) return;
     setSubmitting(true);
     setError(null);
@@ -182,10 +190,13 @@ function MatchEntryModal({ open, onClose, sessionId, lockedMatch, onSaved }: Mod
         </div>
 
         {!voiceSupported && (
-          <p className="text-[11px] text-gray-400">Voice input isn&apos;t available in this browser — type the result instead.</p>
+          <p className="text-[11px] text-gray-400">Voice input isn&apos;t available in this browser — type the result and tap Log.</p>
         )}
         {listening && (
-          <p className="text-[11px] font-semibold text-rose-600">Listening… speak the result.</p>
+          <p className="text-[11px] font-semibold text-rose-600">Listening… we&apos;ll log automatically when you stop speaking.</p>
+        )}
+        {submitting && (
+          <p className="text-[11px] font-semibold text-indigo-600">Logging…</p>
         )}
         {error && (
           <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold px-3 py-2 rounded-xl">{error}</div>
@@ -203,7 +214,7 @@ function MatchEntryModal({ open, onClose, sessionId, lockedMatch, onSaved }: Mod
             Cancel
           </button>
           <button
-            onClick={submit}
+            onClick={() => submit()}
             disabled={submitting || !text.trim()}
             className="flex-1 py-2.5 rounded-2xl bg-indigo-500 text-white text-sm font-bold hover:bg-indigo-600 transition-colors disabled:opacity-50 active:scale-95"
           >
