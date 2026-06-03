@@ -45,13 +45,14 @@ export async function PATCH(
     }
     scoreUpdate.teamBScore = v === null ? null : Math.floor(v);
   }
-  // Auto-infer winner from scores when both sides set and differ.
+  // Auto-infer winner from scores when both sides set, differ, and one has reached 21+.
   if (
     "teamAScore" in scoreUpdate &&
     "teamBScore" in scoreUpdate &&
     typeof scoreUpdate.teamAScore === "number" &&
     typeof scoreUpdate.teamBScore === "number" &&
-    scoreUpdate.teamAScore !== scoreUpdate.teamBScore
+    scoreUpdate.teamAScore !== scoreUpdate.teamBScore &&
+    Math.max(scoreUpdate.teamAScore, scoreUpdate.teamBScore) >= 21
   ) {
     scoreUpdate.winner = scoreUpdate.teamAScore > scoreUpdate.teamBScore ? "A" : "B";
   }
@@ -75,7 +76,8 @@ export async function PATCH(
         current &&
         current.teamAScore !== null &&
         current.teamBScore !== null &&
-        current.teamAScore !== current.teamBScore
+        current.teamAScore !== current.teamBScore &&
+        Math.max(current.teamAScore, current.teamBScore) >= 21
       ) {
         const higher: "A" | "B" = current.teamAScore > current.teamBScore ? "A" : "B";
         if (w !== higher) {

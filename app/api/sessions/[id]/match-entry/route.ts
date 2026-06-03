@@ -206,7 +206,7 @@ export async function POST(
   const a = Number.isFinite(parsed.teamAScore) ? Math.max(0, Math.min(99, Math.floor(parsed.teamAScore as number))) : null;
   const b = Number.isFinite(parsed.teamBScore) ? Math.max(0, Math.min(99, Math.floor(parsed.teamBScore as number))) : null;
   let winner: "A" | "B" | null = parsed.winner === "A" || parsed.winner === "B" ? parsed.winner : null;
-  if (a !== null && b !== null && a !== b) {
+  if (a !== null && b !== null && a !== b && Math.max(a, b) >= 21) {
     const higher: "A" | "B" = a > b ? "A" : "B";
     if (winner !== higher) winner = higher;
   }

@@ -538,8 +538,8 @@ export default function MatchesPage() {
   async function setWinner(matchId: number, currentWinner: "A" | "B" | null, team: "A" | "B") {
     if (!data) return;
     const match = data.matches.find((m) => m.id === matchId);
-    // If both scores entered and differ, only the higher-scoring team can be winner.
-    if (match && match.teamAScore !== null && match.teamBScore !== null && match.teamAScore !== match.teamBScore) {
+    // If both scores entered, differ, and one has reached 21+, only the higher-scoring team can be winner.
+    if (match && match.teamAScore !== null && match.teamBScore !== null && match.teamAScore !== match.teamBScore && Math.max(match.teamAScore, match.teamBScore) >= 21) {
       const higher = match.teamAScore > match.teamBScore ? "A" : "B";
       if (team !== higher) return;
     }
@@ -569,7 +569,7 @@ export default function MatchesPage() {
       matches: data.matches.map((m) => {
         if (m.id !== matchId) return m;
         const next = { ...m, teamAScore: aScore, teamBScore: bScore };
-        if (aScore !== null && bScore !== null && aScore !== bScore) {
+        if (aScore !== null && bScore !== null && aScore !== bScore && Math.max(aScore, bScore) >= 21) {
           next.winner = aScore > bScore ? "A" : "B";
         }
         return next;
@@ -1457,11 +1457,18 @@ function PlayerRow({ stat }: { stat: WinStat }) {
 function ScoreRow({ match, sport, onSave }: { match: Match; sport: "BADMINTON" | "PICKLEBALL"; onSave: (id: number, a: number | null, b: number | null) => void }) {
   const [a, setA] = useState<number | null>(match.teamAScore);
   const [b, setB] = useState<number | null>(match.teamBScore);
+  const [editingTeam, setEditingTeam] = useState<"A" | "B" | null>(null);
+  const [editVal, setEditVal] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setA(match.teamAScore);
     setB(match.teamBScore);
   }, [match.teamAScore, match.teamBScore]);
+
+  useEffect(() => {
+    if (editingTeam) inputRef.current?.select();
+  }, [editingTeam]);
 
   function clamp(n: number) { return Math.max(0, Math.min(99, n)); }
   function persist(aVal: number | null, bVal: number | null) {
@@ -1471,9 +1478,6 @@ function ScoreRow({ match, sport, onSave }: { match: Match; sport: "BADMINTON" |
 
   const defaultScore = sport === "PICKLEBALL" ? 11 : 21;
 
-  // First +/- tap commits BOTH scores so the auto-winner-from-scores logic
-  // can fire (it needs both non-null). Default matches the sport's typical
-  // game cap (badminton 21, pickleball 11).
   function bumpFromDefault(team: "A" | "B", delta: number) {
     const aBase = a ?? defaultScore;
     const bBase = b ?? defaultScore;
@@ -1489,10 +1493,65 @@ function ScoreRow({ match, sport, onSave }: { match: Match; sport: "BADMINTON" |
       persist(aBase, bNext);
     }
   }
+
+  function startEdit(team: "A" | "B") {
+    const current = team === "A" ? (a ?? defaultScore) : (b ?? defaultScore);
+    setEditVal(String(current));
+    setEditingTeam(team);
+  }
+
+  function commitEdit() {
+    if (!editingTeam) return;
+    const parsed = parseInt(editVal, 10);
+    const val = Number.isFinite(parsed) ? clamp(parsed) : null;
+    const aBase = a ?? defaultScore;
+    const bBase = b ?? defaultScore;
+    if (editingTeam === "A") {
+      const aNext = val ?? aBase;
+      setA(aNext);
+      if (b === null) setB(bBase);
+      persist(aNext, b ?? bBase);
+    } else {
+      const bNext = val ?? bBase;
+      setB(bNext);
+      if (a === null) setA(aBase);
+      persist(a ?? aBase, bNext);
+    }
+    setEditingTeam(null);
+  }
+
   const aDisplay = a ?? defaultScore;
   const bDisplay = b ?? defaultScore;
   const aMuted = a === null;
   const bMuted = b === null;
+
+  function scoreDisplay(team: "A" | "B") {
+    const display = team === "A" ? aDisplay : bDisplay;
+    const muted = team === "A" ? aMuted : bMuted;
+    if (editingTeam === team) {
+      return (
+        <input
+          ref={inputRef}
+          type="number"
+          inputMode="numeric"
+          value={editVal}
+          onChange={(e) => setEditVal(e.target.value)}
+          onBlur={commitEdit}
+          onKeyDown={(e) => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") setEditingTeam(null); }}
+          className="w-9 text-center text-sm font-bold tabular-nums bg-white border border-blue-400 rounded outline-none text-slate-800"
+        />
+      );
+    }
+    return (
+      <button
+        onClick={() => startEdit(team)}
+        className={`w-9 text-center text-sm font-bold tabular-nums rounded hover:bg-slate-200 active:scale-95 ${muted ? "text-slate-400" : "text-slate-800"}`}
+        aria-label={`Edit team ${team} score`}
+      >
+        {display}
+      </button>
+    );
+  }
 
   return (
     <div className="border-t border-slate-100 bg-white px-3 py-2 flex items-center justify-center gap-3">
@@ -1505,9 +1564,7 @@ function ScoreRow({ match, sport, onSave }: { match: Match; sport: "BADMINTON" |
         >
           −
         </button>
-        <span className={`w-9 text-center text-sm font-bold tabular-nums ${aMuted ? "text-slate-400" : "text-slate-800"}`}>
-          {aDisplay}
-        </span>
+        {scoreDisplay("A")}
         <button
           onClick={() => bumpFromDefault("A", 1)}
           aria-label="Increase team A score"
@@ -1525,9 +1582,7 @@ function ScoreRow({ match, sport, onSave }: { match: Match; sport: "BADMINTON" |
         >
           −
         </button>
-        <span className={`w-9 text-center text-sm font-bold tabular-nums ${bMuted ? "text-slate-400" : "text-slate-800"}`}>
-          {bDisplay}
-        </span>
+        {scoreDisplay("B")}
         <button
           onClick={() => bumpFromDefault("B", 1)}
           aria-label="Increase team B score"
