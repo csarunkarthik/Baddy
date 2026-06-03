@@ -2,27 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 
-// Minimal SpeechRecognition typings — the API isn't in the standard TS lib.
-type SpeechRecognitionResult = { transcript: string; isFinal: boolean };
-type SpeechRecognitionEvent = { resultIndex: number; results: { [i: number]: { [j: number]: SpeechRecognitionResult } & { isFinal: boolean }; length: number } };
-type SpeechRecognitionInstance = {
-  lang: string;
-  interimResults: boolean;
-  continuous: boolean;
-  onresult: ((e: SpeechRecognitionEvent) => void) | null;
-  onerror: ((e: { error: string }) => void) | null;
-  onend: (() => void) | null;
-  start: () => void;
-  stop: () => void;
-};
-type RecognitionCtor = new () => SpeechRecognitionInstance;
-declare global {
-  interface Window {
-    SpeechRecognition?: RecognitionCtor;
-    webkitSpeechRecognition?: RecognitionCtor;
-  }
-}
-
 type LockedMatch = {
   matchNumber: number;
   teamA: { name: string }[];
@@ -37,20 +16,29 @@ type ModalProps = {
   onSaved: () => void;
 };
 
+// Voice capture uses MediaRecorder + Groq's Whisper Large V3 server-side.
+// Browser's built-in SpeechRecognition is unreliable for Indian English
+// nicknames ("Hari" → "Harish"); Whisper plus a player-roster prompt is
+// significantly more accurate.
+
 function MatchEntryModal({ open, onClose, sessionId, lockedMatch, onSaved }: ModalProps) {
   const [text, setText] = useState("");
-  const [listening, setListening] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
   const [voiceSupported, setVoiceSupported] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
-  const recRef = useRef<SpeechRecognitionInstance | null>(null);
+
+  const recRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const autoStopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
-    setVoiceSupported(!!Ctor);
+    setVoiceSupported(typeof MediaRecorder !== "undefined" && !!navigator.mediaDevices?.getUserMedia);
   }, []);
 
   useEffect(() => {
@@ -60,48 +48,95 @@ function MatchEntryModal({ open, onClose, sessionId, lockedMatch, onSaved }: Mod
       setText("");
       setTimeout(() => inputRef.current?.focus(), 50);
     } else {
-      stopVoice();
+      cleanupRecording();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  function startVoice() {
-    const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!Ctor) return;
-    // Close the keyboard so it doesn't hide the auto-submit hint or buttons.
-    inputRef.current?.blur();
-    const rec = new Ctor();
-    rec.lang = "en-IN";
-    rec.interimResults = true;
-    rec.continuous = false;
-    let finalText = text;
-    rec.onresult = (e) => {
-      let interim = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const r = e.results[i][0];
-        if (e.results[i].isFinal) finalText = (finalText ? finalText + " " : "") + r.transcript.trim();
-        else interim += r.transcript;
-      }
-      setText(interim ? `${finalText} ${interim}`.trim() : finalText);
-    };
-    rec.onerror = (ev) => { setError(`Mic error: ${ev.error}`); setListening(false); };
-    rec.onend = () => {
-      setListening(false);
-      // Auto-submit when voice ends: typed text rarely produces a clean
-      // ending, but speech does — so this lets the user just speak and walk.
-      const t = finalText.trim();
-      if (t) submit(t);
-    };
-    recRef.current = rec;
-    setListening(true);
-    rec.start();
-  }
-  function stopVoice() {
-    if (recRef.current) {
+  function cleanupRecording() {
+    if (autoStopTimer.current) { clearTimeout(autoStopTimer.current); autoStopTimer.current = null; }
+    if (recRef.current && recRef.current.state !== "inactive") {
       try { recRef.current.stop(); } catch {}
-      recRef.current = null;
     }
-    setListening(false);
+    if (streamRef.current) {
+      for (const t of streamRef.current.getTracks()) t.stop();
+    }
+    recRef.current = null;
+    streamRef.current = null;
+    chunksRef.current = [];
+    setRecording(false);
+  }
+
+  async function startRecording() {
+    if (recording || transcribing) return;
+    setError(null);
+    inputRef.current?.blur();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      chunksRef.current = [];
+      const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : MediaRecorder.isTypeSupported("audio/mp4")
+        ? "audio/mp4"
+        : "";
+      const rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+      recRef.current = rec;
+      rec.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunksRef.current.push(e.data); };
+      rec.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: chunksRef.current[0]?.type || "audio/webm" });
+        cleanupRecording();
+        transcribeAndSubmit(blob);
+      };
+      rec.start();
+      setRecording(true);
+      // Safety auto-stop after 15s so a forgotten recording doesn't run forever.
+      autoStopTimer.current = setTimeout(() => stopRecording(), 15000);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(`Mic blocked or unavailable: ${msg}`);
+      cleanupRecording();
+    }
+  }
+
+  function stopRecording() {
+    if (recRef.current && recRef.current.state !== "inactive") {
+      try { recRef.current.stop(); } catch {}
+    }
+  }
+
+  async function transcribeAndSubmit(audio: Blob) {
+    if (audio.size === 0) {
+      setError("No audio captured — try again.");
+      return;
+    }
+    setTranscribing(true);
+    try {
+      const form = new FormData();
+      const ext = (audio.type.includes("mp4") ? "m4a" : "webm");
+      form.append("audio", audio, `voice.${ext}`);
+      form.append("sessionId", String(sessionId));
+      const res = await fetch("/api/ai/transcribe", { method: "POST", body: form });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Couldn't transcribe");
+        setTranscribing(false);
+        return;
+      }
+      const transcript = String(data.text ?? "").trim();
+      if (!transcript) {
+        setError("I didn't catch anything — try again.");
+        setTranscribing(false);
+        return;
+      }
+      setText(transcript);
+      setTranscribing(false);
+      // Auto-submit the transcript so the user can just speak and walk away.
+      submit(transcript);
+    } catch {
+      setError("Network error during transcription.");
+      setTranscribing(false);
+    }
   }
 
   async function submit(textOverride?: string) {
@@ -169,17 +204,17 @@ function MatchEntryModal({ open, onClose, sessionId, lockedMatch, onSaved }: Mod
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={3}
-            disabled={submitting}
+            disabled={submitting || recording || transcribing}
             placeholder={lockedMatch ? placeholder : "Tap the mic or type the result…"}
-            className={`w-full bg-gray-50 border-2 rounded-2xl px-4 py-3 pr-12 text-sm font-medium text-gray-900 placeholder-gray-400 focus:outline-none transition-colors resize-none disabled:opacity-60 ${listening ? "border-rose-300 bg-rose-50" : "border-transparent focus:border-indigo-300"}`}
+            className={`w-full bg-gray-50 border-2 rounded-2xl px-4 py-3 pr-12 text-sm font-medium text-gray-900 placeholder-gray-400 focus:outline-none transition-colors resize-none disabled:opacity-60 ${recording ? "border-rose-300 bg-rose-50" : "border-transparent focus:border-indigo-300"}`}
           />
           {voiceSupported && (
             <button
-              onClick={() => (listening ? stopVoice() : startVoice())}
-              disabled={submitting}
-              aria-label={listening ? "Stop listening" : "Start listening"}
+              onClick={() => (recording ? stopRecording() : startRecording())}
+              disabled={submitting || transcribing}
+              aria-label={recording ? "Stop recording" : "Start recording"}
               className={`absolute right-3 top-3 w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-95 ${
-                listening
+                recording
                   ? "bg-rose-500 text-white animate-pulse"
                   : "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
               }`}
@@ -192,8 +227,11 @@ function MatchEntryModal({ open, onClose, sessionId, lockedMatch, onSaved }: Mod
         {!voiceSupported && (
           <p className="text-[11px] text-gray-400">Voice input isn&apos;t available in this browser — type the result and tap Log.</p>
         )}
-        {listening && (
-          <p className="text-[11px] font-semibold text-rose-600">Listening… we&apos;ll log automatically when you stop speaking.</p>
+        {recording && (
+          <p className="text-[11px] font-semibold text-rose-600">Recording… tap the mic again to stop. (Auto-stops after 15s.)</p>
+        )}
+        {transcribing && (
+          <p className="text-[11px] font-semibold text-indigo-600">Transcribing with Whisper…</p>
         )}
         {submitting && (
           <p className="text-[11px] font-semibold text-indigo-600">Logging…</p>
@@ -215,7 +253,7 @@ function MatchEntryModal({ open, onClose, sessionId, lockedMatch, onSaved }: Mod
           </button>
           <button
             onClick={() => submit()}
-            disabled={submitting || !text.trim()}
+            disabled={submitting || recording || transcribing || !text.trim()}
             className="flex-1 py-2.5 rounded-2xl bg-indigo-500 text-white text-sm font-bold hover:bg-indigo-600 transition-colors disabled:opacity-50 active:scale-95"
           >
             {submitting ? "Logging…" : "Log match"}
