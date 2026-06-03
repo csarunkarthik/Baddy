@@ -56,9 +56,28 @@ function lev(a: string, b: string): number {
   return prev[b.length];
 }
 
-// Find the attending player whose name best matches `q`. Combines:
-//   exact > prefix > token-boundary > substring > reverse-substring > edit-distance
-// Returns null only when nothing comes close.
+// Score `q` against a candidate `cand` string. Higher is better; 0 means no match.
+// Order: exact > prefix > token-boundary > substring > edit-distance > reverse-substring.
+// Reverse-substring is intentionally weakest because short player names
+// ("Hari") can falsely be found inside longer transcripts ("Sharimili"
+// contains "hari"); we'd rather catch the closer phonetic match.
+function scoreAgainst(nq: string, cand: string): number {
+  if (!cand) return 0;
+  if (cand === nq) return 100;
+  if (cand.startsWith(nq) || nq.startsWith(cand)) return 60;
+  if (cand.includes(` ${nq}`) || cand.endsWith(` ${nq}`)) return 50;
+  if (cand.includes(nq)) return 30;
+  const d = lev(nq, cand);
+  const tol = Math.max(2, Math.floor(Math.max(nq.length, cand.length) / 3));
+  if (d <= tol) return Math.max(1, 20 - d * 4);
+  if (nq.includes(cand) && cand.length >= 3) return 8;
+  return 0;
+}
+
+// Find the attending player whose name best matches `q`. Tries the full
+// normalized name AND each individual token (≥3 chars) so multi-word names
+// like "Revolver Renga 🔫" can still be reached by spoken nicknames like
+// "Renga" or even "Ranga".
 function resolveAttendee(q: string, attending: Attending[]): Attending | null {
   const nq = normName(q);
   if (!nq) return null;
@@ -66,18 +85,13 @@ function resolveAttendee(q: string, attending: Attending[]): Attending | null {
   let bestScore = 0;
   for (const a of attending) {
     const np = normName(a.name);
-    let score = 0;
-    if (np === nq) score = 100;
-    else if (np.startsWith(nq) || nq.startsWith(np)) score = 60;
-    else if (np.includes(` ${nq}`) || np.endsWith(` ${nq}`)) score = 50;
-    else if (np.includes(nq)) score = 30;
-    else if (nq.includes(np)) score = 25;
-    else {
-      // Levenshtein fallback — allow ~1 edit per 3 chars (capped). Helps when
-      // the transcript adds/changes letters: "Harish" vs "Hari" → distance 2.
-      const d = lev(nq, np);
-      const tol = Math.max(2, Math.floor(Math.max(nq.length, np.length) / 3));
-      if (d <= tol) score = Math.max(1, 20 - d * 4);
+    let score = scoreAgainst(nq, np);
+    const tokens = np.split(/\s+/).filter((t) => t.length >= 3);
+    if (tokens.length > 1) {
+      for (const t of tokens) {
+        const s = scoreAgainst(nq, t);
+        if (s > score) score = s;
+      }
     }
     if (score > bestScore) { best = a; bestScore = score; }
   }
