@@ -18,6 +18,14 @@ type Match = {
   teamA: Player[];
   teamB: Player[];
 };
+// A match is visually "completed" only when winner is set AND scores satisfy the win condition
+// (one side ≥ 21 and the other is lower). If no scores are recorded, trust the winner field alone.
+function matchCompleted(m: Match): boolean {
+  if (!m.winner) return false;
+  if (m.teamAScore === null || m.teamBScore === null) return true;
+  return m.teamAScore !== m.teamBScore && Math.max(m.teamAScore, m.teamBScore) >= 21;
+}
+
 type Couple = { key: CoupleKey; label: string; bothAttending: boolean; player1Id?: number; player2Id?: number };
 type SessionInfo = {
   id: number;
@@ -141,8 +149,8 @@ export default function MatchesPage() {
   const [freezeEpoch, setFreezeEpoch] = useState(0);
   const frozenOrderIds = useMemo<number[]>(() => {
     if (!data) return [];
-    const pending = data.matches.filter((m) => !m.winner).sort((a, b) => a.matchNumber - b.matchNumber);
-    const completed = data.matches.filter((m) => m.winner).sort((a, b) => a.matchNumber - b.matchNumber);
+    const pending = data.matches.filter((m) => !matchCompleted(m)).sort((a, b) => a.matchNumber - b.matchNumber);
+    const completed = data.matches.filter((m) => matchCompleted(m)).sort((a, b) => a.matchNumber - b.matchNumber);
     return [...pending.map((m) => m.id), ...completed.map((m) => m.id)];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.session.id, data?.matches.length, freezeEpoch]);
@@ -247,7 +255,7 @@ export default function MatchesPage() {
   const sessionDateStr = data?.session.date?.slice(0, 10) ?? "";
   const useNewMvpFormula = sessionDateStr >= MVP_NEW_FORMULA_FROM;
 
-  const allMatchesDone = !!data && data.matches.length > 0 && data.matches.every((m) => m.winner !== null);
+  const allMatchesDone = !!data && data.matches.length > 0 && data.matches.every((m) => matchCompleted(m));
   type MvpRow = { id: number; name: string; wins: number; played: number; winPct: number; diversity: number; winsN: number; mvp: number };
   const mvpRows = useMemo<MvpRow[]>(() => {
     if (sessionWins.length === 0) return [];
@@ -1028,7 +1036,7 @@ export default function MatchesPage() {
                   return ordered.map((m, idx) => {
                     const isActive = idx === activeIdx;
                     let sectionLabel: string | undefined;
-                    if (isActive) sectionLabel = "▶ Current match";
+                    if (isActive) sectionLabel = "🔴 Live";
                     else if (firstPendingIdx >= 0 && idx === firstPendingIdx && stickyIdx >= 0 && stickyIdx !== firstPendingIdx) sectionLabel = "Up next";
                     return { m, isActive, sectionLabel };
                   });
@@ -1063,7 +1071,7 @@ export default function MatchesPage() {
                           Match #{m.matchNumber}
                           {isActive && (
                             <span className="text-[10px] font-extrabold text-white bg-indigo-600 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                              ▶ Next up
+                              🔴 Live
                             </span>
                           )}
                         </span>
@@ -1129,8 +1137,8 @@ export default function MatchesPage() {
                         <div className="grid grid-cols-2 divide-x divide-gray-100">
                           {(["A", "B"] as const).map((team) => {
                             const players = team === "A" ? m.teamA : m.teamB;
-                            const isWinner = m.winner === team;
-                            const isLoser = m.winner && m.winner !== team;
+                            const isWinner = m.winner === team && matchCompleted(m);
+                            const isLoser = matchCompleted(m) && m.winner !== team;
                             return (
                               <button
                                 key={team}
@@ -1173,7 +1181,7 @@ export default function MatchesPage() {
                         const a = Math.round(probs.probA * 100);
                         const b = Math.round(probs.probB * 100);
                         const isHighImpact =
-                          m.winner !== null && probs.winnerProb !== null && probs.winnerProb < HIGH_IMPACT_THRESHOLD;
+                          matchCompleted(m) && probs.winnerProb !== null && probs.winnerProb < HIGH_IMPACT_THRESHOLD;
                         return (
                           <>
                             <div className="px-4 py-1.5 text-[10px] font-semibold text-gray-500 border-t border-gray-100 bg-white">
