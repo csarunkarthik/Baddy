@@ -495,6 +495,29 @@ export default function MatchesPage() {
   }
 
   const [copied, setCopied] = useState(false);
+  const [aiRecap, setAiRecap] = useState<string | null>(null);
+  const [recapLoading, setRecapLoading] = useState(false);
+  const [showRecapModal, setShowRecapModal] = useState(false);
+
+  async function generateRecap() {
+    if (!data) return;
+    setRecapLoading(true);
+    setShowRecapModal(true);
+    setAiRecap(null);
+    try {
+      const res = await fetch(`/api/sessions/${data.session.id}/recap`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ summary: buildShareText() }),
+      });
+      const json = await res.json();
+      setAiRecap(res.ok ? json.recap : `Error: ${json.error}`);
+    } catch {
+      setAiRecap("Something went wrong. Try again.");
+    } finally {
+      setRecapLoading(false);
+    }
+  }
   async function copyShareText() {
     const text = buildShareText();
     if (!text) return;
@@ -1067,13 +1090,22 @@ export default function MatchesPage() {
                         }`}
                       >
                       <div className={`flex items-center justify-between px-4 py-2 ${isActive ? "bg-indigo-50" : "bg-white"} border-b ${isActive ? "border-indigo-100" : "border-gray-100"}`}>
-                        <span className="text-xs font-bold text-gray-500 flex items-center gap-2">
+                        <span className="text-xs font-bold text-gray-500 flex items-center gap-2 flex-wrap">
                           Match #{m.matchNumber}
                           {isActive && (
                             <span className="text-[10px] font-extrabold text-white bg-indigo-600 px-2 py-0.5 rounded-full uppercase tracking-wider">
                               🔴 Live
                             </span>
                           )}
+                          {!matchCompleted(m) && (() => {
+                            const probs = matchProbs.get(m.id);
+                            if (!probs) return null;
+                            return (
+                              <span className="text-[10px] font-normal text-gray-400">
+                                A {Math.round(probs.probA * 100)}% · B {Math.round(probs.probB * 100)}%
+                              </span>
+                            );
+                          })()}
                         </span>
                         {!locked && (
                           <div className="flex items-center gap-1">
@@ -1176,12 +1208,13 @@ export default function MatchesPage() {
                       )}
 
                       {(() => {
+                        if (!matchCompleted(m)) return null;
                         const probs = matchProbs.get(m.id);
                         if (!probs) return null;
                         const a = Math.round(probs.probA * 100);
                         const b = Math.round(probs.probB * 100);
                         const isHighImpact =
-                          matchCompleted(m) && probs.winnerProb !== null && probs.winnerProb < HIGH_IMPACT_THRESHOLD;
+                          probs.winnerProb !== null && probs.winnerProb < HIGH_IMPACT_THRESHOLD;
                         return (
                           <>
                             <div className="px-4 py-1.5 text-[10px] font-semibold text-gray-500 border-t border-gray-100 bg-white">
@@ -1328,6 +1361,14 @@ export default function MatchesPage() {
                   {sessionWins.length > 0 && (
                     <div className="flex items-center gap-1.5 shrink-0">
                       <button
+                        onClick={generateRecap}
+                        className="text-xs font-bold text-white bg-violet-500 hover:bg-violet-600 active:scale-95 px-3 py-1.5 rounded-full transition-all flex items-center gap-1"
+                        title="Generate AI recap"
+                      >
+                        <span>✨</span>
+                        <span>AI Recap</span>
+                      </button>
+                      <button
                         onClick={shareOnWhatsApp}
                         className="text-xs font-bold text-white bg-emerald-500 hover:bg-emerald-600 active:scale-95 px-3 py-1.5 rounded-full transition-all flex items-center gap-1"
                         title="Share on WhatsApp"
@@ -1447,6 +1488,50 @@ export default function MatchesPage() {
           </>
         ) : null}
       </div>
+
+      {/* AI Recap modal */}
+      {showRecapModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowRecapModal(false); }}
+        >
+          <div className="w-full max-w-lg bg-white rounded-t-3xl p-5 pb-8 space-y-4 shadow-xl">
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold text-gray-800 text-base flex items-center gap-2">✨ AI Session Recap</h2>
+              <button onClick={() => setShowRecapModal(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+            </div>
+            {recapLoading ? (
+              <div className="flex items-center gap-3 py-6 justify-center text-violet-600">
+                <div className="w-5 h-5 rounded-full border-2 border-violet-300 border-t-violet-600 animate-spin" />
+                <span className="text-sm font-medium">Generating recap…</span>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{aiRecap}</p>
+            )}
+            {!recapLoading && aiRecap && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    if (aiRecap) window.open(`https://wa.me/?text=${encodeURIComponent(aiRecap)}`, "_blank");
+                  }}
+                  className="flex-1 py-2.5 rounded-2xl text-sm font-bold text-white bg-emerald-500 hover:bg-emerald-600 active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                >
+                  <span>📤</span> Share on WhatsApp
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!aiRecap) return;
+                    try { await navigator.clipboard.writeText(aiRecap); } catch { /* ignore */ }
+                  }}
+                  className="px-4 py-2.5 rounded-2xl text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 active:scale-95 transition-all"
+                >
+                  📋
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
