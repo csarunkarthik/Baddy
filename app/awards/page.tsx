@@ -7,7 +7,10 @@ type TrophyWinner = { id: number; name: string };
 type Trophy = { key: string; label: string; emoji: string; criteria: string; winner: TrophyWinner | null };
 type Milestone = { key: string; label: string; emoji: string; threshold: number; metric: string; reached: boolean };
 type PerPlayerAwards = Record<number, { trophies: { key: string; label: string; emoji: string; criteria: string }[]; milestones: Milestone[] }>;
-type AwardsPayload = { trophies: Trophy[]; perPlayer: PerPlayerAwards };
+type NextMilestone = { key: string; label: string; emoji: string; metric: string; threshold: number; current: number; gap: number };
+type AwardsPayload = { trophies: Trophy[]; perPlayer: PerPlayerAwards; nextFor: Record<number, NextMilestone | null> };
+type H2HEntry = { playerName: string; archnemesis: { id: number; name: string; lossesAgainst: number; faced: number } | null; favouriteVictim: { id: number; name: string; winsAgainst: number; faced: number } | null };
+type H2HPayload = { perPlayer: Record<number, H2HEntry> };
 type ChemistryRow = { p1: string; p2: string; synergy: number; jointPct: number; soloAvgPct: number; played: number };
 type IronRow = { p1: string; p2: string; played: number; wins: number; winPct: number };
 type DragonRow = { p1: string; p2: string; wins: number; played: number; avgSlainElo: number };
@@ -18,6 +21,7 @@ export default function AwardsPage() {
   const [awards, setAwards] = useState<AwardsPayload | null>(null);
   const [teamAwards, setTeamAwards] = useState<TeamAwards | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
+  const [h2h, setH2H] = useState<H2HPayload | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -25,10 +29,12 @@ export default function AwardsPage() {
       fetch("/api/stats/awards").then((r) => r.json()),
       fetch("/api/stats/team-awards").then((r) => r.json()),
       fetch("/api/players").then((r) => r.json()),
-    ]).then(([a, t, pl]) => {
+      fetch("/api/stats/h2h").then((r) => r.ok ? r.json() : null),
+    ]).then(([a, t, pl, h]) => {
       setAwards(a);
       setTeamAwards(t);
       setPlayers(pl);
+      setH2H(h);
       setLoading(false);
     });
   }, []);
@@ -219,6 +225,74 @@ export default function AwardsPage() {
                 ))}
               </div>
             </div>
+
+            {/* 🎯 Next Milestone Radar */}
+            {awards?.nextFor && (() => {
+              const rows = (Object.entries(awards.nextFor) as [string, NextMilestone | null][])
+                .filter((entry): entry is [string, NextMilestone] => entry[1] !== null)
+                .sort((a, b) => a[1].gap - b[1].gap);
+              if (rows.length === 0) return null;
+              return (
+                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4">
+                  <h2 className="font-bold text-gray-800 text-sm mb-3 flex items-center gap-2">
+                    🎯 Next Milestone
+                  </h2>
+                  <div className="space-y-2">
+                    {rows.map(([pid, next]) => {
+                      const name = playerById.get(parseInt(pid)) ?? `Player #${pid}`;
+                      return (
+                        <div key={pid} className="flex items-center gap-2 text-xs py-1 border-b border-gray-50 last:border-0">
+                          <span className="text-base leading-none shrink-0">{next.emoji}</span>
+                          <span className="font-semibold text-gray-800 flex-1 min-w-0 truncate">
+                            {name}
+                          </span>
+                          <span className="text-gray-600 truncate">
+                            {next.label}
+                          </span>
+                          <span className="font-bold text-indigo-600 shrink-0 whitespace-nowrap ml-1">
+                            {next.gap} away
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* 😈 Rivals */}
+            {h2h?.perPlayer && (() => {
+              const rivalRows = Object.entries(h2h.perPlayer).filter(
+                ([, v]) => v.archnemesis !== null || v.favouriteVictim !== null
+              );
+              if (rivalRows.length === 0) return null;
+              return (
+                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4">
+                  <h2 className="font-bold text-gray-800 text-sm mb-3 flex items-center gap-2">
+                    😈 Rivals
+                  </h2>
+                  <div className="space-y-3">
+                    {rivalRows.map(([pid, v]) => (
+                      <div key={pid} className="border-b border-gray-50 last:border-0 pb-3 last:pb-0">
+                        <p className="font-bold text-gray-800 text-xs mb-1.5">{v.playerName}</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {v.archnemesis && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-bold">
+                              😈 {v.archnemesis.name}
+                            </span>
+                          )}
+                          {v.favouriteVictim && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold">
+                              🎯 {v.favouriteVictim.name}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </>
         )}
       </div>

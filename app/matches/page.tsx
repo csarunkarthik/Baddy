@@ -142,6 +142,24 @@ export default function MatchesPage() {
     if (data && data.matches.length > 0) setOpenSetup(false);
   }, [data?.session.id, data?.matches.length]);
 
+  // Auto-fetch intel when a session with 4+ attendees loads.
+  useEffect(() => {
+    if (!data || data.session.attending.length < 4) { setIntel(null); return; }
+    const sid = data.session.id;
+    setIntel(null);
+    setIntelError(null);
+    setIntelLoading(true);
+    fetch(`/api/sessions/${sid}/intel`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.error) { setIntelError(j.error); setIntel(null); }
+        else setIntel(j.bullets ?? []);
+      })
+      .catch(() => setIntelError("Couldn't load intel."))
+      .finally(() => setIntelLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.session.id]);
+
   // Frozen fixture display order. Pending matches top, completed bottom on first
   // load — but we DON'T re-sort when a winner is set mid-session, otherwise the
   // match you're currently editing jumps out from under you. Bumps once the
@@ -498,6 +516,11 @@ export default function MatchesPage() {
   const [aiRecap, setAiRecap] = useState<string | null>(null);
   const [recapLoading, setRecapLoading] = useState(false);
   const [showRecapModal, setShowRecapModal] = useState(false);
+
+  const [intel, setIntel] = useState<string[] | null>(null);
+  const [intelLoading, setIntelLoading] = useState(false);
+  const [intelError, setIntelError] = useState<string | null>(null);
+  const [openIntel, setOpenIntel] = useState(true);
 
   async function generateRecap() {
     if (!data) return;
@@ -1020,6 +1043,37 @@ export default function MatchesPage() {
                 </div>
               )}
             </div>
+            )}
+
+            {/* 🧠 Today's Intel accordion */}
+            {(intelLoading || (intel && intel.length > 0)) && (
+              <>
+                <button
+                  onClick={() => setOpenIntel(!openIntel)}
+                  className="w-full bg-white rounded-2xl shadow-sm border border-slate-100 px-4 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors"
+                >
+                  <span className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                    <span>🧠</span>
+                    <span>Today&apos;s Intel</span>
+                  </span>
+                  <span className="text-slate-400 text-sm">{openIntel ? "▴" : "▾"}</span>
+                </button>
+                {openIntel && (
+                  <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 space-y-2">
+                    {intelLoading ? (
+                      <div className="flex justify-center py-4">
+                        <div className="w-8 h-8 rounded-full border-4 border-indigo-200 border-t-indigo-500 animate-spin" />
+                      </div>
+                    ) : intelError ? (
+                      <p className="text-xs text-rose-600 font-medium">{intelError}</p>
+                    ) : (
+                      intel?.map((bullet, i) => (
+                        <p key={i} className="text-sm text-gray-700 leading-snug">{bullet}</p>
+                      ))
+                    )}
+                  </div>
+                )}
+              </>
             )}
 
             {/* Fixtures + Stats wrap: when all matches are done, Stats moves above Fixtures */}
