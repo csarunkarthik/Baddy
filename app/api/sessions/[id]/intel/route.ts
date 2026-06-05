@@ -99,18 +99,19 @@ export async function GET(
 
     const last5 = tl.slice(0, 5);
     const last10 = tl.slice(0, 10);
-    const last5Pct = last5.length >= 3 ? pct(last5.filter(Boolean).length, last5.length) : null;
+    const last5Wins = last5.filter(Boolean).length;
+    const last5Pct = last5.length >= 3 ? pct(last5Wins, last5.length) : null;
     const last10Pct = last10.length >= 5 ? pct(last10.filter(Boolean).length, last10.length) : null;
 
     const parts: string[] = [];
     if (careerPct !== null) parts.push(`career ${careerPct}%`);
     if (last10Pct !== null) parts.push(`last 10: ${last10Pct}%`);
     if (last5Pct !== null) {
-      // Compute trend vs career (or last 10 if career unavailable)
       const base = careerPct ?? last10Pct;
       const delta = base !== null ? last5Pct - base : 0;
+      const deltaStr = delta > 0 ? ` (+${delta}% vs career)` : delta < 0 ? ` (${delta}% vs career)` : "";
       const trend = delta >= 15 ? " 🔥" : delta >= 5 ? " ↑" : "";
-      parts.push(`last 5: ${last5Pct}%${trend}`);
+      parts.push(`last 5: ${last5Wins} wins / ${last5.length} played = ${last5Pct}%${deltaStr}${trend}`);
     }
     if (parts.length === 0) parts.push("no prior data");
 
@@ -128,14 +129,15 @@ export async function GET(
           role: "system",
           content:
             "You are Baddy Bot, the hype man for a casual badminton friend group. " +
-            "Given the player win-rate stats, write 2–6 punchy pre-match intel bullets. " +
-            "Try to mention as many players as possible — look for anyone with an interesting positive story. " +
-            "Positive angles to use: win rate has improved in last 5 or 10 matches vs career average; " +
-            "player is consistently above their career average; a dangerous partnership to watch. " +
-            "Prefer trend language over raw numbers — say 'win rate has climbed to 60%' not '3 wins in 5 matches'. " +
-            "NEVER mention low win rates, declines, poor form, or anything that could make a player feel bad. " +
-            "Skip any player whose stats only show negatives — do not mention them. " +
-            "Do NOT mention ELO or any rating system. Use one emoji per bullet. Short punchy sentences. " +
+            "Given player stats, write 2–6 punchy pre-match intel bullets covering as many players as possible. " +
+            "For each player choose the most flattering angle:\n" +
+            "  • High absolute wins (3+ wins in last 5): lead with wins — 'won X of their last 5'\n" +
+            "  • Win% improved vs career (+5% or more): lead with the improvement — 'win% up X% vs career'\n" +
+            "  • Good win% (50%+) without big improvement: say 'winning at X% recently'\n" +
+            "  • Skip any player whose last-5 win% is below their career AND below 50% — don't mention them at all.\n" +
+            "Also call out 1 dangerous partnership if the data supports it. " +
+            "NEVER mention low win rates, declines, or poor form. Do NOT mention ELO or ratings. " +
+            "Use one emoji per bullet. Short punchy sentences. " +
             "Output ONLY the bullets, each on its own line. No intro, no sign-off.",
         },
         {
