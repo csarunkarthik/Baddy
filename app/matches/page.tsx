@@ -520,7 +520,7 @@ export default function MatchesPage() {
   const [intel, setIntel] = useState<string[] | null>(null);
   const [intelLoading, setIntelLoading] = useState(false);
   const [intelError, setIntelError] = useState<string | null>(null);
-  const [openIntel, setOpenIntel] = useState(true);
+  const [openIntel, setOpenIntel] = useState(false);
 
   async function generateRecap() {
     if (!data) return;

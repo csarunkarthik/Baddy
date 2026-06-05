@@ -142,9 +142,7 @@ export async function GET(
             .join(", ")
         : "no prior data";
     const careerStr = careerPct !== null ? `${pf.careerWins}W/${pf.careerPlayed}P (${careerPct}%)` : "no prior data";
-    const elo = eloMap.get(pid);
-    const eloStr = elo ? `ELO ${Math.round(elo.rating)}` : "ELO new";
-    lines.push(`- ${pf.name}: career ${careerStr}, ${eloStr} | recent: ${recentStr}`);
+    lines.push(`- ${pf.name}: career ${careerStr} | recent: ${recentStr}`);
   }
 
   const summary = lines.join("\n");
@@ -159,9 +157,9 @@ export async function GET(
           content:
             "You are Baddy Bot, the intel officer for a casual badminton friend group. " +
             "Given the player stats, write exactly 3–4 punchy pre-match intel bullets. " +
-            "Each bullet = one crisp insight: who's on a hot streak, who's been cold, " +
-            "a dangerous duo to watch, or an ELO mismatch worth noting. " +
-            "Be specific — use names and numbers. Use a relevant emoji at the start of each bullet. " +
+            "Each bullet = one crisp insight: who's on a hot streak, who's been cold, or a dangerous duo to watch. " +
+            "Do NOT mention ELO, ratings, or any numerical ranking system. Focus only on form, streaks, and partnerships. " +
+            "Be specific — use names and win/loss numbers. Use a relevant emoji at the start of each bullet. " +
             "Output ONLY the bullets, each on its own line. No intro, no sign-off.",
         },
         {
