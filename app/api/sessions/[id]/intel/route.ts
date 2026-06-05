@@ -6,9 +6,21 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MODEL = "llama-3.3-70b-versatile";
+const WINDOWS = [5, 10, 15, 20] as const;
 
-function pct(wins: number, played: number): number {
+function winPct(wins: number, played: number): number {
   return played > 0 ? Math.round((wins / played) * 100) : 0;
+}
+
+interface BestStat {
+  name: string;
+  window: number;
+  wins: number;
+  played: number;
+  pct: number;
+  careerPct: number | null;
+  delta: number | null;
+  score: number;
 }
 
 export async function GET(
@@ -39,36 +51,28 @@ export async function GET(
     return NextResponse.json({ bullets: [] });
   }
 
-  // Pull all prior completed matches (same sport) for attending players, newest first.
+  // Pull all prior completed matches (same sport), newest first.
   const priorMatches = await prisma.match.findMany({
     where: {
       winner: { not: null },
-      session: {
-        date: { lt: session.date },
-        sport: session.sport,
-      },
+      session: { date: { lt: session.date }, sport: session.sport },
       participants: { some: { playerId: { in: attendingIds } } },
     },
     select: {
-      id: true,
-      matchNumber: true,
       winner: true,
-      session: { select: { id: true, date: true } },
+      session: { select: { id: true } },
       participants: { select: { playerId: true, team: true } },
     },
     orderBy: [{ session: { date: "desc" } }, { matchNumber: "desc" }],
   });
 
-  // Per-player: ordered list of match outcomes (true = win), most recent first.
+  // Per-player timeline (most-recent first) and career totals.
   const timeline = new Map<number, boolean[]>();
-  // Per-player: career totals.
   const career = new Map<number, { wins: number; played: number }>();
-
   for (const a of session.attendance) {
     timeline.set(a.player.id, []);
     career.set(a.player.id, { wins: 0, played: 0 });
   }
-
   for (const m of priorMatches) {
     for (const p of m.participants) {
       const tl = timeline.get(p.playerId);
@@ -81,41 +85,66 @@ export async function GET(
     }
   }
 
-  // Build prompt lines per player.
-  const dateFmt = session.date.toLocaleDateString("en-GB", { timeZone: "Asia/Kolkata" });
-  const lines: string[] = [
-    `Session: ${dateFmt} at ${session.venue || "TBD"}`,
-    `Attending (${attendingIds.length}): ${session.attendance.map((a) => a.player.name).join(", ")}`,
-    "",
-    "Player stats (same sport only, most recent first):",
-  ];
+  // For each player, pick the window (5/10/15/20) that makes them look best.
+  // Score = win% + improvement-vs-career bonus + absolute-wins bonus.
+  const bestStats: BestStat[] = [];
 
   for (const a of session.attendance) {
     const pid = a.player.id;
     const tl = timeline.get(pid) ?? [];
     const c = career.get(pid) ?? { wins: 0, played: 0 };
+    const careerPct = c.played >= 5 ? winPct(c.wins, c.played) : null;
 
-    const careerPct = c.played > 0 ? pct(c.wins, c.played) : null;
+    let best: BestStat | null = null;
 
-    const last5 = tl.slice(0, 5);
-    const last10 = tl.slice(0, 10);
-    const last5Wins = last5.filter(Boolean).length;
-    const last5Pct = last5.length >= 3 ? pct(last5Wins, last5.length) : null;
-    const last10Pct = last10.length >= 5 ? pct(last10.filter(Boolean).length, last10.length) : null;
+    for (const w of WINDOWS) {
+      const slice = tl.slice(0, w);
+      // Require at least half the window to be meaningful.
+      if (slice.length < Math.ceil(w / 2)) continue;
 
-    const parts: string[] = [];
-    if (careerPct !== null) parts.push(`career ${careerPct}%`);
-    if (last10Pct !== null) parts.push(`last 10: ${last10Pct}%`);
-    if (last5Pct !== null) {
-      const base = careerPct ?? last10Pct;
-      const delta = base !== null ? last5Pct - base : 0;
-      const deltaStr = delta > 0 ? ` (+${delta}% vs career)` : delta < 0 ? ` (${delta}% vs career)` : "";
-      const trend = delta >= 15 ? " 🔥" : delta >= 5 ? " ↑" : "";
-      parts.push(`last 5: ${last5Wins} wins / ${last5.length} played = ${last5Pct}%${deltaStr}${trend}`);
+      const wins = slice.filter(Boolean).length;
+      const p = winPct(wins, slice.length);
+      const delta = careerPct !== null ? p - careerPct : null;
+
+      // Positivity gate: skip windows where stats are clearly negative.
+      if (careerPct !== null && delta !== null && delta < -5 && p < 50) continue;
+
+      const score =
+        p +
+        (delta !== null && delta > 0 ? delta * 1.5 : 0) +
+        (wins >= 3 ? wins * 5 : 0);
+
+      if (!best || score > best.score) {
+        best = { name: a.player.name, window: w, wins, played: slice.length, pct: p, careerPct, delta, score };
+      }
     }
-    if (parts.length === 0) parts.push("no prior data");
 
-    lines.push(`- ${a.player.name}: ${parts.join(" | ")}`);
+    if (best) bestStats.push(best);
+  }
+
+  // Sort by score, pick top 5 — one entry per player already, so this selects best 5 stories.
+  bestStats.sort((a, b) => b.score - a.score);
+  const top5 = bestStats.slice(0, 5);
+
+  if (top5.length === 0) return NextResponse.json({ bullets: [] });
+
+  // Build prompt.
+  const dateFmt = session.date.toLocaleDateString("en-GB", { timeZone: "Asia/Kolkata" });
+  const lines: string[] = [
+    `Session: ${dateFmt} at ${session.venue || "TBD"}`,
+    `Attending: ${session.attendance.map((a) => a.player.name).join(", ")}`,
+    "",
+    "Top player stats to highlight (best window per player, most recent first):",
+  ];
+
+  for (const s of top5) {
+    const deltaStr =
+      s.delta !== null && s.delta > 0
+        ? ` (+${s.delta}% vs career)`
+        : "";
+    lines.push(
+      `- ${s.name}: ${s.wins} wins / ${s.played} played = ${s.pct}%${deltaStr} [last ${s.window} matches]`
+    );
   }
 
   const summary = lines.join("\n");
@@ -129,14 +158,12 @@ export async function GET(
           role: "system",
           content:
             "You are Baddy Bot, the hype man for a casual badminton friend group. " +
-            "Given player stats, write 2–6 punchy pre-match intel bullets covering as many players as possible. " +
-            "For each player choose the most flattering angle:\n" +
-            "  • High absolute wins (3+ wins in last 5): lead with wins — 'won X of their last 5'\n" +
-            "  • Win% improved vs career (+5% or more): lead with the improvement — 'win% up X% vs career'\n" +
-            "  • Good win% (50%+) without big improvement: say 'winning at X% recently'\n" +
-            "  • Skip any player whose last-5 win% is below their career AND below 50% — don't mention them at all.\n" +
-            "Also call out 1 dangerous partnership if the data supports it. " +
-            "NEVER mention low win rates, declines, or poor form. Do NOT mention ELO or ratings. " +
+            "Write one punchy intel bullet per player listed — cover all of them. " +
+            "For each player pick the most flattering angle from their stat:\n" +
+            "  • If wins are high (3+ wins): lead with wins — 'won X of their last Y'\n" +
+            "  • If win% has improved vs career (+5% or more): lead with the improvement — 'win% up X%'\n" +
+            "  • Otherwise: use the win% — 'winning at X% over last Y matches'\n" +
+            "NEVER mention low win rates, declines, or anything negative. Do NOT mention ELO or ratings. " +
             "Use one emoji per bullet. Short punchy sentences. " +
             "Output ONLY the bullets, each on its own line. No intro, no sign-off.",
         },
@@ -152,7 +179,7 @@ export async function GET(
     const text = response.choices[0]?.message?.content ?? "";
     const bullets = text
       .split("\n")
-      .map((l) => l.trim().replace(/^[*\-•·]+\s*/, ""))
+      .map((l) => l.trim().replace(/^[*\-•·\d.]+\s*/, ""))
       .filter(Boolean)
       .slice(0, 6);
 
