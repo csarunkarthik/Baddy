@@ -20,7 +20,7 @@
 | **DB Agent** | `app/api/**`, `prisma/schema.prisma`, `prisma/migrations/`, `lib/prisma.ts`, `lib/locking.ts` | React components, UI styling |
 | **UI Agent** | `app/*/page.tsx`, `app/components/`, `app/hooks/`, `app/layout.tsx` | API routes, Prisma schema |
 | **AI Agent** | `app/api/ai/`, `lib/baddy-tools.ts`, `lib/elo.ts`, `lib/fixtures.ts`, `lib/couples.ts` | UI components, DB migrations |
-| **Review Agent** | Cross-cutting: TypeScript errors, CLAUDE.md, commit messages, PR descriptions | Does not write new features |
+| **Review / Test Agent** | Cross-cutting: TypeScript errors, CLAUDE.md, commit messages, PR descriptions. **Testing**: hit API endpoints with `curl`, verify response shapes, confirm UI state via dev-server logs before any fix or feature is committed. | Does not write new features |
 
 ---
 
@@ -30,6 +30,15 @@
 - When you need another agent to do something, add a task to the board with `Assigned To` set to their agent name.
 - When blocked, write a `BLOCKED:` note under your task.
 - Check this file at the start of every new task.
+
+## Testing Gate (mandatory before every commit)
+
+Every agent **must** request a Review/Test Agent check before committing a fix or feature. The Review/Test Agent will:
+1. **Reproduce first** — hit the relevant API endpoint or observe the UI symptom to confirm the bug/behaviour exists.
+2. **Verify the fix** — re-run the same check after the change to confirm it resolves the issue and introduces no regression.
+3. **Sign off** — add a `✅ Tested by Review/Test Agent` line to the Task Board entry before the commit is pushed.
+
+No agent may push to `main` without this sign-off, except for trivial copy/config-only changes.
 
 ---
 
