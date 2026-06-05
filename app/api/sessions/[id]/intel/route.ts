@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 import Groq from "groq-sdk";
 import { prisma } from "@/lib/prisma";
-import { computeElo, type EloMatch } from "@/lib/elo";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MODEL = "llama-3.3-70b-versatile";
+
+function pct(wins: number, played: number): number {
+  return played > 0 ? Math.round((wins / played) * 100) : 0;
+}
 
 export async function GET(
   _req: Request,
@@ -36,7 +39,7 @@ export async function GET(
     return NextResponse.json({ bullets: [] });
   }
 
-  // Pull all prior matches (before this session's date, same sport) for attending players.
+  // Pull all prior completed matches (same sport) for attending players, newest first.
   const priorMatches = await prisma.match.findMany({
     where: {
       winner: { not: null },
@@ -50,99 +53,68 @@ export async function GET(
       id: true,
       matchNumber: true,
       winner: true,
-      teamAScore: true,
-      teamBScore: true,
       session: { select: { id: true, date: true } },
       participants: { select: { playerId: true, team: true } },
     },
-    orderBy: [{ session: { date: "asc" } }, { matchNumber: "asc" }],
+    orderBy: [{ session: { date: "desc" } }, { matchNumber: "desc" }],
   });
 
-  // Compute ELO for all attending players using prior matches
-  const eloMatches: EloMatch[] = priorMatches.map((m) => ({
-    id: m.id,
-    sortKey: `${m.session.date.toISOString().slice(0, 10)}-${String(m.matchNumber).padStart(4, "0")}`,
-    teamA: m.participants.filter((p) => p.team === "A").map((p) => p.playerId),
-    teamB: m.participants.filter((p) => p.team === "B").map((p) => p.playerId),
-    winner: m.winner as "A" | "B",
-    teamAScore: m.teamAScore,
-    teamBScore: m.teamBScore,
-  }));
-  const { perPlayer: eloMap } = computeElo(eloMatches);
+  // Per-player: ordered list of match outcomes (true = win), most recent first.
+  const timeline = new Map<number, boolean[]>();
+  // Per-player: career totals.
+  const career = new Map<number, { wins: number; played: number }>();
 
-  type Form = {
-    name: string;
-    careerWins: number;
-    careerPlayed: number;
-    // wins and played per session id, sorted desc by date
-    sessionResults: { sid: number; date: Date; wins: number; played: number }[];
-  };
-
-  const byPlayer = new Map<number, Form>();
   for (const a of session.attendance) {
-    byPlayer.set(a.player.id, {
-      name: a.player.name,
-      careerWins: 0,
-      careerPlayed: 0,
-      sessionResults: [],
-    });
+    timeline.set(a.player.id, []);
+    career.set(a.player.id, { wins: 0, played: 0 });
   }
-
-  // Aggregate career + per-session stats
-  const perMatchSession = new Map<number, { sid: number; date: Date }>();
-  const sessWinsPlayed = new Map<number, Map<number, { wins: number; played: number }>>();
-  // key: sessionId -> Map<playerId, {wins, played}>
 
   for (const m of priorMatches) {
-    const sid = m.session.id;
-    perMatchSession.set(sid, { sid, date: m.session.date });
-    if (!sessWinsPlayed.has(sid)) sessWinsPlayed.set(sid, new Map());
-    const sessMap = sessWinsPlayed.get(sid)!;
-
     for (const p of m.participants) {
-      const pf = byPlayer.get(p.playerId);
-      if (!pf) continue;
-      pf.careerPlayed++;
-      if (p.team === m.winner) pf.careerWins++;
-
-      const cur = sessMap.get(p.playerId) ?? { wins: 0, played: 0 };
-      cur.played++;
-      if (p.team === m.winner) cur.wins++;
-      sessMap.set(p.playerId, cur);
+      const tl = timeline.get(p.playerId);
+      const c = career.get(p.playerId);
+      if (!tl || !c) continue;
+      const won = p.team === m.winner;
+      tl.push(won);
+      c.played++;
+      if (won) c.wins++;
     }
   }
 
-  // Fill per-session results for each player (last 5 attended sessions)
-  const allSessions = [...perMatchSession.values()].sort((a, b) => b.date.getTime() - a.date.getTime());
-  for (const [pid, pf] of byPlayer) {
-    const results: Form["sessionResults"] = [];
-    for (const { sid, date } of allSessions) {
-      const rec = sessWinsPlayed.get(sid)?.get(pid);
-      if (rec && rec.played > 0) results.push({ sid, date, ...rec });
-    }
-    pf.sessionResults = results.slice(0, 5);
-  }
-
-  // Build the text prompt
+  // Build prompt lines per player.
   const dateFmt = session.date.toLocaleDateString("en-GB", { timeZone: "Asia/Kolkata" });
   const lines: string[] = [
     `Session: ${dateFmt} at ${session.venue || "TBD"}`,
     `Attending (${attendingIds.length}): ${session.attendance.map((a) => a.player.name).join(", ")}`,
     "",
-    "Player form (prior sessions):",
+    "Player stats (same sport only, most recent first):",
   ];
 
-  for (const [pid, pf] of byPlayer) {
-    const careerPct = pf.careerPlayed > 0 ? Math.round((pf.careerWins / pf.careerPlayed) * 100) : null;
-    const recentStr =
-      pf.sessionResults.length > 0
-        ? pf.sessionResults
-            .slice(0, 3)
-            .map((s) => `${s.wins}W/${s.played}P`)
-            .join(", ")
-        : "no prior data";
-    const careerStr = careerPct !== null ? `${pf.careerWins}W/${pf.careerPlayed}P (${careerPct}%)` : "no prior data";
-    lines.push(`- ${pf.name}: career ${careerStr} | recent: ${recentStr}`);
+  for (const a of session.attendance) {
+    const pid = a.player.id;
+    const tl = timeline.get(pid) ?? [];
+    const c = career.get(pid) ?? { wins: 0, played: 0 };
+
+    const careerPct = c.played > 0 ? pct(c.wins, c.played) : null;
+
+    const last5 = tl.slice(0, 5);
+    const last10 = tl.slice(0, 10);
+    const last5Pct = last5.length >= 3 ? pct(last5.filter(Boolean).length, last5.length) : null;
+    const last10Pct = last10.length >= 5 ? pct(last10.filter(Boolean).length, last10.length) : null;
+
+    const parts: string[] = [];
+    if (careerPct !== null) parts.push(`career ${careerPct}%`);
+    if (last10Pct !== null) parts.push(`last 10: ${last10Pct}%`);
+    if (last5Pct !== null) {
+      // Compute trend vs career (or last 10 if career unavailable)
+      const base = careerPct ?? last10Pct;
+      const delta = base !== null ? last5Pct - base : 0;
+      const trend = delta >= 15 ? " 🔥" : delta >= 5 ? " ↑" : "";
+      parts.push(`last 5: ${last5Pct}%${trend}`);
+    }
+    if (parts.length === 0) parts.push("no prior data");
+
+    lines.push(`- ${a.player.name}: ${parts.join(" | ")}`);
   }
 
   const summary = lines.join("\n");
@@ -156,29 +128,31 @@ export async function GET(
           role: "system",
           content:
             "You are Baddy Bot, the hype man for a casual badminton friend group. " +
-            "Given the player stats, write 1–4 punchy pre-match intel bullets — only as many as there are genuinely positive things to say. " +
-            "Only highlight POSITIVES: hot streaks, players in great form, dangerous partnerships worth watching. " +
-            "NEVER mention cold form, low win rates, poor recent sessions, or anything that could make a player feel bad. " +
-            "If a player has poor recent stats, skip them entirely — do not mention them at all. " +
-            "Do NOT mention ELO, ratings, or any numerical ranking system. " +
-            "Be specific — use names and win/loss numbers. Use a relevant emoji at the start of each bullet. " +
+            "Given the player win-rate stats, write 2–6 punchy pre-match intel bullets. " +
+            "Try to mention as many players as possible — look for anyone with an interesting positive story. " +
+            "Positive angles to use: win rate has improved in last 5 or 10 matches vs career average; " +
+            "player is consistently above their career average; a dangerous partnership to watch. " +
+            "Prefer trend language over raw numbers — say 'win rate has climbed to 60%' not '3 wins in 5 matches'. " +
+            "NEVER mention low win rates, declines, poor form, or anything that could make a player feel bad. " +
+            "Skip any player whose stats only show negatives — do not mention them. " +
+            "Do NOT mention ELO or any rating system. Use one emoji per bullet. Short punchy sentences. " +
             "Output ONLY the bullets, each on its own line. No intro, no sign-off.",
         },
         {
           role: "user",
-          content: `${summary}\n\nGive me the pre-match intel bullets.`,
+          content: `${summary}\n\nWrite the intel bullets.`,
         },
       ],
       temperature: 0.85,
-      max_tokens: 300,
+      max_tokens: 500,
     });
 
     const text = response.choices[0]?.message?.content ?? "";
     const bullets = text
       .split("\n")
-      .map((l) => l.trim())
+      .map((l) => l.trim().replace(/^[*\-•·]+\s*/, ""))
       .filter(Boolean)
-      .slice(0, 4);
+      .slice(0, 6);
 
     return NextResponse.json({ bullets });
   } catch (e) {
