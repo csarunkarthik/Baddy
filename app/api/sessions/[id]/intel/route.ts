@@ -177,8 +177,6 @@ export async function GET(
     const bullets = text
       .split("\n")
       .map((l) => l.trim())
-      .filter((l) => /^[-•*•]/.test(l))
-      .map((l) => l.replace(/^[-•*•]+\s*/, "").trim())
       .filter(Boolean)
       .slice(0, 4);
 
