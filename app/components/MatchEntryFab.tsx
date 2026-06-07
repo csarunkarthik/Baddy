@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Check, Mic, X } from "lucide-react";
 
 type LockedMatch = {
   matchNumber: number;
@@ -185,11 +186,11 @@ function MatchEntryModal({ open, onClose, sessionId, lockedMatch, onSaved }: Mod
     >
       <div className="w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl p-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] sm:pb-5 space-y-3">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="font-bold text-gray-800 text-base flex items-center gap-2 min-w-0">
-            <span className="shrink-0">🎤</span>
+          <h2 className="font-bold text-black text-base flex items-center gap-2 min-w-0">
+            <Mic size={16} className="shrink-0 text-black/50" />
             <span className="truncate">{lockedTitle ?? "Quick log"}</span>
           </h2>
-          <button onClick={onClose} className="shrink-0 text-gray-400 hover:text-gray-600 text-lg leading-none px-2 py-1">✕</button>
+          <button onClick={onClose} className="shrink-0 text-black/30 hover:text-black/70 p-1"><X size={18} /></button>
         </div>
 
         {!lockedMatch && (
@@ -206,7 +207,7 @@ function MatchEntryModal({ open, onClose, sessionId, lockedMatch, onSaved }: Mod
             rows={3}
             disabled={submitting || recording || transcribing}
             placeholder={lockedMatch ? placeholder : "Tap the mic or type the result…"}
-            className={`w-full bg-gray-50 border-2 rounded-2xl px-4 py-3 pr-12 text-sm font-medium text-gray-900 placeholder-gray-400 focus:outline-none transition-colors resize-none disabled:opacity-60 ${recording ? "border-rose-300 bg-rose-50" : "border-transparent focus:border-indigo-300"}`}
+            className={`w-full bg-gray-50 border-2 rounded-2xl px-4 py-3 pr-12 text-sm font-medium text-gray-900 placeholder-gray-400 focus:outline-none transition-colors resize-none disabled:opacity-60 ${recording ? "border-rose-300 bg-rose-50" : "border-transparent focus:border-brand"}`}
           />
           {voiceSupported && (
             <button
@@ -216,10 +217,10 @@ function MatchEntryModal({ open, onClose, sessionId, lockedMatch, onSaved }: Mod
               className={`absolute right-3 top-3 w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-95 ${
                 recording
                   ? "bg-rose-500 text-white animate-pulse"
-                  : "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
+                  : "bg-brand/15 text-rich-black hover:bg-brand/25"
               }`}
             >
-              🎤
+              <Mic size={16} />
             </button>
           )}
         </div>
@@ -231,16 +232,16 @@ function MatchEntryModal({ open, onClose, sessionId, lockedMatch, onSaved }: Mod
           <p className="text-[11px] font-semibold text-rose-600">Recording… tap the mic again to stop. (Auto-stops after 15s.)</p>
         )}
         {transcribing && (
-          <p className="text-[11px] font-semibold text-indigo-600">Transcribing with Whisper…</p>
+          <p className="text-[11px] font-semibold text-brand-dark">Transcribing with Whisper…</p>
         )}
         {submitting && (
-          <p className="text-[11px] font-semibold text-indigo-600">Logging…</p>
+          <p className="text-[11px] font-semibold text-brand-dark">Logging…</p>
         )}
         {error && (
           <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold px-3 py-2 rounded-xl">{error}</div>
         )}
         {note && (
-          <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold px-3 py-2 rounded-xl">✓ {note}</div>
+          <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold px-3 py-2 rounded-xl flex items-center gap-1"><Check size={12} strokeWidth={3} /> {note}</div>
         )}
 
         <div className="flex gap-2 pt-1">
@@ -254,7 +255,7 @@ function MatchEntryModal({ open, onClose, sessionId, lockedMatch, onSaved }: Mod
           <button
             onClick={() => submit()}
             disabled={submitting || recording || transcribing || !text.trim()}
-            className="flex-1 py-2.5 rounded-2xl bg-indigo-500 text-white text-sm font-bold hover:bg-indigo-600 transition-colors disabled:opacity-50 active:scale-95"
+            className="flex-1 py-2.5 rounded-2xl bg-brand text-rich-black text-sm font-bold hover:bg-brand-dark transition-colors disabled:opacity-50 active:scale-95"
           >
             {submitting ? "Logging…" : "Log match"}
           </button>
@@ -276,9 +277,9 @@ export function MatchMicButton({ sessionId, match, onSaved }: MicButtonProps) {
         onClick={() => setOpen(true)}
         aria-label={`Log match ${match.matchNumber} by voice`}
         title="Log by voice"
-        className="text-xs font-semibold text-indigo-600 hover:bg-indigo-50 px-2 py-1 rounded-full transition-colors"
+        className="text-xs font-semibold text-brand-dark hover:bg-brand/10 px-2 py-1 rounded-full transition-colors"
       >
-        🎤
+        <Mic size={14} />
       </button>
       <MatchEntryModal open={open} onClose={() => setOpen(false)} sessionId={sessionId} lockedMatch={match} onSaved={onSaved} />
     </>

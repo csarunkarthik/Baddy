@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AVATARS } from "@/lib/avatars";
+import { ArrowLeft, Flame, Moon, Pencil, Trash2, User, X } from "lucide-react";
 
 type Player = { id: number; name: string; avatar?: string | null };
 type PlayerStat = { id: number; sessions: number };
@@ -92,16 +93,12 @@ export default function PlayersPage() {
 
   return (
     <div className="app-bg">
-      <div className="relative overflow-hidden app-header px-5 pt-12 pb-8">
-        <div className="relative flex items-start gap-3">
-          <Link href="/" className="mt-1 w-9 h-9 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors font-bold">
-            ←
-          </Link>
-          <div>
-            <h1 className="text-3xl font-extrabold tracking-tight">Players</h1>
-            <p className="app-header-subtle text-sm mt-0.5">{players.length} registered · tap avatar to change</p>
-          </div>
+      <div className="app-header px-5 pt-10 pb-5 flex items-center justify-between">
+        <div>
+          <h1 className="font-display text-4xl tracking-widest">Players</h1>
+          <p className="app-header-subtle text-sm mt-0.5">{players.length} registered · tap avatar to change</p>
         </div>
+        <img src="/logo.svg" alt="Baddy" className="h-8 w-auto" />
       </div>
 
       <div className="px-4 py-5 max-w-lg mx-auto space-y-4">
@@ -111,13 +108,13 @@ export default function PlayersPage() {
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4">
               <div className="flex items-center gap-1.5 mb-3">
-                <span>🔥</span>
-                <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">Most Active</span>
+                <Flame size={15} className="text-orange-500" />
+                <span className="text-xs font-bold text-black/65 uppercase tracking-wide">Most Active</span>
               </div>
               <div className="space-y-2">
                 {top3.map((p) => (
                   <div key={p.id} className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-gray-800 truncate">{p.name}</span>
+                    <span className="text-sm font-semibold text-black truncate">{p.name}</span>
                     <span className="text-xs font-bold text-emerald-600 ml-1 shrink-0">{statsMap[p.id] ?? 0}</span>
                   </div>
                 ))}
@@ -125,13 +122,13 @@ export default function PlayersPage() {
             </div>
             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4">
               <div className="flex items-center gap-1.5 mb-3">
-                <span>💤</span>
-                <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">Least Active</span>
+                <Moon size={15} className="text-black/40" />
+                <span className="text-xs font-bold text-black/65 uppercase tracking-wide">Least Active</span>
               </div>
               <div className="space-y-2">
                 {bottom3.length > 0 ? bottom3.map((p) => (
                   <div key={p.id} className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-gray-800 truncate">{p.name}</span>
+                    <span className="text-sm font-semibold text-black truncate">{p.name}</span>
                     <span className="text-xs font-bold text-orange-500 ml-1 shrink-0">{statsMap[p.id] ?? 0}</span>
                   </div>
                 )) : <p className="text-xs text-gray-400">Not enough players yet</p>}
@@ -142,7 +139,7 @@ export default function PlayersPage() {
 
         {/* Add player */}
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 space-y-3">
-          <h2 className="font-bold text-gray-800">Add Player</h2>
+          <h2 className="font-bold text-black">Add Player</h2>
           <div className="flex gap-2">
             <input
               type="text"
@@ -150,12 +147,12 @@ export default function PlayersPage() {
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && addPlayer()}
-              className="flex-1 bg-gray-50 border-2 border-transparent focus:border-indigo-400 rounded-2xl px-4 py-3 text-sm font-medium text-gray-900 placeholder-gray-400 focus:outline-none transition-colors"
+              className="flex-1 bg-black/4 border-2 border-transparent focus:border-brand rounded-2xl px-4 py-3 text-sm font-medium text-rich-black placeholder-black/30 focus:outline-none transition-colors"
             />
             <button
               onClick={addPlayer}
               disabled={adding || !newName.trim()}
-              className="bg-indigo-600 text-white px-5 py-3 rounded-2xl text-sm font-bold shadow-md disabled:opacity-40 disabled:shadow-none hover:bg-indigo-700 active:scale-95 transition-all"
+              className="bg-brand text-rich-black px-5 py-3 rounded-2xl text-sm font-bold shadow-md disabled:opacity-40 disabled:shadow-none hover:bg-brand-dark active:scale-95 transition-all"
             >
               {adding ? "..." : "+ Add"}
             </button>
@@ -164,14 +161,14 @@ export default function PlayersPage() {
 
         {/* Full player list */}
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5">
-          <h2 className="font-bold text-gray-800 mb-4">All Players</h2>
+          <h2 className="font-bold text-black mb-4">All Players</h2>
           {loading ? (
             <div className="flex justify-center py-8">
-              <div className="w-8 h-8 rounded-full border-4 border-indigo-200 border-t-indigo-500 animate-spin" />
+              <div className="w-8 h-8 rounded-full border-4 border-brand/20 border-t-brand animate-spin" />
             </div>
           ) : players.length === 0 ? (
-            <div className="text-center py-8 text-gray-400">
-              <div className="text-4xl mb-2">👤</div>
+            <div className="text-center py-8 text-black/40">
+              <div className="flex justify-center mb-2"><User size={40} className="text-black/20" /></div>
               <p className="text-sm">No players yet — add one above</p>
             </div>
           ) : (
@@ -192,33 +189,33 @@ export default function PlayersPage() {
                               if (e.key === "Enter") saveEdit(player.id);
                               if (e.key === "Escape") setEditingId(null);
                             }}
-                            className="flex-1 bg-indigo-50 border-2 border-indigo-300 rounded-2xl px-4 py-2.5 text-sm font-medium text-gray-900 focus:outline-none"
+                            className="flex-1 bg-brand/8 border-2 border-brand/40 rounded-2xl px-4 py-2.5 text-sm font-medium text-rich-black focus:outline-none"
                           />
-                          <button onClick={() => saveEdit(player.id)} className="bg-indigo-600 text-white px-4 py-2.5 rounded-2xl text-sm font-bold hover:bg-indigo-700 active:scale-95 transition-all">
+                          <button onClick={() => saveEdit(player.id)} className="bg-brand text-rich-black px-4 py-2.5 rounded-2xl text-sm font-bold hover:bg-brand-dark active:scale-95 transition-all">
                             Save
                           </button>
-                          <button onClick={() => setEditingId(null)} className="text-gray-400 px-3 py-2.5 rounded-2xl text-sm font-medium hover:bg-gray-100 transition-colors">
-                            ✕
+                          <button onClick={() => setEditingId(null)} className="text-black/35 px-3 py-2.5 rounded-2xl flex items-center hover:bg-black/5 transition-colors">
+                            <X size={16} />
                           </button>
                         </>
                       ) : (
                         <>
                           <button
                             onClick={() => setAvatarPickerId(showPicker ? null : player.id)}
-                            className="w-10 h-10 rounded-2xl bg-gradient-to-br from-slate-100 to-indigo-100 flex items-center justify-center text-xl shrink-0 hover:from-indigo-100 hover:to-violet-100 active:scale-95 transition-all"
+                            className="w-10 h-10 rounded-2xl bg-black/6 flex items-center justify-center text-xl shrink-0 hover:bg-brand/15 active:scale-95 transition-all"
                             title="Tap to pick an avatar"
                           >
-                            {player.avatar ?? <span className="text-sm font-bold text-indigo-700">{player.name[0].toUpperCase()}</span>}
+                            {player.avatar ?? <span className="text-sm font-bold text-rich-black">{player.name[0].toUpperCase()}</span>}
                           </button>
-                          <span className="flex-1 text-sm font-semibold text-gray-800">{player.name}</span>
+                          <span className="flex-1 text-sm font-semibold text-black">{player.name}</span>
                           <span className="text-xs font-bold text-gray-400">{statsMap[player.id] ?? 0} sessions</span>
-                          <button onClick={() => startEdit(player)} className="text-gray-400 hover:text-indigo-600 px-2 py-1 rounded-xl text-sm transition-colors">✏️</button>
+                          <button onClick={() => startEdit(player)} className="text-black/30 hover:text-brand-dark px-2 py-1 rounded-xl flex items-center transition-colors"><Pencil size={14} /></button>
                           <button
                             onClick={() => deletePlayer(player.id)}
                             disabled={deletingId === player.id}
                             className="text-gray-300 hover:text-red-400 px-2 py-1 rounded-xl text-sm transition-colors disabled:opacity-40"
                           >
-                            🗑️
+                            <Trash2 size={14} />
                           </button>
                         </>
                       )}
@@ -235,7 +232,7 @@ export default function PlayersPage() {
                                 onClick={() => pickAvatar(player.id, a.emoji)}
                                 title={a.label}
                                 className={`w-9 h-9 rounded-xl text-lg flex items-center justify-center transition-all active:scale-95 ${
-                                  player.avatar === a.emoji ? "bg-indigo-200 ring-2 ring-indigo-500" : "bg-white hover:bg-indigo-50"
+                                  player.avatar === a.emoji ? "bg-brand/20 ring-2 ring-brand" : "bg-white hover:bg-brand/8"
                                 }`}
                               >
                                 {a.emoji}

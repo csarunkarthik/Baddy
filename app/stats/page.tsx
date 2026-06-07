@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { ArrowLeft, Globe2, MapPin, Target, Trophy, Users2 } from "lucide-react";
 
 
 type PlayerStat = { id: number; name: string; sessions: number; percentage: number; rank: number };
@@ -21,7 +22,11 @@ type PointsStat = {
   pointsConceded: number; avgPoints: number; avgConceded: number; pointDiff: number;
 };
 
-const MEDAL: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
+const MEDAL_CLASS: Record<number, string> = {
+  1: "bg-yellow-400 text-yellow-900",
+  2: "bg-gray-300 text-gray-600",
+  3: "bg-amber-600 text-white",
+};
 
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
@@ -123,29 +128,29 @@ export default function StatsPage() {
 
   return (
     <div className="app-bg">
-      <div className="relative overflow-hidden app-header px-5 pt-12 pb-8">
-        <div className="relative flex items-start gap-3">
-          <Link href="/" className="mt-1 w-9 h-9 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors font-bold">←</Link>
-          <div className="flex-1">
-            <h1 className="text-3xl font-extrabold tracking-tight">Stats</h1>
+      <div className="app-header px-5 pt-10 pb-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="font-display text-4xl tracking-widest">Stats</h1>
             <p className="app-header-subtle text-sm mt-0.5">{sliceLabel} · {totalDays} {totalDays === 1 ? "day" : "days"} · {stats.length} players</p>
           </div>
+          <img src="/logo.svg" alt="Baddy" className="h-8 w-auto" />
         </div>
         {/* Filter toggle */}
-        <div className="relative mt-4 flex items-center gap-2">
+        <div className="mt-4 flex items-center gap-2">
           <button
             onClick={() => setFilterOpen((v) => !v)}
-            className="bg-white/20 hover:bg-white/30 text-white text-xs font-bold px-3 py-1.5 rounded-full transition-colors"
+            className="bg-black/6 hover:bg-black/10 text-black/70 text-xs font-bold px-3 py-1.5 rounded-full transition-colors"
           >
             {filterOpen ? "Hide filters" : "Filters"}
-            {hasActiveFilter && !filterOpen && <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-white text-indigo-600 text-[10px]">
+            {hasActiveFilter && !filterOpen && <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-brand text-rich-black text-[10px]">
               {years.length + months.length + venuesSel.length + (lastN ? 1 : 0)}
             </span>}
           </button>
           {hasActiveFilter && (
             <button
               onClick={clearFilters}
-              className="text-xs text-white/80 hover:text-white underline px-1"
+              className="text-xs text-black/50 hover:text-black underline px-1"
             >
               Clear all
             </button>
@@ -153,8 +158,8 @@ export default function StatsPage() {
         </div>
         {filterOpen && (() => {
           const chip = (on: boolean) =>
-            `text-[11px] font-semibold px-2 py-0.5 rounded-full transition-colors ${on ? "bg-white text-indigo-700" : "bg-white/20 text-white hover:bg-white/30"}`;
-          const label = "text-[10px] font-bold uppercase tracking-wider text-white/70 w-14 shrink-0 pt-1";
+            `text-[11px] font-semibold px-2 py-0.5 rounded-full transition-colors ${on ? "bg-brand text-rich-black" : "bg-black/8 text-black/60 hover:bg-black/12"}`;
+          const label = "text-[10px] font-bold uppercase tracking-wider text-black/50 w-14 shrink-0 pt-1";
           return (
             <div className="relative mt-3 space-y-1.5">
               <div className="flex items-start gap-2">
@@ -211,32 +216,34 @@ export default function StatsPage() {
             {/* Player leaderboard */}
             {stats.length === 0 ? (
               <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-10 text-center">
-                <div className="text-4xl mb-3">🏸</div>
-                <p className="text-gray-400 text-sm font-medium">No sessions match this filter</p>
+                <div className="flex justify-center mb-3"><Trophy size={40} className="text-black/20" /></div>
+                <p className="text-black/40 text-sm font-medium">No sessions match this filter</p>
               </div>
             ) : (
               <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 space-y-2">
-                <h2 className="font-bold text-gray-800 px-2 pb-1">Players</h2>
+                <h2 className="font-bold text-black px-2 pb-1">Players</h2>
                 {stats.map((p) => (
                   <div key={p.id} className="flex items-center gap-3 p-2">
-                    <span className="w-8 text-center text-lg shrink-0">
-                      {MEDAL[p.rank] ?? <span className="text-xs text-gray-400 font-bold">{p.rank}</span>}
+                    <span className="w-8 flex items-center justify-center shrink-0">
+                      {MEDAL_CLASS[p.rank]
+                        ? <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[9px] font-black ${MEDAL_CLASS[p.rank]}`}>{p.rank}</span>
+                        : <span className="text-xs text-black/40 font-bold">{p.rank}</span>}
                     </span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-bold text-gray-800 truncate">{p.name}</span>
+                        <span className="text-sm font-bold text-black truncate">{p.name}</span>
                         <div className="flex items-center gap-2 ml-2 shrink-0">
-                          <span className="text-xs font-bold text-indigo-500">{p.percentage}%</span>
+                          <span className="text-xs font-bold text-brand-dark">{p.percentage}%</span>
                           <span className="text-sm font-extrabold text-blue-600">{p.sessions}</span>
                         </div>
                       </div>
                       <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
                         <div
                           className={`h-full rounded-full ${
-                            p.rank === 1 ? "bg-gradient-to-r from-yellow-400 to-amber-500" :
-                            p.rank === 2 ? "bg-gradient-to-r from-gray-400 to-gray-500" :
-                            p.rank === 3 ? "bg-gradient-to-r from-orange-400 to-orange-500" :
-                            "bg-gradient-to-r from-blue-400 to-indigo-500"
+                            p.rank === 1 ? "bg-brand" :
+                            p.rank === 2 ? "bg-rich-black/70" :
+                            p.rank === 3 ? "bg-rich-black/50" :
+                            "bg-rich-black/25"
                           }`}
                           style={{ width: `${Math.max(4, (p.sessions / max) * 100)}%` }}
                         />
@@ -244,7 +251,7 @@ export default function StatsPage() {
                     </div>
                   </div>
                 ))}
-                <p className="text-center text-xs text-gray-400 pt-1">% = sessions attended out of {totalDays} total</p>
+                <p className="text-center text-xs text-black/40 pt-1">% = sessions attended out of {totalDays} total</p>
               </div>
             )}
 
@@ -252,25 +259,25 @@ export default function StatsPage() {
             {diversity.length > 0 && (
               <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5">
                 <div className="flex items-baseline gap-2 mb-3">
-                  <span className="text-lg">🌐</span>
-                  <h2 className="font-bold text-gray-800 text-sm">Partner Diversity</h2>
-                  <span className="text-[10px] text-gray-400 font-semibold ml-auto">how evenly you spread partnerships</span>
+                  <Globe2 size={16} className="text-black/50 shrink-0" />
+                  <h2 className="font-bold text-black text-sm">Partner Diversity</h2>
+                  <span className="text-[10px] text-black/40 font-semibold ml-auto">how evenly you spread partnerships</span>
                 </div>
                 <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 gap-y-1.5 text-[11px]">
-                  <div className="font-bold text-gray-400 uppercase tracking-wider">Player</div>
-                  <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Distinct</div>
-                  <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Matches</div>
-                  <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Score</div>
+                  <div className="font-bold text-black/40 uppercase tracking-wider">Player</div>
+                  <div className="font-bold text-black/40 uppercase tracking-wider text-right">Distinct</div>
+                  <div className="font-bold text-black/40 uppercase tracking-wider text-right">Matches</div>
+                  <div className="font-bold text-black/40 uppercase tracking-wider text-right">Score</div>
                   {diversity.map((d) => (
                     <div key={d.id} className="contents">
-                      <div className="font-semibold text-gray-700 truncate">{d.name}</div>
+                      <div className="font-semibold text-black/80 truncate">{d.name}</div>
                       <div className="text-right text-gray-600">{d.distinctPartners} / {d.coAttendees}</div>
-                      <div className="text-right text-gray-400">{d.matchesPlayed}</div>
-                      <div className="text-right font-bold text-indigo-700">{d.diversity}%</div>
+                      <div className="text-right text-black/40">{d.matchesPlayed}</div>
+                      <div className="text-right font-bold text-brand-dark">{d.diversity}%</div>
                     </div>
                   ))}
                 </div>
-                <p className="text-[10px] text-gray-400 mt-3 leading-relaxed">
+                <p className="text-[10px] text-black/40 mt-3 leading-relaxed">
                   Pielou&apos;s evenness² capped at min(matches, possible partners). Spreading evenly across
                   more partners (and across multiple rounds) raises the score.
                 </p>
@@ -285,20 +292,20 @@ export default function StatsPage() {
               if (winsList.length === 0) return null;
               return (
                 <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 space-y-1">
-                  <h2 className="font-bold text-gray-800 px-2 pb-1 flex items-center gap-2">
-                    🏆 <span>Wins</span>
+                  <h2 className="font-bold text-black px-2 pb-1 flex items-center gap-2">
+                    <Trophy size={14} className="text-black/60" /><span>Wins</span>
                   </h2>
                   <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 gap-y-1.5 px-2 py-1 text-xs">
-                    <div className="font-bold text-gray-400 uppercase tracking-wider">Player</div>
-                    <div className="font-bold text-gray-400 uppercase tracking-wider text-right">W</div>
-                    <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Played</div>
-                    <div className="font-bold text-gray-400 uppercase tracking-wider text-right">%</div>
+                    <div className="font-bold text-black/40 uppercase tracking-wider">Player</div>
+                    <div className="font-bold text-black/40 uppercase tracking-wider text-right">W</div>
+                    <div className="font-bold text-black/40 uppercase tracking-wider text-right">Played</div>
+                    <div className="font-bold text-black/40 uppercase tracking-wider text-right">%</div>
                     {winsList.map((w) => (
                       <span key={w.id} className="contents">
-                        <span className="font-semibold text-gray-700 truncate">{w.name}</span>
+                        <span className="font-semibold text-black/80 truncate">{w.name}</span>
                         <span className="text-right font-bold text-emerald-600">{w.wins}</span>
-                        <span className="text-right text-gray-500">{w.played}</span>
-                        <span className="text-right text-gray-500">{w.winPct}%</span>
+                        <span className="text-right text-black/55">{w.played}</span>
+                        <span className="text-right text-black/55">{w.winPct}%</span>
                       </span>
                     ))}
                   </div>
@@ -309,20 +316,20 @@ export default function StatsPage() {
             {/* Venues */}
             {venues.length > 0 && (
               <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 space-y-2">
-                <h2 className="font-bold text-gray-800 px-2 pb-1">Venues</h2>
+                <h2 className="font-bold text-black px-2 pb-1">Venues</h2>
                 {venues.map((v) => (
                   <div key={v.venue} className="flex items-center gap-3 p-2">
-                    <span className="text-lg shrink-0">📍</span>
+                    <MapPin size={16} className="text-black/40 shrink-0" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-sm font-bold text-gray-800 truncate">{v.venue}</span>
+                        <span className="text-sm font-bold text-black truncate">{v.venue}</span>
                         <div className="flex items-center gap-1.5 ml-2 shrink-0">
-                          <span className="text-sm font-extrabold text-indigo-600">{v.count}</span>
-                          <span className="text-xs text-gray-400">{v.count === 1 ? "session" : "sessions"}</span>
+                          <span className="text-sm font-extrabold text-rich-black">{v.count}</span>
+                          <span className="text-xs text-black/40">{v.count === 1 ? "session" : "sessions"}</span>
                         </div>
                       </div>
                       <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div className="h-full rounded-full bg-gradient-to-r from-indigo-400 to-purple-500"
+                        <div className="h-full rounded-full bg-rich-black/30"
                           style={{ width: `${Math.max(4, (v.count / maxVenue) * 100)}%` }} />
                       </div>
                     </div>
@@ -334,27 +341,27 @@ export default function StatsPage() {
             {points.length > 0 && (
               <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5">
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="text-lg">🎯</span>
-                  <h2 className="font-bold text-gray-800 text-sm">Points scored</h2>
-                  <span className="text-[10px] text-gray-400 font-semibold ml-auto">scored matches only</span>
+                  <Target size={16} className="text-black/50 shrink-0" />
+                  <h2 className="font-bold text-black text-sm">Points scored</h2>
+                  <span className="text-[10px] text-black/40 font-semibold ml-auto">scored matches only</span>
                 </div>
                 <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-x-2 gap-y-1.5 text-[11px]">
-                  <div className="font-bold text-gray-400 uppercase tracking-wider">Player</div>
-                  <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Tot</div>
-                  <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Avg</div>
-                  <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Best</div>
-                  <div className="font-bold text-gray-400 uppercase tracking-wider text-right">+/−</div>
-                  <div className="font-bold text-gray-400 uppercase tracking-wider text-right">M</div>
+                  <div className="font-bold text-black/40 uppercase tracking-wider">Player</div>
+                  <div className="font-bold text-black/40 uppercase tracking-wider text-right">Tot</div>
+                  <div className="font-bold text-black/40 uppercase tracking-wider text-right">Avg</div>
+                  <div className="font-bold text-black/40 uppercase tracking-wider text-right">Best</div>
+                  <div className="font-bold text-black/40 uppercase tracking-wider text-right">+/−</div>
+                  <div className="font-bold text-black/40 uppercase tracking-wider text-right">M</div>
                   {points.map((p) => (
                     <div key={p.id} className="contents">
-                      <div className="font-semibold text-gray-700 truncate">{p.name}</div>
+                      <div className="font-semibold text-black/80 truncate">{p.name}</div>
                       <div className="text-right font-bold text-amber-600">{p.totalPoints}</div>
-                      <div className="text-right text-gray-700 font-semibold">{p.avgPoints}</div>
+                      <div className="text-right text-black/80 font-semibold">{p.avgPoints}</div>
                       <div className="text-right text-emerald-600 font-semibold">{p.bestSingleMatch}</div>
                       <div className={`text-right font-bold ${p.pointDiff >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
                         {p.pointDiff >= 0 ? "+" : ""}{p.pointDiff}
                       </div>
-                      <div className="text-right text-gray-400">{p.matchesScored}</div>
+                      <div className="text-right text-black/40">{p.matchesScored}</div>
                     </div>
                   ))}
                 </div>
@@ -365,14 +372,14 @@ export default function StatsPage() {
             {(partners.topDuos.length > 0 || partners.perPlayer.length > 0) && (
               <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 space-y-5">
                 <div className="flex items-center gap-2">
-                  <span className="text-lg">🤝</span>
-                  <h2 className="font-bold text-gray-800 text-sm">Best partnerships</h2>
-                  <span className="text-[10px] text-gray-400 font-semibold ml-auto">min 2 together</span>
+                  <Users2 size={16} className="text-black/50 shrink-0" />
+                  <h2 className="font-bold text-black text-sm">Best partnerships</h2>
+                  <span className="text-[10px] text-black/40 font-semibold ml-auto">min 2 together</span>
                 </div>
 
                 {partners.topDuos.length > 0 && (
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Top duos</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-black/40 mb-2">Top duos</p>
                     <div className="space-y-1.5">
                       {partners.topDuos.map((d, i) => (
                         <div
@@ -380,13 +387,13 @@ export default function StatsPage() {
                           className="flex items-center justify-between px-3 py-2 rounded-xl bg-gray-50 text-xs"
                         >
                           <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-[10px] font-bold text-gray-400 w-5 shrink-0">{i + 1}.</span>
-                            <span className="font-semibold text-gray-800 truncate">
-                              {d.p1} <span className="text-gray-400">+</span> {d.p2}
+                            <span className="text-[10px] font-bold text-black/40 w-5 shrink-0">{i + 1}.</span>
+                            <span className="font-semibold text-black truncate">
+                              {d.p1} <span className="text-black/40">+</span> {d.p2}
                             </span>
                           </div>
                           <span className="font-bold text-emerald-600 shrink-0 whitespace-nowrap">
-                            {d.wins}W/{d.played}P <span className="text-gray-400 ml-1">{d.winPct}%</span>
+                            {d.wins}W/{d.played}P <span className="text-black/40 ml-1">{d.winPct}%</span>
                           </span>
                         </div>
                       ))}
@@ -396,18 +403,18 @@ export default function StatsPage() {
 
                 {partners.perPlayer.length > 0 && (
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Each player&apos;s best partner</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-black/40 mb-2">Each player&apos;s best partner</p>
                     <div className="space-y-1.5">
                       {partners.perPlayer.map((r) => (
                         <div
                           key={r.playerId}
                           className="flex items-center justify-between px-3 py-2 rounded-xl bg-gray-50 text-xs"
                         >
-                          <span className="font-semibold text-gray-800 truncate pr-2">
-                            {r.playerName} <span className="text-gray-400">→</span> {r.partnerName}
+                          <span className="font-semibold text-black truncate pr-2">
+                            {r.playerName} <span className="text-black/40">→</span> {r.partnerName}
                           </span>
                           <span className="font-bold text-emerald-600 shrink-0 whitespace-nowrap">
-                            {r.wins}W/{r.played}P <span className="text-gray-400 ml-1">{r.winPct}%</span>
+                            {r.wins}W/{r.played}P <span className="text-black/40 ml-1">{r.winPct}%</span>
                           </span>
                         </div>
                       ))}
@@ -423,42 +430,42 @@ export default function StatsPage() {
               const byPct = [...list].sort((a, b) => b.winPct - a.winPct || b.wins - a.wins || a.name.localeCompare(b.name));
               return (
                 <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 space-y-4 mt-2">
-                  <h2 className="font-bold text-gray-800 text-sm px-2 pb-1 flex items-center gap-2">
-                    🥒 <span>Pickleball</span>
-                    <span className="text-[10px] text-gray-400 font-semibold ml-auto">wins · win %</span>
+                  <h2 className="font-bold text-black text-sm px-2 pb-1 flex items-center gap-2">
+                    <span>Pickleball</span>
+                    <span className="text-[10px] text-black/40 font-semibold ml-auto">wins · win %</span>
                   </h2>
 
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 px-2">By wins</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-black/40 mb-1.5 px-2">By wins</p>
                     <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 gap-y-1.5 px-2 py-1 text-xs">
-                      <div className="font-bold text-gray-400 uppercase tracking-wider">Player</div>
-                      <div className="font-bold text-gray-400 uppercase tracking-wider text-right">W</div>
-                      <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Played</div>
-                      <div className="font-bold text-gray-400 uppercase tracking-wider text-right">%</div>
+                      <div className="font-bold text-black/40 uppercase tracking-wider">Player</div>
+                      <div className="font-bold text-black/40 uppercase tracking-wider text-right">W</div>
+                      <div className="font-bold text-black/40 uppercase tracking-wider text-right">Played</div>
+                      <div className="font-bold text-black/40 uppercase tracking-wider text-right">%</div>
                       {list.map((w) => (
                         <span key={`pw-${w.id}`} className="contents">
-                          <span className="font-semibold text-gray-700 truncate">{w.name}</span>
+                          <span className="font-semibold text-black/80 truncate">{w.name}</span>
                           <span className="text-right font-bold text-emerald-600">{w.wins}</span>
-                          <span className="text-right text-gray-500">{w.played}</span>
-                          <span className="text-right text-gray-500">{w.winPct}%</span>
+                          <span className="text-right text-black/55">{w.played}</span>
+                          <span className="text-right text-black/55">{w.winPct}%</span>
                         </span>
                       ))}
                     </div>
                   </div>
 
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 px-2">By win %</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-black/40 mb-1.5 px-2">By win %</p>
                     <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 gap-y-1.5 px-2 py-1 text-xs">
-                      <div className="font-bold text-gray-400 uppercase tracking-wider">Player</div>
-                      <div className="font-bold text-gray-400 uppercase tracking-wider text-right">%</div>
-                      <div className="font-bold text-gray-400 uppercase tracking-wider text-right">W</div>
-                      <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Played</div>
+                      <div className="font-bold text-black/40 uppercase tracking-wider">Player</div>
+                      <div className="font-bold text-black/40 uppercase tracking-wider text-right">%</div>
+                      <div className="font-bold text-black/40 uppercase tracking-wider text-right">W</div>
+                      <div className="font-bold text-black/40 uppercase tracking-wider text-right">Played</div>
                       {byPct.map((w) => (
                         <span key={`pp-${w.id}`} className="contents">
-                          <span className="font-semibold text-gray-700 truncate">{w.name}</span>
-                          <span className="text-right font-bold text-indigo-600">{w.winPct}%</span>
-                          <span className="text-right text-gray-500">{w.wins}</span>
-                          <span className="text-right text-gray-500">{w.played}</span>
+                          <span className="font-semibold text-black/80 truncate">{w.name}</span>
+                          <span className="text-right font-bold text-brand-dark">{w.winPct}%</span>
+                          <span className="text-right text-black/55">{w.wins}</span>
+                          <span className="text-right text-black/55">{w.played}</span>
                         </span>
                       ))}
                     </div>

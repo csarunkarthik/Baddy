@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 
 type Player = { id: number; name: string };
 type Msg = { role: "user" | "assistant"; content: string };
@@ -70,30 +69,30 @@ export default function AskPage() {
 
   return (
     <div className="app-bg flex flex-col" style={{ minHeight: "100dvh" }}>
-      <div className="relative overflow-hidden app-header px-5 pt-12 pb-6">
-        <div className="relative flex items-start gap-3">
-          <Link href="/" className="mt-1 w-9 h-9 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors font-bold">←</Link>
-          <div className="flex-1">
-            <h1 className="text-3xl font-extrabold tracking-tight">Ask Baddy</h1>
+      <div className="app-header px-5 pt-10 pb-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="font-display text-4xl tracking-widest">Ask Baddy</h1>
             <p className="app-header-subtle text-sm mt-0.5">Ask anything about the group&apos;s stats</p>
           </div>
+          <img src="/logo.svg" alt="Baddy" className="h-8 w-auto" />
         </div>
-        <div className="relative mt-4 flex items-center gap-2">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-white/70">I&apos;m</span>
+        <div className="mt-4 flex items-center gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-black/50">I&apos;m</span>
           <select
             value={asPlayerId ?? ""}
             onChange={(e) => persistPlayer(e.target.value ? parseInt(e.target.value) : null)}
-            className="bg-white/20 text-white text-xs font-bold px-3 py-1.5 rounded-full focus:outline-none cursor-pointer"
+            className="bg-black/6 text-black text-xs font-bold px-3 py-1.5 rounded-full focus:outline-none cursor-pointer"
           >
             <option value="">— (nobody)</option>
             {players.map((p) => (
-              <option key={p.id} value={p.id} className="text-gray-800">{p.name}</option>
+              <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
           {messages.length > 0 && (
             <button
               onClick={() => { setMessages([]); setError(null); }}
-              className="text-xs text-white/80 hover:text-white underline px-1 ml-auto"
+              className="text-xs text-black/50 hover:text-black underline px-1 ml-auto"
             >
               Clear chat
             </button>
@@ -110,7 +109,7 @@ export default function AskPage() {
                 <button
                   key={q}
                   onClick={() => send(q)}
-                  className="text-left text-sm font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-2xl px-4 py-2.5 transition-colors active:scale-[0.98]"
+                  className="text-left text-sm font-medium text-rich-black bg-brand/8 hover:bg-brand/15 rounded-2xl px-4 py-2.5 transition-colors active:scale-[0.98]"
                 >
                   {q}
                 </button>
@@ -118,7 +117,7 @@ export default function AskPage() {
               {meName && (
                 <button
                   onClick={() => send("What's my best chemistry partner?")}
-                  className="text-left text-sm font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-2xl px-4 py-2.5 transition-colors active:scale-[0.98]"
+                  className="text-left text-sm font-medium text-rich-black bg-brand/8 hover:bg-brand/15 rounded-2xl px-4 py-2.5 transition-colors active:scale-[0.98]"
                 >
                   What&apos;s my best chemistry partner?
                 </button>
@@ -132,7 +131,7 @@ export default function AskPage() {
             <div
               className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap leading-relaxed ${
                 m.role === "user"
-                  ? "bg-indigo-500 text-white"
+                  ? "bg-rich-black text-white"
                   : "bg-white text-gray-800 border border-gray-100 shadow-sm"
               }`}
             >
@@ -171,12 +170,12 @@ export default function AskPage() {
             onChange={(e) => setInput(e.target.value)}
             placeholder={meName ? `Ask as ${meName}…` : "Ask Baddy anything…"}
             disabled={sending}
-            className="flex-1 bg-gray-50 border-2 border-transparent focus:border-indigo-300 rounded-2xl px-4 py-2.5 text-sm font-medium text-gray-900 placeholder-gray-400 focus:outline-none transition-colors disabled:opacity-60"
+            className="flex-1 bg-black/4 border-2 border-transparent focus:border-brand rounded-2xl px-4 py-2.5 text-sm font-medium text-rich-black placeholder-black/30 focus:outline-none transition-colors disabled:opacity-60"
           />
           <button
             type="submit"
             disabled={sending || !input.trim()}
-            className="shrink-0 px-4 py-2.5 rounded-2xl bg-indigo-500 text-white text-sm font-bold hover:bg-indigo-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+            className="shrink-0 px-4 py-2.5 rounded-2xl bg-brand text-rich-black text-sm font-bold hover:bg-brand-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
           >
             Send
           </button>

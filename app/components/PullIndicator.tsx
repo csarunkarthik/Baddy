@@ -11,7 +11,7 @@ export default function PullIndicator({ distance, refreshing, threshold }: { dis
     >
       <div className={`w-9 h-9 rounded-full bg-white shadow-md border border-slate-200 flex items-center justify-center ${refreshing ? "animate-spin" : ""}`}>
         <div
-          className="w-4 h-4 rounded-full border-2 border-indigo-500 border-t-transparent"
+          className="w-4 h-4 rounded-full border-2 border-brand border-t-transparent"
           style={{ transform: `rotate(${progress * 360}deg)` }}
         />
       </div>

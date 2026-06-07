@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import { MessageCircle, User } from "lucide-react";
 
 type Comment = { id: number; content: string; author: string; createdAt: string };
 type Post = { id: number; content: string; author: string; createdAt: string; comments: Comment[] };
@@ -93,59 +93,29 @@ export default function FeedPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-violet-50 to-purple-50">
+    <div className="app-bg">
       {/* Header */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-violet-500 via-purple-500 to-fuchsia-600 text-white px-5 pt-12 pb-8">
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-4 right-8 text-8xl">💬</div>
-          <div className="absolute -bottom-4 -left-4 w-32 h-32 rounded-full bg-white" />
+      <div className="app-header px-5 pt-10 pb-5 flex items-center justify-between">
+        <div>
+          <h1 className="font-display text-4xl tracking-widest">Feed</h1>
+          <p className="app-header-subtle text-sm mt-0.5">Share your thoughts</p>
         </div>
-        <div className="relative flex items-start gap-3">
-          <Link href="/" className="mt-1 w-9 h-9 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors font-bold">←</Link>
-          <div>
-            <h1 className="text-3xl font-extrabold tracking-tight">Feed</h1>
-            <p className="text-violet-100 text-sm mt-0.5">Share your thoughts</p>
-          </div>
-        </div>
+        <img src="/logo.svg" alt="Baddy" className="h-8 w-auto" />
       </div>
 
       <div className="px-4 py-5 max-w-lg mx-auto space-y-4">
-
-        {/* Nav */}
-        <div className="grid grid-cols-5 gap-2">
-          <Link href="/" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
-            <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-emerald-200">🏟️</div>
-            <span className="text-[10px] font-bold text-gray-700">Home</span>
-          </Link>
-          <Link href="/players" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
-            <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-emerald-200">🫂</div>
-            <span className="text-[10px] font-bold text-gray-700">Players</span>
-          </Link>
-          <Link href="/stats" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-blue-200">🎯</div>
-            <span className="text-[10px] font-bold text-gray-700">Stats</span>
-          </Link>
-          <Link href="/history" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
-            <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-pink-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-orange-200">📜</div>
-            <span className="text-[10px] font-bold text-gray-700">History</span>
-          </Link>
-          <Link href="/matches" className="group bg-white rounded-3xl shadow-sm border border-gray-100 p-3 flex flex-col items-center gap-1.5 hover:shadow-md transition-all active:scale-95">
-            <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-rose-500 rounded-2xl flex items-center justify-center text-lg shadow-md shadow-amber-200">⚔️</div>
-            <span className="text-[10px] font-bold text-gray-700">Matches</span>
-          </Link>
-        </div>
 
         {/* New post */}
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 space-y-3">
           {/* Author selector */}
           <div className="flex items-center gap-3">
             {author ? <Avatar name={author} size="md" /> : (
-              <div className="w-10 h-10 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-400 text-lg shrink-0">👤</div>
+              <div className="w-10 h-10 rounded-2xl bg-black/6 flex items-center justify-center shrink-0"><User size={20} className="text-black/30" /></div>
             )}
             <select
               value={author}
               onChange={(e) => setAuthor(e.target.value)}
-              className="flex-1 bg-gray-50 border-2 border-transparent focus:border-violet-300 rounded-2xl px-4 py-2.5 text-sm font-medium text-gray-900 focus:outline-none transition-colors"
+              className="flex-1 bg-gray-50 border-2 border-transparent focus:border-brand rounded-2xl px-4 py-2.5 text-sm font-medium text-gray-900 focus:outline-none transition-colors"
             >
               <option value="">Who are you?</option>
               {players.map((p) => <option key={p.id} value={p.name}>{p.name}</option>)}
@@ -157,12 +127,12 @@ export default function FeedPage() {
             value={content}
             onChange={(e) => setContent(e.target.value)}
             rows={3}
-            className="w-full bg-gray-50 border-2 border-transparent focus:border-violet-300 rounded-2xl px-4 py-3 text-sm font-medium text-gray-900 placeholder-gray-400 focus:outline-none transition-colors resize-none"
+            className="w-full bg-gray-50 border-2 border-transparent focus:border-brand rounded-2xl px-4 py-3 text-sm font-medium text-gray-900 placeholder-gray-400 focus:outline-none transition-colors resize-none"
           />
           <button
             onClick={submitPost}
             disabled={posting || !content.trim() || !author.trim()}
-            className="w-full bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white py-3 rounded-2xl font-bold text-sm shadow-lg shadow-violet-200 disabled:opacity-40 disabled:shadow-none hover:from-violet-600 hover:to-fuchsia-600 active:scale-[0.98] transition-all"
+            className="w-full bg-brand text-rich-black py-3 rounded-2xl font-bold text-sm shadow-lg shadow-brand/20 disabled:opacity-40 disabled:shadow-none hover:bg-brand-dark active:scale-[0.98] transition-all"
           >
             {posting ? "Posting..." : "Post →"}
           </button>
@@ -171,11 +141,11 @@ export default function FeedPage() {
         {/* Feed */}
         {loading ? (
           <div className="flex justify-center py-10">
-            <div className="w-10 h-10 rounded-full border-4 border-violet-200 border-t-violet-500 animate-spin" />
+            <div className="w-10 h-10 rounded-full border-4 border-brand/20 border-t-brand animate-spin" />
           </div>
         ) : posts.length === 0 ? (
-          <div className="bg-white/60 rounded-3xl border-2 border-dashed border-gray-200 p-10 text-center text-gray-400">
-            <div className="text-3xl mb-2">💬</div>
+          <div className="bg-white/60 rounded-3xl border-2 border-dashed border-gray-200 p-10 text-center text-black/40">
+            <div className="flex justify-center mb-2"><MessageCircle size={32} className="text-black/20" /></div>
             <p className="text-sm font-medium">No posts yet — be the first!</p>
           </div>
         ) : (
@@ -197,7 +167,7 @@ export default function FeedPage() {
                   </div>
                   <button
                     onClick={() => setExpandedId(isOpen ? null : post.id)}
-                    className="mt-3 ml-11 text-xs font-semibold text-violet-500 hover:text-violet-700 transition-colors"
+                    className="mt-3 ml-11 text-xs font-semibold text-brand-dark hover:text-brand transition-colors"
                   >
                     {post.comments.length > 0
                       ? `${post.comments.length} comment${post.comments.length > 1 ? "s" : ""} ${isOpen ? "▲" : "▼"}`
@@ -232,12 +202,12 @@ export default function FeedPage() {
                           onChange={(e) => setCommentText((prev) => ({ ...prev, [post.id]: e.target.value }))}
                           onKeyDown={(e) => e.key === "Enter" && submitComment(post.id)}
                           disabled={!author}
-                          className="flex-1 bg-white border-2 border-transparent focus:border-violet-300 rounded-2xl px-3 py-2 text-xs font-medium text-gray-900 placeholder-gray-400 focus:outline-none transition-colors disabled:opacity-50"
+                          className="flex-1 bg-white border-2 border-transparent focus:border-brand rounded-2xl px-3 py-2 text-xs font-medium text-gray-900 placeholder-gray-400 focus:outline-none transition-colors disabled:opacity-50"
                         />
                         <button
                           onClick={() => submitComment(post.id)}
                           disabled={!author || !commentText[post.id]?.trim() || commenting === post.id}
-                          className="bg-violet-500 text-white px-3 py-2 rounded-2xl text-xs font-bold disabled:opacity-40 hover:bg-violet-600 active:scale-95 transition-all"
+                          className="bg-brand text-rich-black px-3 py-2 rounded-2xl text-xs font-bold disabled:opacity-40 hover:bg-brand-dark active:scale-95 transition-all"
                         >
                           {commenting === post.id ? "…" : "Send"}
                         </button>

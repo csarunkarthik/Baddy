@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { isSessionLocked } from "@/lib/locking";
+import { Activity, Check, Lock, Trash2 } from "lucide-react";
 
 type Player = { id: number; name: string };
 type Session = {
@@ -93,8 +94,8 @@ export default function HistoryList() {
   if (sessions.length === 0) {
     return (
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-10 text-center">
-        <div className="text-4xl mb-3">🏸</div>
-        <p className="text-gray-400 text-sm font-medium">No sessions yet</p>
+        <div className="flex justify-center mb-3"><Activity size={40} className="text-black/20" /></div>
+        <p className="text-black/40 text-sm font-medium">No sessions yet</p>
       </div>
     );
   }
@@ -116,17 +117,21 @@ export default function HistoryList() {
               className="w-full flex items-center justify-between px-5 py-4 text-left"
             >
               <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-lg shrink-0 ${today ? "bg-emerald-100" : "bg-gradient-to-br from-orange-100 to-pink-100"}`}>
-                  {today ? "🟢" : locked ? "🔒" : s.sport === "PICKLEBALL" ? "🥒" : "🏸"}
+                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${today ? "bg-emerald-100" : "bg-black/5"}`}>
+                  {today
+                    ? <div className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
+                    : locked
+                    ? <Lock size={17} className="text-black/40" />
+                    : <Activity size={17} className="text-black/40" />}
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <p className="font-bold text-gray-800 text-sm">{formatDate(s.date)}</p>
-                    {s.sport === "PICKLEBALL" && <span className="text-xs bg-lime-100 text-lime-700 font-bold px-2 py-0.5 rounded-full">🥒 Pickle</span>}
+                    <p className="font-bold text-black text-sm">{formatDate(s.date)}</p>
+                    {s.sport === "PICKLEBALL" && <span className="text-xs bg-lime-100 text-lime-700 font-bold px-2 py-0.5 rounded-full">Pickle</span>}
                     {today && <span className="text-xs bg-emerald-100 text-emerald-700 font-bold px-2 py-0.5 rounded-full">Live</span>}
                     {locked && <span className="text-xs bg-amber-100 text-amber-700 font-bold px-2 py-0.5 rounded-full">Locked</span>}
                   </div>
-                  <p className="text-xs text-gray-400 mt-0.5 font-medium">{s.venue || "No venue"}</p>
+                  <p className="text-xs text-black/40 mt-0.5 font-medium">{s.venue || "No venue"}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -140,7 +145,7 @@ export default function HistoryList() {
             {isOpen && (
               <div className="px-5 pb-5 border-t border-gray-50 pt-4 space-y-2">
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs text-gray-400 font-medium">
+                  <p className="text-xs text-black/40 font-medium">
                     {locked ? "Read-only — locked 2 days after the session date." : "Tap to toggle attendance"}
                   </p>
                   {!locked && (
@@ -151,12 +156,12 @@ export default function HistoryList() {
                     >
                       {deleting.has(s.id) ? (
                         <><span className="w-3 h-3 rounded-full border-2 border-rose-300 border-t-rose-600 animate-spin" />Deleting…</>
-                      ) : <>🗑 Delete session</>}
+                      ) : <><Trash2 size={12} /> Delete session</>}
                     </button>
                   )}
                 </div>
                 {players.length === 0 ? (
-                  <p className="text-sm text-gray-400">No players registered yet</p>
+                  <p className="text-sm text-black/40">No players registered yet</p>
                 ) : (
                   players.map((player) => {
                     const present = attendeeIds.has(player.id);
@@ -172,7 +177,7 @@ export default function HistoryList() {
                             : "bg-gray-50 border-2 border-transparent hover:border-gray-200"
                         } ${locked ? "cursor-default opacity-90" : ""}`}
                       >
-                        <span className={`text-sm font-semibold ${present ? "text-emerald-800" : "text-gray-400"}`}>
+                        <span className={`text-sm font-semibold ${present ? "text-emerald-800" : "text-black/40"}`}>
                           {player.name}
                         </span>
                         <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${
@@ -181,7 +186,7 @@ export default function HistoryList() {
                           {busy ? (
                             <div className="w-3 h-3 rounded-full border-2 border-emerald-300 border-t-white animate-spin" />
                           ) : present ? (
-                            <span className="text-white text-xs font-bold">✓</span>
+                            <Check size={12} className="text-white" strokeWidth={3} />
                           ) : null}
                         </div>
                       </button>

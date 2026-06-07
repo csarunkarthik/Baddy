@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import HistoryList from "../components/HistoryList";
 
 // Standalone /history page kept for deep-links / bookmarks. The bottom-nav
@@ -9,16 +8,12 @@ import HistoryList from "../components/HistoryList";
 export default function HistoryPage() {
   return (
     <div className="app-bg">
-      <div className="relative overflow-hidden app-header px-5 pt-12 pb-8">
-        <div className="relative flex items-start gap-3">
-          <Link href="/" className="mt-1 w-9 h-9 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors font-bold">
-            ←
-          </Link>
-          <div>
-            <h1 className="text-3xl font-extrabold tracking-tight">History</h1>
-            <p className="app-header-subtle text-sm mt-0.5">Tap a session to edit attendance</p>
-          </div>
+      <div className="app-header px-5 pt-10 pb-5 flex items-center justify-between">
+        <div>
+          <h1 className="font-display text-4xl tracking-widest">History</h1>
+          <p className="app-header-subtle text-sm mt-0.5">Tap a session to edit attendance</p>
         </div>
+        <img src="/logo.svg" alt="Baddy" className="h-8 w-auto" />
       </div>
 
       <div className="px-4 py-5 max-w-lg mx-auto">

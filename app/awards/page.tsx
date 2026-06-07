@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { ArrowLeft, Flame, Link2, Sparkles, Sword, Swords, Target, Trophy, Users } from "lucide-react";
 
 type TrophyWinner = { id: number; name: string };
 type Trophy = { key: string; label: string; emoji: string; criteria: string; winner: TrophyWinner | null };
@@ -60,16 +61,12 @@ export default function AwardsPage() {
 
   return (
     <div className="app-bg">
-      <div className="relative overflow-hidden app-header px-5 pt-12 pb-8">
-        <div className="relative flex items-start gap-3">
-          <Link href="/" className="mt-1 w-9 h-9 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors font-bold">
-            ←
-          </Link>
-          <div>
-            <h1 className="text-3xl font-extrabold tracking-tight">Awards</h1>
-            <p className="app-header-subtle text-sm mt-0.5">Trophies, milestones &amp; team honors</p>
-          </div>
+      <div className="app-header px-5 pt-10 pb-5 flex items-center justify-between">
+        <div>
+          <h1 className="font-display text-4xl tracking-widest">Awards</h1>
+          <p className="app-header-subtle text-sm mt-0.5">Trophies, milestones &amp; team honors</p>
         </div>
+        <img src="/logo.svg" alt="Baddy" className="h-8 w-auto" />
       </div>
 
       <div className="px-4 py-5 max-w-lg mx-auto space-y-4">
@@ -82,28 +79,28 @@ export default function AwardsPage() {
           <>
             {/* Trophy gallery — dense single-line rows */}
             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4">
-              <h2 className="font-bold text-gray-800 text-sm mb-2 flex items-center gap-2">
-                🏆 Trophies
-                <span className="text-xs text-gray-400 font-semibold ml-auto">{awarded.length} awarded</span>
+              <h2 className="font-bold text-black text-sm mb-2 flex items-center gap-2">
+                <Trophy size={14} className="text-black/60" /> Trophies
+                <span className="text-xs text-black/40 font-semibold ml-auto">{awarded.length} awarded</span>
               </h2>
               <div className="divide-y divide-amber-50">
                 {awarded.map((t) => (
                   <div key={t.key} className="px-1 py-1.5">
                     <div className="flex items-center gap-2 text-xs">
                       <span className="text-base leading-none shrink-0">{t.emoji}</span>
-                      <span className="font-semibold text-gray-800 truncate flex-1 min-w-0">{t.label}</span>
+                      <span className="font-semibold text-black truncate flex-1 min-w-0">{t.label}</span>
                       <span className="font-bold text-amber-700 truncate shrink-0 max-w-[40%] text-right">{t.winner?.name}</span>
                     </div>
-                    <p className="text-[10px] text-gray-500 mt-0.5 pl-6 leading-snug">{t.criteria}</p>
+                    <p className="text-[10px] text-black/55 mt-0.5 pl-6 leading-snug">{t.criteria}</p>
                   </div>
                 ))}
               </div>
               {unclaimed.length > 0 && (
                 <div className="mt-3 pt-3 border-t border-gray-100">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Awaiting data ({unclaimed.length})</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-black/40 mb-1.5">Awaiting data ({unclaimed.length})</p>
                   <div className="flex flex-wrap gap-1">
                     {unclaimed.map((t) => (
-                      <span key={t.key} title={t.criteria} className="px-2 py-0.5 rounded-full text-[10px] font-semibold text-gray-500 bg-gray-100">
+                      <span key={t.key} title={t.criteria} className="px-2 py-0.5 rounded-full text-[10px] font-semibold text-black/55 bg-gray-100">
                         {t.emoji} {t.label}
                       </span>
                     ))}
@@ -115,25 +112,25 @@ export default function AwardsPage() {
             {/* Team awards — three angles that don't duplicate /stats */}
             {teamAwards && (teamAwards.chemistry.length + teamAwards.ironDuos.length + teamAwards.dragonSlayerDuos.length) > 0 && (
               <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 space-y-4">
-                <h2 className="font-bold text-gray-800 text-sm flex items-center gap-2">
-                  🏟️ Team awards
+                <h2 className="font-bold text-black text-sm flex items-center gap-2">
+                  <Trophy size={14} className="text-black/60" /> Team awards
                 </h2>
 
                 {teamAwards.chemistry.length > 0 && (
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 flex items-center gap-1">
-                      <span>✨</span> Chemistry
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-black/40 mb-1.5 flex items-center gap-1">
+                      <Sparkles size={11} /> Chemistry
                       <span className="text-gray-300 normal-case font-medium ml-1">1+1&gt;2</span>
                     </p>
-                    <div className="divide-y divide-violet-50">
+                    <div className="divide-y divide-brand/10">
                       {teamAwards.chemistry.map((d, i) => (
                         <div key={`chem-${d.p1}-${d.p2}`} className="flex items-center gap-2 px-1 py-1.5 text-xs">
-                          <span className="text-[10px] font-bold text-violet-700 w-4 shrink-0">{i + 1}</span>
-                          <span className="font-semibold text-violet-900 truncate flex-1 min-w-0">
-                            {d.p1} <span className="text-violet-400">+</span> {d.p2}
+                          <span className="text-[10px] font-bold text-brand-dark w-4 shrink-0">{i + 1}</span>
+                          <span className="font-semibold text-rich-black truncate flex-1 min-w-0">
+                            {d.p1} <span className="text-brand-dark">+</span> {d.p2}
                           </span>
-                          <span className="font-bold text-violet-700 shrink-0 whitespace-nowrap">
-                            +{d.synergy}% <span className="text-violet-400 ml-0.5 font-medium">({d.jointPct}% vs {d.soloAvgPct}%)</span>
+                          <span className="font-bold text-brand-dark shrink-0 whitespace-nowrap">
+                            +{d.synergy}% <span className="text-black/40 ml-0.5 font-medium">({d.jointPct}% vs {d.soloAvgPct}%)</span>
                           </span>
                         </div>
                       ))}
@@ -143,8 +140,8 @@ export default function AwardsPage() {
 
                 {teamAwards.dragonSlayerDuos.length > 0 && (
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 flex items-center gap-1">
-                      <span>🐉</span> Dragon Slayer Duo
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-black/40 mb-1.5 flex items-center gap-1">
+                      <Flame size={11} /> Dragon Slayer Duo
                       <span className="text-gray-300 normal-case font-medium ml-1">avg opponent ELO on wins</span>
                     </p>
                     <div className="divide-y divide-rose-50">
@@ -165,8 +162,8 @@ export default function AwardsPage() {
 
                 {teamAwards.ironDuos.length > 0 && (
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 flex items-center gap-1">
-                      <span>⛓️</span> Iron Duo
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-black/40 mb-1.5 flex items-center gap-1">
+                      <Link2 size={11} /> Iron Duo
                       <span className="text-gray-300 normal-case font-medium ml-1">most together</span>
                     </p>
                     <div className="divide-y divide-slate-100">
@@ -189,15 +186,15 @@ export default function AwardsPage() {
 
             {/* Per-player overview */}
             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5">
-              <h2 className="font-bold text-gray-800 text-sm mb-3 flex items-center gap-2">
-                👥 By player
+              <h2 className="font-bold text-black text-sm mb-3 flex items-center gap-2">
+                <Users size={14} className="text-black/60" /> By player
               </h2>
               <div className="space-y-3">
                 {perPlayerList.map((p) => (
                   <div key={p.id} className="border-b border-gray-50 last:border-0 pb-3 last:pb-0">
                     <div className="flex items-baseline justify-between mb-1">
-                      <span className="font-bold text-gray-800 text-sm">{p.name}</span>
-                      <span className="text-[10px] text-gray-400 font-semibold">
+                      <span className="font-bold text-black text-sm">{p.name}</span>
+                      <span className="text-[10px] text-black/40 font-semibold">
                         {p.trophies.length} trophy{p.trophies.length === 1 ? "" : "s"} · {p.milestones.length} milestone{p.milestones.length === 1 ? "" : "s"}
                       </span>
                     </div>
@@ -234,8 +231,8 @@ export default function AwardsPage() {
               if (rows.length === 0) return null;
               return (
                 <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4">
-                  <h2 className="font-bold text-gray-800 text-sm mb-3 flex items-center gap-2">
-                    🎯 Next Milestone
+                  <h2 className="font-bold text-black text-sm mb-3 flex items-center gap-2">
+                    <Target size={14} className="text-black/60" /> Next Milestone
                   </h2>
                   <div className="space-y-2">
                     {rows.map(([pid, next]) => {
@@ -243,13 +240,13 @@ export default function AwardsPage() {
                       return (
                         <div key={pid} className="flex items-center gap-2 text-xs py-1 border-b border-gray-50 last:border-0">
                           <span className="text-base leading-none shrink-0">{next.emoji}</span>
-                          <span className="font-semibold text-gray-800 flex-1 min-w-0 truncate">
+                          <span className="font-semibold text-black flex-1 min-w-0 truncate">
                             {name}
                           </span>
                           <span className="text-gray-600 truncate">
                             {next.label}
                           </span>
-                          <span className="font-bold text-indigo-600 shrink-0 whitespace-nowrap ml-1">
+                          <span className="font-bold text-brand-dark shrink-0 whitespace-nowrap ml-1">
                             {next.gap} away
                           </span>
                         </div>
@@ -268,22 +265,22 @@ export default function AwardsPage() {
               if (rivalRows.length === 0) return null;
               return (
                 <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4">
-                  <h2 className="font-bold text-gray-800 text-sm mb-3 flex items-center gap-2">
-                    😈 Rivals
+                  <h2 className="font-bold text-black text-sm mb-3 flex items-center gap-2">
+                    <Swords size={14} className="text-black/60" /> Rivals
                   </h2>
                   <div className="space-y-3">
                     {rivalRows.map(([pid, v]) => (
                       <div key={pid} className="border-b border-gray-50 last:border-0 pb-3 last:pb-0">
-                        <p className="font-bold text-gray-800 text-xs mb-1.5">{v.playerName}</p>
+                        <p className="font-bold text-black text-xs mb-1.5">{v.playerName}</p>
                         <div className="flex flex-wrap gap-1.5">
                           {v.archnemesis && (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-bold">
-                              😈 {v.archnemesis.name}
+                              <Sword size={10} /> {v.archnemesis.name}
                             </span>
                           )}
                           {v.favouriteVictim && (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold">
-                              🎯 {v.favouriteVictim.name}
+                              <Target size={10} /> {v.favouriteVictim.name}
                             </span>
                           )}
                         </div>
