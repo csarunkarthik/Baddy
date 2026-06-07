@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolveCouples } from "@/lib/couples";
-import { isSessionLocked } from "@/lib/locking";
+import { isSessionLocked, LOCK_MESSAGE } from "@/lib/locking";
 import { computeElo, type EloMatch, ELO_START } from "@/lib/elo";
 
 export async function GET(
@@ -147,5 +147,95 @@ export async function GET(
     playerPriorPcts,
     playerPriorElos,
     playerSessionGains,
+  });
+}
+
+// POST /api/sessions/[id]/matches — body { teamA: [id, id], teamB: [id, id] } —
+// create a single custom fixture from scratch (used by the "Create match" flow
+// when the live box is empty). Appends after the current highest matchNumber
+// and bumps Session.totalMatches by 1, mirroring the bulk /matches/add route.
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const sessionId = parseInt(id);
+  if (!Number.isFinite(sessionId)) {
+    return NextResponse.json({ error: "Invalid session id" }, { status: 400 });
+  }
+
+  const session = await prisma.session.findUnique({ where: { id: sessionId } });
+  if (!session) {
+    return NextResponse.json({ error: "Session not found" }, { status: 404 });
+  }
+  if (isSessionLocked(session.date)) {
+    return NextResponse.json({ error: LOCK_MESSAGE }, { status: 423 });
+  }
+
+  const body = await req.json().catch(() => ({}));
+  const teamA = body.teamA;
+  const teamB = body.teamB;
+  if (
+    !Array.isArray(teamA) ||
+    !Array.isArray(teamB) ||
+    teamA.length !== 2 ||
+    teamB.length !== 2
+  ) {
+    return NextResponse.json(
+      { error: "teamA and teamB must each be arrays of 2 player ids" },
+      { status: 400 }
+    );
+  }
+  const all = [...teamA, ...teamB].map((x) => Number(x));
+  if (all.some((x) => !Number.isFinite(x))) {
+    return NextResponse.json({ error: "player ids must be numbers" }, { status: 400 });
+  }
+  if (new Set(all).size !== 4) {
+    return NextResponse.json({ error: "All 4 players must be distinct" }, { status: 400 });
+  }
+
+  const maxAgg = await prisma.match.aggregate({
+    where: { sessionId },
+    _max: { matchNumber: true },
+  });
+  const matchNumber = (maxAgg._max.matchNumber ?? 0) + 1;
+
+  const created = await prisma.$transaction(async (tx) => {
+    const m = await tx.match.create({
+      data: {
+        sessionId,
+        matchNumber,
+        participants: {
+          create: [
+            { playerId: all[0], team: "A", position: 0 },
+            { playerId: all[1], team: "A", position: 1 },
+            { playerId: all[2], team: "B", position: 0 },
+            { playerId: all[3], team: "B", position: 1 },
+          ],
+        },
+      },
+      include: { participants: { include: { player: true } } },
+    });
+    await tx.session.update({
+      where: { id: sessionId },
+      data: { totalMatches: session.totalMatches + 1 },
+    });
+    return m;
+  });
+
+  return NextResponse.json({
+    id: created.id,
+    matchNumber: created.matchNumber,
+    winner: created.winner,
+    teamAScore: created.teamAScore,
+    teamBScore: created.teamBScore,
+    teamA: created.participants
+      .filter((p) => p.team === "A")
+      .sort((a, b) => a.position - b.position)
+      .map((p) => ({ id: p.player.id, name: p.player.name, avatar: p.player.avatar })),
+    teamB: created.participants
+      .filter((p) => p.team === "B")
+      .sort((a, b) => a.position - b.position)
+      .map((p) => ({ id: p.player.id, name: p.player.name, avatar: p.player.avatar })),
   });
 }

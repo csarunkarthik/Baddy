@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import confetti from "canvas-confetti";
-import { BarChart2, Check, Flame, Inbox, Calendar, Link2, Lock, Settings, Shuffle, Star, Trophy, TrendingUp, Users, X } from "lucide-react";
+import { BarChart2, Check, Flame, Inbox, Calendar, Link2, Lock, Pencil, Play, Settings, Shuffle, Star, Trash2, Trophy, TrendingUp, Users, X } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 type Player = { id: number; name: string; avatar?: string | null };
@@ -112,18 +112,33 @@ export default function Home() {
   const [editTeams, setEditTeams] = useState<{ A: (number | null)[]; B: (number | null)[] }>({ A: [null, null], B: [null, null] });
   const [savingPlayers, setSavingPlayers] = useState(false);
 
-  // Score sticky-active state
-  const STICKY_MS = 10_000;
-  const [lastEdited, setLastEdited] = useState<{ id: number; at: number } | null>(null);
-  const [tick, setTick] = useState(0);
+  // Live match selection — explicit and user-driven. Auto-picked once per
+  // session (first unfinished fixture); ending a match clears it so the box
+  // goes empty until the user taps the next fixture or builds a new one.
+  const [liveMatchId, setLiveMatchId] = useState<number | null>(null);
+  const liveInitFor = useRef<number | null>(null);
+
+  // Brief confirmation toast (e.g. "Match saved")
+  const [toast, setToast] = useState<string | null>(null);
   useEffect(() => {
-    if (!lastEdited) return;
-    const remaining = STICKY_MS - (Date.now() - lastEdited.at);
-    if (remaining <= 0) { setLastEdited(null); return; }
-    const t = setTimeout(() => setTick((v) => v + 1), Math.min(1000, remaining));
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 2400);
     return () => clearTimeout(t);
-  }, [lastEdited, tick]);
-  const stickyActiveId = lastEdited && (Date.now() - lastEdited.at < STICKY_MS) ? lastEdited.id : null;
+  }, [toast]);
+
+  // Create match (floating form opened from the empty live box — builds a
+  // brand-new fixture from scratch, mirrors the Edit Players dropdown layout)
+  const [showCreateMatch, setShowCreateMatch] = useState(false);
+  const [createTeams, setCreateTeams] = useState<{ A: (number | null)[]; B: (number | null)[] }>({ A: [null, null], B: [null, null] });
+  const [creatingMatch, setCreatingMatch] = useState(false);
+
+  // Edit a completed (past) match — same dropdown player-picker UX as Create
+  // Match, plus a final-score field per team (opened from the Past tab's edit icon)
+  const [showEditPastMatch, setShowEditPastMatch] = useState(false);
+  const [editPastMatchId, setEditPastMatchId] = useState<number | null>(null);
+  const [editPastTeams, setEditPastTeams] = useState<{ A: (number | null)[]; B: (number | null)[] }>({ A: [null, null], B: [null, null] });
+  const [editPastScores, setEditPastScores] = useState<{ A: number | null; B: number | null }>({ A: null, B: null });
+  const [savingPastMatch, setSavingPastMatch] = useState(false);
 
   // Date slider scroll
   const sliderRef = useRef<HTMLDivElement>(null);
@@ -134,6 +149,22 @@ export default function Home() {
     const chip = el.children[idx] as HTMLElement | undefined;
     chip?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
   }, [selectedDate, dates]);
+
+  // Tabs bar sticky-stuck detection — paint a solid white backdrop only once
+  // the bar is actually pinned to the viewport top (otherwise it stays
+  // transparent and blends with the page background as it scrolls by).
+  const tabsSentinelRef = useRef<HTMLDivElement>(null);
+  const [tabsStuck, setTabsStuck] = useState(false);
+  useEffect(() => {
+    const el = tabsSentinelRef.current;
+    if (!el) { setTabsStuck(false); return; }
+    const obs = new IntersectionObserver(
+      ([entry]) => setTabsStuck(!entry.isIntersecting),
+      { threshold: 0, rootMargin: "-1px 0px 0px 0px" }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [data?.session.id, data?.matches.length]);
 
   // Load venues + players once
   useEffect(() => {
@@ -370,15 +401,20 @@ export default function Home() {
     }
   }, [allDone, data?.session.id]);
 
+  // Auto-pick the live match once per session (first unfinished fixture).
+  // From then on it's entirely user-driven — see liveMatchId above.
+  useEffect(() => {
+    if (!data) return;
+    if (liveInitFor.current === data.session.id) return;
+    liveInitFor.current = data.session.id;
+    setLiveMatchId(data.matches.find((m) => !matchCompleted(m))?.id ?? null);
+  }, [data]);
+
   // Active match for the Live card
   const activeMatch = useMemo<Match | null>(() => {
-    if (!data || data.matches.length === 0) return null;
-    if (stickyActiveId) {
-      const sticky = data.matches.find((m) => m.id === stickyActiveId);
-      if (sticky) return sticky;
-    }
-    return data.matches.find((m) => !matchCompleted(m)) ?? null;
-  }, [data, stickyActiveId]);
+    if (!data || liveMatchId === null) return null;
+    return data.matches.find((m) => m.id === liveMatchId) ?? null;
+  }, [data, liveMatchId]);
 
   const upcomingMatches = useMemo(
     () => data?.matches
@@ -393,32 +429,40 @@ export default function Home() {
 
   const locked = !!data?.session.locked;
   const editingMatch = data?.matches.find((m) => m.id === editMatchId) ?? null;
+  const editingPastMatch = data?.matches.find((m) => m.id === editPastMatchId) ?? null;
 
   // ── Actions ─────────────────────────────────────────────────────────────────
-  async function setWinner(matchId: number, currentWinner: "A" | "B" | null, team: "A" | "B") {
+  // Ends the live match: records the winner, empties the live box, and
+  // surfaces a brief confirmation toast. The user then taps the next fixture
+  // (or builds a new one) to bring it live.
+  async function endLiveMatch(matchId: number, team: "A" | "B") {
     if (!data || locked) return;
-    const next = currentWinner === team ? null : team;
-    setData({ ...data, matches: data.matches.map((m) => m.id === matchId ? { ...m, winner: next } : m) });
+    setData({ ...data, matches: data.matches.map((m) => m.id === matchId ? { ...m, winner: team } : m) });
     await fetch(`/api/matches/${matchId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ winner: next }),
+      body: JSON.stringify({ winner: team }),
     });
+    setLiveMatchId(null);
+    setToast("Match saved");
   }
 
   async function saveScores(matchId: number, aScore: number | null, bScore: number | null) {
     if (!data) return;
-    setLastEdited({ id: matchId, at: Date.now() });
+    // NOTE: deliberately does NOT set `winner` optimistically here, even once a
+    // score crosses the winning threshold. Doing so used to mark the live match
+    // as "completed" the instant the score ticked past 21 — which, for the final
+    // fixture of a session, flipped `allDone` to true and unmounted the live card
+    // *before* the user ever tapped "End Game". That skipped `endLiveMatch`
+    // entirely (no toast, confetti fired early, "Session complete" banner showed
+    // prematurely). The match should only become "done" via an explicit End Game
+    // tap — the backend still auto-infers `winner` from the persisted score, so
+    // nothing is lost; `endLiveMatch` simply confirms it and drives the UI state.
     setData({
       ...data,
-      matches: data.matches.map((m) => {
-        if (m.id !== matchId) return m;
-        const next = { ...m, teamAScore: aScore, teamBScore: bScore };
-        if (aScore !== null && bScore !== null && aScore !== bScore && Math.max(aScore, bScore) >= 21) {
-          next.winner = aScore > bScore ? "A" : "B";
-        }
-        return next;
-      }),
+      matches: data.matches.map((m) =>
+        m.id === matchId ? { ...m, teamAScore: aScore, teamBScore: bScore } : m
+      ),
     });
     await fetch(`/api/matches/${matchId}`, {
       method: "PATCH",
@@ -542,6 +586,139 @@ export default function Home() {
     setSavingPlayers(false);
   }
 
+  // Brings an upcoming fixture into the (empty) live box — tapped from the
+  // Upcoming list once the previous match has ended. Only one match can be
+  // live at a time, so this is a no-op while another fixture is already live.
+  function goLive(match: Match) {
+    if (locked || activeMatch) return;
+    setLiveMatchId(match.id);
+  }
+
+  // Deletes an upcoming fixture outright (e.g. a mis-generated pairing).
+  // Mirrors the confirm-then-mutate pattern used by `generate()`.
+  async function deleteMatch(match: Match) {
+    if (!data || locked) return;
+    if (!window.confirm(`Delete Match #${match.matchNumber}? This can't be undone.`)) return;
+    const res = await fetch(`/api/matches/${match.id}`, { method: "DELETE" });
+    if (res.ok) {
+      setData({ ...data, matches: data.matches.filter((m) => m.id !== match.id) });
+      setToast("Match deleted");
+    } else {
+      const j = await res.json().catch(() => ({}));
+      setError(j.error || "Couldn't delete match");
+    }
+  }
+
+  function openCreateMatch() {
+    if (locked) return;
+    setCreateTeams({ A: [null, null], B: [null, null] });
+    setShowCreateMatch(true);
+  }
+
+  // Sets one dropdown slot for the new-match form — same auto-clear-on-duplicate
+  // behaviour as the Edit Players form so the same person can't appear twice.
+  function setCreateSlot(team: "A" | "B", index: 0 | 1, id: number | null) {
+    setCreateTeams((prev) => {
+      const next = { A: [...prev.A] as (number | null)[], B: [...prev.B] as (number | null)[] };
+      if (id !== null) {
+        (["A", "B"] as const).forEach((t) => {
+          next[t] = next[t].map((v, i) => (t === team && i === index ? v : (v === id ? null : v)));
+        });
+      }
+      next[team][index] = id;
+      return next;
+    });
+  }
+
+  async function submitCreateMatch() {
+    if (!data) return;
+    const all = [...createTeams.A, ...createTeams.B];
+    if (all.some((id) => id === null) || new Set(all).size !== 4) return;
+    setCreatingMatch(true);
+    const res = await fetch(`/api/sessions/${data.session.id}/matches`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ teamA: createTeams.A, teamB: createTeams.B }),
+    });
+    if (res.ok) {
+      const created = await res.json();
+      await load(selectedDate);
+      setLiveMatchId(created.id);
+      setShowCreateMatch(false);
+      setToast("Match created");
+    } else {
+      const j = await res.json().catch(() => ({}));
+      setError(j.error || "Couldn't create match");
+    }
+    setCreatingMatch(false);
+  }
+
+  // Edit a completed fixture — same dropdown layout as Create Match, plus a
+  // final-score field per team. Opened from the Past tab's pencil icon.
+  function openEditPastMatch(match: Match) {
+    if (locked) return;
+    setEditPastMatchId(match.id);
+    setEditPastTeams({
+      A: [match.teamA[0]?.id ?? null, match.teamA[1]?.id ?? null],
+      B: [match.teamB[0]?.id ?? null, match.teamB[1]?.id ?? null],
+    });
+    setEditPastScores({ A: match.teamAScore, B: match.teamBScore });
+    setShowEditPastMatch(true);
+  }
+
+  function setEditPastSlot(team: "A" | "B", index: 0 | 1, id: number | null) {
+    setEditPastTeams((prev) => {
+      const next = { A: [...prev.A] as (number | null)[], B: [...prev.B] as (number | null)[] };
+      if (id !== null) {
+        (["A", "B"] as const).forEach((t) => {
+          next[t] = next[t].map((v, i) => (t === team && i === index ? v : (v === id ? null : v)));
+        });
+      }
+      next[team][index] = id;
+      return next;
+    });
+  }
+
+  function setEditPastScore(team: "A" | "B", value: number | null) {
+    setEditPastScores((prev) => ({ ...prev, [team]: value }));
+  }
+
+  // Saves both the (possibly reshuffled) players and the corrected score in
+  // one PATCH — the API auto-infers the winner from the new scores exactly
+  // like live score entry does (differing scores, one reaching 21+).
+  async function saveEditPastMatch() {
+    if (!data || editPastMatchId === null) return;
+    const all = [...editPastTeams.A, ...editPastTeams.B];
+    if (all.some((id) => id === null) || new Set(all).size !== 4) return;
+    setSavingPastMatch(true);
+    const res = await fetch(`/api/matches/${editPastMatchId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        teamA: editPastTeams.A,
+        teamB: editPastTeams.B,
+        teamAScore: editPastScores.A,
+        teamBScore: editPastScores.B,
+      }),
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      setData({
+        ...data,
+        matches: data.matches.map((m) => m.id === editPastMatchId
+          ? { ...m, teamA: updated.teamA, teamB: updated.teamB, teamAScore: updated.teamAScore, teamBScore: updated.teamBScore, winner: updated.winner }
+          : m),
+      });
+      setShowEditPastMatch(false);
+      setEditPastMatchId(null);
+      setToast("Match updated");
+    } else {
+      const j = await res.json().catch(() => ({}));
+      setError(j.error || "Couldn't update match");
+    }
+    setSavingPastMatch(false);
+  }
+
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[#F7F1E8]">
@@ -553,7 +730,7 @@ export default function Home() {
       </div>
 
       {/* Date slider */}
-      <div className="sticky top-0 z-30 bg-white px-3 py-0">
+      <div className="bg-white px-3 py-0">
         <div ref={sliderRef} className="flex overflow-x-auto no-scrollbar px-1 py-0">
           {dates.map((ymd) => {
             const { day, num } = chipLabel(ymd);
@@ -631,10 +808,29 @@ export default function Home() {
                   sport={data.session.sport}
                   locked={locked}
                   prob={matchProbs.get(activeMatch.id)}
-                  onSetWinner={setWinner}
+                  onEndMatch={endLiveMatch}
                   onSaveScores={saveScores}
                   onEditPlayers={openEditPlayers}
                 />
+              </div>
+            )}
+
+            {/* Empty live box — a match just ended (or none picked yet); the
+                user explicitly brings the next one live, or builds a fresh fixture */}
+            {!activeMatch && !allDone && data.matches.length > 0 && (
+              <div className="mt-8 rounded-[4px] border-2 border-dashed border-black/15 bg-white/50 px-5 py-9 text-center space-y-3">
+                <p className="font-display text-sm tracking-[0.25em] uppercase text-black/40">No match live</p>
+                <p className="text-xs text-black/45 max-w-[30ch] mx-auto leading-relaxed">
+                  Tap a fixture in Upcoming to bring it live — or set up a fresh one.
+                </p>
+                {!locked && (
+                  <button
+                    onClick={openCreateMatch}
+                    className="inline-flex items-center gap-1.5 mt-1 px-5 py-2.5 rounded-[4px] bg-black text-white font-display text-xs tracking-[0.2em] uppercase hover:bg-black/85 active:scale-95 transition-all"
+                  >
+                    <Users size={13} strokeWidth={1.8} /> Create match
+                  </button>
+                )}
               </div>
             )}
 
@@ -663,54 +859,73 @@ export default function Home() {
               </div>
             )}
 
-            {/* Tabs + content group — larger top gap separates it from the live-match section above */}
+            {/* Tabs + content group — larger top gap separates it from the live-match section above.
+                The whole group (bar + panels) is the sticky bar's containing block: it needs to be
+                taller than the bar itself, otherwise there's no room for the bar to "stick" while
+                the panel beneath scrolls — which is why it wasn't pinning before. */}
             {data.matches.length > 0 && (
-              <div className="mt-8 space-y-4">
-                <div className="flex items-center justify-between border-b border-black/10 px-1">
-                  {(["upcoming", "past", "leaderboard"] as const).map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => setTab(t)}
-                      className={`font-display text-lg tracking-[0.15em] uppercase pb-2.5 border-b-2 -mb-px transition-colors ${
-                        tab === t ? "text-black border-black" : "text-black/30 border-transparent hover:text-black/50"
-                      }`}
-                    >
-                      {t === "upcoming" ? `Upcoming (${upcomingMatches.length})` :
-                       t === "past" ? `Past (${pastMatches.length})` : "Leaderboard"}
-                    </button>
-                  ))}
+              <div className="relative mt-8">
+                {/* 1px sentinel sitting at the bar's natural position — once it scrolls
+                    past the viewport top the bar is pinned, so only then do we paint
+                    a solid background behind it (otherwise it stays see-through). */}
+                <div ref={tabsSentinelRef} className="absolute top-0 inset-x-0 h-px" aria-hidden="true" />
+                <div className={`sticky top-0 z-30 -mx-4 px-4 transition-colors ${tabsStuck ? "bg-white" : ""}`}>
+                  <div className="flex items-center justify-between border-b border-black/10 px-1">
+                    {(["upcoming", "past", "leaderboard"] as const).map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => setTab(t)}
+                        className={`font-display text-lg tracking-[0.15em] uppercase pb-2.5 border-b-2 -mb-px transition-colors ${
+                          tab === t ? "text-black border-black" : "text-black/30 border-transparent hover:text-black/50"
+                        }`}
+                      >
+                        {t === "upcoming" ? `Upcoming (${upcomingMatches.length})` :
+                         t === "past" ? `Past (${pastMatches.length})` : "Leaderboard"}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                {tab === "upcoming" && (
-                  <MatchList
-                    matches={upcomingMatches}
-                    isPast={false}
-                    emptyText="No upcoming matches — all done!"
-                  />
-                )}
+                <div className="mt-4">
+                  {tab === "upcoming" && (
+                    <MatchList
+                      matches={upcomingMatches}
+                      isPast={false}
+                      emptyText="No upcoming matches — all done!"
+                      onGoLive={goLive}
+                      onEditPlayers={openEditPlayers}
+                      onDeleteMatch={deleteMatch}
+                      hasLiveMatch={!!activeMatch}
+                      locked={locked}
+                    />
+                  )}
 
-                {tab === "past" && (
-                  <MatchList
-                    matches={pastMatches}
-                    isPast={true}
-                    matchProbs={matchProbs}
-                    emptyText="No completed matches yet."
-                  />
-                )}
+                  {tab === "past" && (
+                    <MatchList
+                      matches={pastMatches}
+                      isPast={true}
+                      matchProbs={matchProbs}
+                      emptyText="No completed matches yet."
+                      onEditMatch={openEditPastMatch}
+                      onDeleteMatch={deleteMatch}
+                      locked={locked}
+                    />
+                  )}
 
-                {tab === "leaderboard" && (
-                  <Leaderboard
-                    rows={leaderboard}
-                    winStats={winStats}
-                    sessionDiversity={sessionDiversity}
-                    sessionPoints={sessionPoints}
-                    todaySynergy={todaySynergy}
-                    mvps={mvps}
-                    dragonSlayer={dragonSlayer}
-                    mostImproved={mostImproved}
-                    allDone={allDone}
-                  />
-                )}
+                  {tab === "leaderboard" && (
+                    <Leaderboard
+                      rows={leaderboard}
+                      winStats={winStats}
+                      sessionDiversity={sessionDiversity}
+                      sessionPoints={sessionPoints}
+                      todaySynergy={todaySynergy}
+                      mvps={mvps}
+                      dragonSlayer={dragonSlayer}
+                      mostImproved={mostImproved}
+                      allDone={allDone}
+                    />
+                  )}
+                </div>
               </div>
             )}
           </>
@@ -773,6 +988,46 @@ export default function Home() {
           onSave={savePlayerEdit}
           onClose={() => { setShowEditPlayers(false); setEditMatchId(null); }}
         />
+      )}
+
+      {/* Create match floating form — opened from the empty live box */}
+      {showCreateMatch && data && (
+        <CreateMatchSheet
+          players={data.session.attending}
+          teamA={createTeams.A}
+          teamB={createTeams.B}
+          saving={creatingMatch}
+          onSlotChange={setCreateSlot}
+          onSave={submitCreateMatch}
+          onClose={() => setShowCreateMatch(false)}
+        />
+      )}
+
+      {/* Edit a completed match — players + final score, opened from the Past tab */}
+      {showEditPastMatch && data && editingPastMatch && (
+        <EditPastMatchSheet
+          match={editingPastMatch}
+          players={data.session.attending}
+          teamA={editPastTeams.A}
+          teamB={editPastTeams.B}
+          scoreA={editPastScores.A}
+          scoreB={editPastScores.B}
+          saving={savingPastMatch}
+          onSlotChange={setEditPastSlot}
+          onScoreChange={setEditPastScore}
+          onSave={saveEditPastMatch}
+          onClose={() => { setShowEditPastMatch(false); setEditPastMatchId(null); }}
+        />
+      )}
+
+      {/* Confirmation toast — e.g. "Match saved" once a live game ends */}
+      {toast && (
+        <div className="fixed inset-x-0 bottom-24 z-[70] flex justify-center px-4 pointer-events-none">
+          <div className="flex items-center gap-2 bg-black text-white font-display text-xs tracking-[0.25em] uppercase px-5 py-3 rounded-[4px] shadow-2xl shadow-black/30">
+            <Check size={14} className="text-brand shrink-0" strokeWidth={3} />
+            {toast}
+          </div>
+        </div>
       )}
     </div>
   );
@@ -1145,13 +1400,217 @@ function EditMatchPlayersSheet({ match, players, teamA, teamB, saving, onSlotCha
   );
 }
 
+// ── Create match (floating form, opened from the empty live box) ─────────────
+// Same dropdown layout as Edit Players, but builds a brand-new fixture from
+// scratch rather than reshuffling an existing one.
+function CreateMatchSheet({ players, teamA, teamB, saving, onSlotChange, onSave, onClose }: {
+  players: Player[];
+  teamA: (number | null)[];
+  teamB: (number | null)[];
+  saving: boolean;
+  onSlotChange: (team: "A" | "B", index: 0 | 1, id: number | null) => void;
+  onSave: () => void;
+  onClose: () => void;
+}) {
+  const all = [...teamA, ...teamB];
+  const ready = all.every((id) => id !== null) && new Set(all).size === 4;
+
+  // Each dropdown only offers players not already picked elsewhere (plus its own current value).
+  function optionsFor(current: number | null) {
+    return players.filter((p) => p.id === current || !all.includes(p.id));
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/40" onClick={onClose}>
+      <div
+        className="w-full sm:max-w-md bg-[#F7F1E8] rounded-t-[4px] sm:rounded-[4px] sm:mb-8 max-h-[85vh] flex flex-col overflow-hidden shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-5 pt-5 pb-4 flex items-center justify-between border-b border-black/8">
+          <div>
+            <h2 className="font-display text-2xl tracking-wide uppercase leading-none text-black">Create Match</h2>
+            <p className="text-xs text-black/40 mt-1">Pick 4 players to build a fresh fixture</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-[4px] bg-black/6 text-black/50 hover:bg-black/10">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5">
+          {(["A", "B"] as const).map((team, ti) => {
+            const slots = team === "A" ? teamA : teamB;
+            return (
+              <div key={team}>
+                {ti === 1 && <div className="border-t border-dashed border-black/15 -mx-5 mb-5" />}
+                <label className="font-display text-xs tracking-[0.2em] uppercase text-black/40">Team {team}</label>
+                <div className="mt-2.5 space-y-2.5">
+                  {([0, 1] as const).map((i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <span className="text-xs font-semibold text-black/40 w-16 shrink-0">Player {i + 1}</span>
+                      <div className="relative flex-1">
+                        <select
+                          value={slots[i] ?? ""}
+                          onChange={(e) => onSlotChange(team, i, e.target.value ? Number(e.target.value) : null)}
+                          className="w-full appearance-none bg-white border border-black/15 rounded-[4px] pl-3 pr-9 py-2.5 text-sm font-semibold text-black focus:outline-none focus:border-black/40 transition-colors"
+                        >
+                          <option value="">Select player…</option>
+                          {optionsFor(slots[i]).map((p) => (
+                            <option key={p.id} value={p.id}>{p.avatar ? `${p.avatar} ` : ""}{p.name}</option>
+                          ))}
+                        </select>
+                        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-black/30 text-xs">▾</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Save / Cancel */}
+        <div className="px-5 pb-6 pt-3 border-t border-black/8 space-y-2">
+          <button
+            onClick={onSave}
+            disabled={!ready || saving}
+            className="w-full py-3.5 rounded-[4px] bg-black text-white font-display text-sm tracking-[0.2em] uppercase hover:bg-black/85 active:scale-[0.99] transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            {saving ? "Creating…" : ready ? "Create & go live" : "Pick all 4 players"}
+          </button>
+          <button
+            onClick={onClose}
+            className="w-full py-2.5 font-display text-xs tracking-[0.2em] uppercase text-black/40 hover:text-black/65 transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Edit a completed match (floating form, opened from the Past tab) ─────────
+// Same dropdown player-picker layout as Create Match / Edit Players, plus a
+// final-score field per team — lets you correct a recorded fixture in one go.
+// The API auto-infers the winner from the corrected scores (same rule as live
+// score entry: scores differ and one side has reached 21+).
+function EditPastMatchSheet({ match, players, teamA, teamB, scoreA, scoreB, saving, onSlotChange, onScoreChange, onSave, onClose }: {
+  match: Match;
+  players: Player[];
+  teamA: (number | null)[];
+  teamB: (number | null)[];
+  scoreA: number | null;
+  scoreB: number | null;
+  saving: boolean;
+  onSlotChange: (team: "A" | "B", index: 0 | 1, id: number | null) => void;
+  onScoreChange: (team: "A" | "B", value: number | null) => void;
+  onSave: () => void;
+  onClose: () => void;
+}) {
+  const all = [...teamA, ...teamB];
+  const ready = all.every((id) => id !== null) && new Set(all).size === 4;
+
+  // Each dropdown only offers players not already picked elsewhere (plus its own current value).
+  function optionsFor(current: number | null) {
+    return players.filter((p) => p.id === current || !all.includes(p.id));
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/40" onClick={onClose}>
+      <div
+        className="w-full sm:max-w-md bg-[#F7F1E8] rounded-t-[4px] sm:rounded-[4px] sm:mb-8 max-h-[85vh] flex flex-col overflow-hidden shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-5 pt-5 pb-4 flex items-center justify-between border-b border-black/8">
+          <div>
+            <h2 className="font-display text-2xl tracking-wide uppercase leading-none text-black">Edit Match #{match.matchNumber}</h2>
+            <p className="text-xs text-black/40 mt-1">Correct the players or final score</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-[4px] bg-black/6 text-black/50 hover:bg-black/10">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5">
+          {(["A", "B"] as const).map((team, ti) => {
+            const slots = team === "A" ? teamA : teamB;
+            const score = team === "A" ? scoreA : scoreB;
+            return (
+              <div key={team}>
+                {ti === 1 && <div className="border-t border-dashed border-black/15 -mx-5 mb-5" />}
+                <label className="font-display text-xs tracking-[0.2em] uppercase text-black/40">Team {team}</label>
+                <div className="mt-2.5 space-y-2.5">
+                  {([0, 1] as const).map((i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <span className="text-xs font-semibold text-black/40 w-16 shrink-0">Player {i + 1}</span>
+                      <div className="relative flex-1">
+                        <select
+                          value={slots[i] ?? ""}
+                          onChange={(e) => onSlotChange(team, i, e.target.value ? Number(e.target.value) : null)}
+                          className="w-full appearance-none bg-white border border-black/15 rounded-[4px] pl-3 pr-9 py-2.5 text-sm font-semibold text-black focus:outline-none focus:border-black/40 transition-colors"
+                        >
+                          <option value="">Select player…</option>
+                          {optionsFor(slots[i]).map((p) => (
+                            <option key={p.id} value={p.id}>{p.avatar ? `${p.avatar} ` : ""}{p.name}</option>
+                          ))}
+                        </select>
+                        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-black/30 text-xs">▾</span>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-semibold text-black/40 w-16 shrink-0">Score</span>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      max={99}
+                      value={score ?? ""}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        if (raw === "") { onScoreChange(team, null); return; }
+                        const n = parseInt(raw, 10);
+                        if (Number.isFinite(n)) onScoreChange(team, Math.max(0, Math.min(99, n)));
+                      }}
+                      className="w-24 bg-white border border-black/15 rounded-[4px] px-3 py-2.5 text-sm font-semibold text-black text-center tabular-nums focus:outline-none focus:border-black/40 transition-colors"
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Save / Cancel */}
+        <div className="px-5 pb-6 pt-3 border-t border-black/8 space-y-2">
+          <button
+            onClick={onSave}
+            disabled={!ready || saving}
+            className="w-full py-3.5 rounded-[4px] bg-black text-white font-display text-sm tracking-[0.2em] uppercase hover:bg-black/85 active:scale-[0.99] transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            {saving ? "Saving…" : ready ? "Save changes" : "Pick all 4 players"}
+          </button>
+          <button
+            onClick={onClose}
+            className="w-full py-2.5 font-display text-xs tracking-[0.2em] uppercase text-black/40 hover:text-black/65 transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Live match card (big, prominent) ─────────────────────────────────────────
-function LiveMatchCard({ match, sport, locked, prob, onSetWinner, onSaveScores, onEditPlayers }: {
+function LiveMatchCard({ match, sport, locked, prob, onEndMatch, onSaveScores, onEditPlayers }: {
   match: Match;
   sport: "BADMINTON" | "PICKLEBALL";
   locked: boolean;
   prob?: MatchProb;
-  onSetWinner: (id: number, current: "A" | "B" | null, team: "A" | "B") => void;
+  onEndMatch: (id: number, team: "A" | "B") => void;
   onSaveScores: (id: number, a: number | null, b: number | null) => void;
   onEditPlayers: (match: Match) => void;
 }) {
@@ -1202,7 +1661,7 @@ function LiveMatchCard({ match, sport, locked, prob, onSetWinner, onSaveScores, 
 
   function endMatch() {
     if (!autoWinner) return;
-    onSetWinner(match.id, null, autoWinner);
+    onEndMatch(match.id, autoWinner);
   }
 
   return (
@@ -1212,11 +1671,6 @@ function LiveMatchCard({ match, sport, locked, prob, onSetWinner, onSaveScores, 
         <div className="flex items-center gap-2 min-w-0">
           <span className="w-2 h-2 rounded-full bg-brand animate-pulse shrink-0" />
           <span className="font-display text-white text-base tracking-[0.2em] shrink-0">LIVE</span>
-          {prob && (
-            <span className="font-display text-white/40 text-xs tracking-wide uppercase truncate">
-              — Expected Team A {Math.round(prob.probA * 100)}% vs Team B {Math.round(prob.probB * 100)}%
-            </span>
-          )}
         </div>
         <button
           onClick={() => !locked && onEditPlayers(match)}
@@ -1245,17 +1699,9 @@ function LiveMatchCard({ match, sport, locked, prob, onSetWinner, onSaveScores, 
                 isLosing ? "opacity-50" : ""
               }`}
             >
-              <div className="flex space-x-1 mb-2">
-                {players.map((p, i) => (
-                  <div
-                    key={p.id}
-                    style={{ zIndex: players.length - i }}
-                    className="w-10 h-10 rounded-[4px] bg-black/10 border-2 border-white/70 flex items-center justify-center font-display text-base text-black/50"
-                  >
-                    {p.avatar || p.name.charAt(0).toUpperCase()}
-                  </div>
-                ))}
-              </div>
+              <p className="font-display text-xs tracking-[0.2em] uppercase text-black/35 mb-2">
+                Team {team}{prob ? ` (${Math.round((team === "A" ? prob.probA : prob.probB) * 100)}%)` : ""}
+              </p>
 
               {/* Score with ± flanking it */}
               <div className="flex items-center justify-center gap-1.5">
@@ -1324,11 +1770,17 @@ function LiveMatchCard({ match, sport, locked, prob, onSetWinner, onSaveScores, 
 }
 
 // ── Match list (upcoming / past tabs) ─────────────────────────────────────────
-function MatchList({ matches, isPast, matchProbs, emptyText }: {
+function MatchList({ matches, isPast, matchProbs, emptyText, onGoLive, onEditPlayers, onEditMatch, onDeleteMatch, hasLiveMatch, locked }: {
   matches: Match[];
   isPast: boolean;
   matchProbs?: Map<number, MatchProb>;
   emptyText: string;
+  onGoLive?: (match: Match) => void;
+  onEditPlayers?: (match: Match) => void;
+  onEditMatch?: (match: Match) => void;
+  onDeleteMatch?: (match: Match) => void;
+  hasLiveMatch?: boolean;
+  locked?: boolean;
 }) {
   if (matches.length === 0) {
     return <p className="text-center text-sm text-black/40 py-8">{emptyText}</p>;
@@ -1338,22 +1790,71 @@ function MatchList({ matches, isPast, matchProbs, emptyText }: {
       {matches.map((m) => {
         const prob = matchProbs?.get(m.id);
         const isHighImpact = prob?.winnerProb !== null && prob?.winnerProb !== undefined && prob.winnerProb < 0.5;
+        const canGoLive = !isPast && !!onGoLive && !locked && !hasLiveMatch;
+        // Past rows get Edit (players + score) and Delete; upcoming rows get
+        // Edit (players only), Delete, and the gated "bring live" Play button.
+        const editHandler = isPast ? onEditMatch : onEditPlayers;
+        const editTitle = isPast ? "Edit match" : "Edit players";
+        const showActions = !locked && (!!editHandler || !!onDeleteMatch || (!isPast && !!onGoLive));
         return (
-          <div key={m.id} className="rounded-[4px] overflow-hidden bg-white border border-black/8">
+          <div key={m.id} className="rounded-[4px] overflow-hidden bg-white border border-black/8 transition-all">
             {/* Header strip */}
-            <div className="px-3.5 py-2 flex items-center justify-between bg-black/[0.025]">
-              <span className="font-display text-xs tracking-[0.2em] text-black/30">MATCH #{m.matchNumber}</span>
-              {isPast && m.winner && (
-                <span className="font-display text-[11px] tracking-[0.15em] text-black/50 flex items-center gap-1.5">
-                  {m.teamAScore !== null && m.teamBScore !== null && (
-                    <>
-                      <span className="tabular-nums text-black/70">{m.teamAScore}–{m.teamBScore}</span>
-                      <span className="text-black/15">·</span>
-                    </>
-                  )}
-                  TEAM {m.winner} WON
-                </span>
-              )}
+            <div className="px-3.5 py-2 flex items-center justify-between gap-2 bg-black/[0.025]">
+              <span className="font-display text-xs tracking-[0.2em] text-black/30 shrink-0">
+                MATCH #{m.matchNumber}
+              </span>
+              <div className="flex items-center gap-2 min-w-0">
+                {isPast && m.winner && (
+                  <span className="font-display text-[11px] tracking-[0.15em] text-black/50 flex items-center gap-1.5 truncate">
+                    {m.teamAScore !== null && m.teamBScore !== null && (
+                      <>
+                        <span className="tabular-nums text-black/70">{m.teamAScore}–{m.teamBScore}</span>
+                        <span className="text-black/15">·</span>
+                      </>
+                    )}
+                    TEAM {m.winner} WON
+                  </span>
+                )}
+                {showActions && (
+                  <div className="flex items-center gap-1 shrink-0">
+                    {editHandler && (
+                      <button
+                        onClick={() => editHandler(m)}
+                        title={editTitle}
+                        aria-label={`${editTitle} for match ${m.matchNumber}`}
+                        className="p-1.5 rounded-[4px] bg-black/5 text-black/40 hover:bg-black/10 hover:text-black active:scale-90 transition-all"
+                      >
+                        <Pencil size={13} strokeWidth={1.8} />
+                      </button>
+                    )}
+                    {onDeleteMatch && (
+                      <button
+                        onClick={() => onDeleteMatch(m)}
+                        title="Delete match"
+                        aria-label={`Delete match ${m.matchNumber}`}
+                        className="p-1.5 rounded-[4px] bg-black/5 text-black/40 hover:bg-rose-50 hover:text-rose-600 active:scale-90 transition-all"
+                      >
+                        <Trash2 size={13} strokeWidth={1.8} />
+                      </button>
+                    )}
+                    {!isPast && onGoLive && (
+                      <button
+                        onClick={() => canGoLive && onGoLive(m)}
+                        disabled={!canGoLive}
+                        title={hasLiveMatch ? "End the live match before starting another" : "Bring this match live"}
+                        aria-label={`Make match ${m.matchNumber} live`}
+                        className={`flex items-center gap-1 ml-0.5 pl-2 pr-2.5 py-1 rounded-[4px] font-display text-[10px] tracking-[0.2em] uppercase transition-all ${
+                          canGoLive
+                            ? "bg-black text-white hover:bg-black/85 active:scale-95"
+                            : "bg-black/5 text-black/25 cursor-not-allowed"
+                        }`}
+                      >
+                        <Play size={11} strokeWidth={2} fill="currentColor" /> Live
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Teams — dashed centre divider echoes the live match card */}
