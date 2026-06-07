@@ -1,10 +1,10 @@
 // Run once: applies schema + seeds dev DB
 // Usage: node scripts/setup-dev-db.js
-require("dotenv").config({ path: ".env.local" });
+require("dotenv").config({ path: ".env" });
 const { Client } = require("pg");
 
 const DB = process.env.LOCAL_DATABASE_URL;
-if (!DB) { console.error("LOCAL_DATABASE_URL not set in .env.local"); process.exit(1); }
+if (!DB) { console.error("LOCAL_DATABASE_URL not set in .env"); process.exit(1); }
 
 async function run() {
   const client = new Client({ connectionString: DB });
