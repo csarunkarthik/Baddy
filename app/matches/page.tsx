@@ -571,7 +571,8 @@ export default function MatchesPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        totalMatches: totalMatchesDraft,
+        // First time: generate just 1 match. Reset flow uses totalMatchesDraft.
+        totalMatches: data.matches.length === 0 ? 1 : totalMatchesDraft,
         bamHariKid: bamHariKidDraft,
         arunDeepKid: arunDeepKidDraft,
         avinashSharmiliKid: avinashSharmiliKidDraft,
@@ -580,6 +581,24 @@ export default function MatchesPage() {
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
       setError(j.error || "Couldn't generate fixtures");
+    } else {
+      await load(selectedDate);
+    }
+    setBusy(false);
+  }
+
+  async function nextMatch() {
+    if (!data) return;
+    setBusy(true);
+    setError(null);
+    const res = await fetch(`/api/sessions/${data.session.id}/matches/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ next: true }),
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      setError(j.error || "Couldn't generate next match");
     } else {
       await load(selectedDate);
     }
@@ -996,8 +1015,8 @@ export default function MatchesPage() {
                       : !canGenerate
                       ? "Need 4+ attending players"
                       : data.matches.length > 0
-                      ? "🔄 Regenerate fixtures"
-                      : "🎲 Generate fixtures"}
+                      ? "🔄 Reset & regenerate all"
+                      : "🎲 Generate Match 1"}
                   </button>
 
                   {data.matches.length > 0 && canGenerate && (
@@ -1292,6 +1311,17 @@ export default function MatchesPage() {
                     </div>
                   );
                 })}
+
+                {/* Next Match button — appears once all current matches have a winner */}
+                {!locked && data.matches.length > 0 && data.matches.every(matchCompleted) && (
+                  <button
+                    onClick={nextMatch}
+                    disabled={busy}
+                    className="w-full py-3 rounded-2xl font-bold text-sm bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-md shadow-indigo-200 hover:from-indigo-600 hover:to-violet-600 active:scale-[0.98] transition-all disabled:opacity-50"
+                  >
+                    {busy ? "Working…" : "▶ Next Match"}
+                  </button>
+                )}
               </div>
             )}
             </div>

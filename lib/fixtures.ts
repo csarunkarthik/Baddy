@@ -6,6 +6,10 @@ export type GenerateInput = {
   forbiddenPairs: [number, number][];
   /** Pre-session ELO per player. Missing players default to 1500. */
   eloRatings?: Record<number, number>;
+  /** Play counts from already-completed matches this session (for on-demand generation). */
+  priorPlayed?: Record<number, number>;
+  /** Partner-pair counts from already-completed matches (for on-demand generation). */
+  priorPartnered?: Record<string, number>;
 };
 
 export type GenerateResult =
@@ -44,15 +48,19 @@ const SPLITS: [number, number, number, number][] = [
 
 /**
  * Score a 2v2 split — lower is better.
- * Two terms:
+ * Three terms:
  *   • ELO imbalance: |sumA_elo - sumB_elo| / 150  (100-pt gap ≈ 0.67)
  *   • Partner repeats: times this pair has already played together × 2
+ *   • Rest penalty: 1.5 per player who has played more than minPlayed this session
+ *     (ensures rested players are strongly preferred when spread expands)
  */
 function scoreSplit(
   teamA: [number, number],
   teamB: [number, number],
   partnered: Map<string, number>,
-  eloRatings: Record<number, number>
+  eloRatings: Record<number, number>,
+  played: Map<number, number>,
+  minPlayed: number,
 ): number {
   const kA = [...teamA].sort((a, b) => a - b).join("-");
   const kB = [...teamB].sort((a, b) => a - b).join("-");
@@ -61,11 +69,15 @@ function scoreSplit(
     getElo(teamA[0], eloRatings) + getElo(teamA[1], eloRatings) -
     getElo(teamB[0], eloRatings) - getElo(teamB[1], eloRatings)
   );
-  return eloImbalance / 150 + repeats * 2;
+  const restPenalty = [...teamA, ...teamB].reduce(
+    (sum, id) => sum + ((played.get(id) ?? 0) - minPlayed) * 1.5,
+    0
+  );
+  return eloImbalance / 150 + repeats * 2 + restPenalty;
 }
 
 export function generateFixtures(input: GenerateInput): GenerateResult {
-  const { attendingIds, totalMatches, forbiddenPairs, eloRatings = {} } = input;
+  const { attendingIds, totalMatches, forbiddenPairs, eloRatings = {}, priorPlayed = {}, priorPartnered = {} } = input;
 
   const unique = Array.from(new Set(attendingIds));
   if (unique.length < 4) {
@@ -78,10 +90,10 @@ export function generateFixtures(input: GenerateInput): GenerateResult {
     return { ok: false, error: "Total matches capped at 50." };
   }
 
-  // played: times played today. lastPlayed: match index of most recent appearance.
-  const played = new Map<number, number>(unique.map((id) => [id, 0]));
+  // Seed play/partner state from prior matches in this session (for on-demand generation).
+  const played = new Map<number, number>(unique.map((id) => [id, priorPlayed[id] ?? 0]));
   const lastPlayed = new Map<number, number>(unique.map((id) => [id, -1]));
-  const partnered = new Map<string, number>();
+  const partnered = new Map<string, number>(Object.entries(priorPartnered));
   const fixtures: Fixture[] = [];
 
   for (let m = 0; m < totalMatches; m++) {
@@ -118,7 +130,7 @@ export function generateFixtures(input: GenerateInput): GenerateResult {
       for (const [a1, a2, b1, b2] of SPLITS) {
         const teamA: [number, number] = [combo[a1], combo[a2]];
         const teamB: [number, number] = [combo[b1], combo[b2]];
-        const score = scoreSplit(teamA, teamB, partnered, eloRatings);
+        const score = scoreSplit(teamA, teamB, partnered, eloRatings, played, minPlayed);
         if (!best || score < best.score) {
           best = { teamA, teamB, score };
         }
