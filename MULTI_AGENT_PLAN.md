@@ -55,6 +55,16 @@ No agent may push to `main` without this sign-off, except for trivial copy/confi
 ### In Progress
 _(none)_
 
+### Assigned to UI Agent
+_(none)_
+
+### Needs Review/Test
+- [ ] **[Bugfix] Pickleball stats bleeding into badminton ELO + prior win-rate** (`app/api/sessions/[id]/matches/route.ts`) — **DB Agent**, 2026-06-05
+  - `earlierMatches` query (prior W% for odds display) was missing `sport: session.sport` filter
+  - `allCompleted` query (ELO snapshot) was missing same filter
+  - Both now scoped to `session.sport` — pickleball matches no longer pollute badminton ELO/odds
+  - Awaiting: Review/Test Agent to hit `GET /api/sessions/[id]/matches` on a badminton session and verify `playerPriorPcts` + `playerPriorElos` exclude pickleball data
+
 ### Completed
 - [x] **[Feature 1] Intel card UI** (`app/matches/page.tsx`) — **UI Agent**, 2026-06-05
   - Collapsible "🧠 Today's Intel" accordion between Setup card and Fixtures. Spinner while loading, each Groq bullet on its own line. Hidden when no bullets.
@@ -66,6 +76,12 @@ _(none)_
   - BLOCKED: awaiting `GET /api/stats/h2h` — UI is wired but will be empty until DB Agent ships the route.
 - [x] **[Feature 1] Intel API route** (`app/api/sessions/[id]/intel/route.ts`) — **DB Agent**, 2026-06-05
   - `GET /api/sessions/[id]/intel` — loads attending players, computes ELO + career W/P + last-5-session form via `computeElo()`, calls Groq (`llama-3.3-70b-versatile`) → `{ bullets: string[] }` (3–4 bullets). Returns `{ bullets: [] }` if <4 attending.
+- [x] **[Fix] Dragon Slayer excludes MVP** (`app/matches/page.tsx`) — **UI Agent**, 2026-06-08
+  - `DRAGON_SLAYER_NO_MVP_FROM = "2026-06-08"` gate; sorts gainers, skips MVP ids.
+  - ✅ Tested: gate on 2026-06-08 picks next-best gainer; pre-gate sessions unaffected.
+- [x] **[Feature] Most Improved shows all eligible players** (`app/matches/page.tsx`) — **UI Agent**, 2026-06-08
+  - Returns ranked array sorted by delta; UI card shows headline + secondary list with delta.
+  - ✅ Tested: session 35 produces 3-player list (Renga +13.5%, Deepika +11.4%, Thalapathy +1%); buildShareText uses [0].
 - [x] Pre-match odds inline in fixture header (`app/matches/page.tsx`) — 2026-06-04
 - [x] AI Session Recap via Groq (`app/api/sessions/[id]/recap/route.ts`) — 2026-06-04
 - [x] Win condition requires 21+ score — 2026-06-03
