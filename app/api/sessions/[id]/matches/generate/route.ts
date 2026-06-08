@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { resolveCouples, activeForbiddenPairs } from "@/lib/couples";
 import { generateFixtures } from "@/lib/fixtures";
 import { isSessionLocked, LOCK_MESSAGE } from "@/lib/locking";
+import { computeElo, type EloMatch } from "@/lib/elo";
 
 export async function POST(
   req: Request,
@@ -61,10 +62,44 @@ export async function POST(
     avinashSharmili: session.avinashSharmiliKid,
   });
 
+  // Compute pre-session ELO for attending players (same sport, before today).
+  const priorMatches = await prisma.match.findMany({
+    where: {
+      winner: { not: null },
+      session: { date: { lt: session.date }, sport: session.sport },
+      participants: { some: { playerId: { in: attendingIds } } },
+    },
+    select: {
+      id: true,
+      matchNumber: true,
+      winner: true,
+      teamAScore: true,
+      teamBScore: true,
+      session: { select: { date: true } },
+      participants: { select: { playerId: true, team: true } },
+    },
+    orderBy: [{ session: { date: "asc" } }, { matchNumber: "asc" }],
+  });
+
+  const eloMatches: EloMatch[] = priorMatches.map((m) => ({
+    id: m.id,
+    sortKey: `${m.session.date.toISOString().slice(0, 10)}-${String(m.matchNumber).padStart(4, "0")}`,
+    teamA: m.participants.filter((p) => p.team === "A").map((p) => p.playerId),
+    teamB: m.participants.filter((p) => p.team === "B").map((p) => p.playerId),
+    winner: m.winner as "A" | "B",
+    teamAScore: m.teamAScore,
+    teamBScore: m.teamBScore,
+  }));
+
+  const { perPlayer: eloMap } = computeElo(eloMatches);
+  const eloRatings: Record<number, number> = {};
+  for (const [pid, stats] of eloMap) eloRatings[pid] = stats.rating;
+
   const result = generateFixtures({
     attendingIds,
     totalMatches: session.totalMatches,
     forbiddenPairs: forbidden,
+    eloRatings,
   });
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });
