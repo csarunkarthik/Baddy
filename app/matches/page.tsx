@@ -270,6 +270,7 @@ export default function MatchesPage() {
   // 60/40 wins/win-% formula. Earlier sessions keep the legacy 3-way
   // average so historical MVPs don't retroactively change.
   const MVP_NEW_FORMULA_FROM = "2026-05-24";
+  const DRAGON_SLAYER_NO_MVP_FROM = "2026-06-08";
   const sessionDateStr = data?.session.date?.slice(0, 10) ?? "";
   const useNewMvpFormula = sessionDateStr >= MVP_NEW_FORMULA_FROM;
 
@@ -317,41 +318,37 @@ export default function MatchesPage() {
   const dragonSlayer = useMemo(() => {
     if (!data || !allMatchesDone) return null as { id: number; name: string } | null;
     const gains = data.playerSessionGains || {};
-    let bestId: number | null = null;
-    let bestGain = 0;
-    for (const [pid, gain] of Object.entries(gains)) {
-      if (gain > bestGain) {
-        bestGain = gain;
-        bestId = parseInt(pid);
-      }
-    }
-    if (bestId === null) return null;
-    const p = data.session.attending.find((a) => a.id === bestId);
+    const mvpIds = new Set(mvps.map((m) => m.id));
+    const excludeMvp = sessionDateStr >= DRAGON_SLAYER_NO_MVP_FROM;
+    // Sort all gainers desc; pick first one that isn't MVP (if gate is active).
+    const sorted = Object.entries(gains)
+      .map(([pid, gain]) => ({ id: parseInt(pid), gain: gain as number }))
+      .sort((a, b) => b.gain - a.gain);
+    const pick = sorted.find((e) => !excludeMvp || !mvpIds.has(e.id));
+    if (!pick || pick.gain <= 0) return null;
+    const p = data.session.attending.find((a) => a.id === pick.id);
     if (!p) return null;
-    // Don't double-crown the MVP unless they're clearly the dragon slayer too.
     return { id: p.id, name: p.name };
-  }, [data, allMatchesDone]);
+  }, [data, allMatchesDone, mvps, sessionDateStr, DRAGON_SLAYER_NO_MVP_FROM]);
 
-  // Most Improved: player whose today win% is most above their pre-today career win%.
-  // Requires they've played ≥2 today AND had prior history. Career = winStats minus today.
+  // Most Improved: all players whose today win% exceeds their pre-today career win%.
+  // Requires ≥2 played today AND ≥2 prior matches. Sorted by delta desc.
   const mostImproved = useMemo(() => {
-    if (!data || sessionWins.length === 0 || winStats.length === 0) return null;
-    let best: { name: string; todayPct: number; priorPct: number; delta: number } | null = null;
+    if (!data || sessionWins.length === 0 || winStats.length === 0) return [] as { name: string; todayPct: number; priorPct: number; delta: number }[];
+    const results: { name: string; todayPct: number; priorPct: number; delta: number }[] = [];
     for (const s of sessionWins) {
       if (s.played < 2) continue;
       const career = winStats.find((w) => w.id === s.id);
       if (!career) continue;
       const priorPlayed = career.played - s.played;
       const priorWins = career.wins - s.wins;
-      if (priorPlayed < 2) continue; // need real prior history
+      if (priorPlayed < 2) continue;
       const priorPct = Math.round((priorWins / priorPlayed) * 1000) / 10;
       const delta = Math.round((s.winPct - priorPct) * 10) / 10;
       if (delta <= 0) continue;
-      if (!best || delta > best.delta) {
-        best = { name: s.name, todayPct: s.winPct, priorPct, delta };
-      }
+      results.push({ name: s.name, todayPct: s.winPct, priorPct, delta });
     }
-    return best;
+    return results.sort((a, b) => b.delta - a.delta);
   }, [data, sessionWins, winStats]);
 
   // Today's points: per-player aggregates from matches with both scores entered.
@@ -468,8 +465,8 @@ export default function MatchesPage() {
       const names = mvps.map((p) => p.name).join(", ");
       lines.push(`🥇 MVP: ${names} (${mvps[0].mvp.toFixed(1)} · ${mvps[0].wins}W · ${mvps[0].winPct}% · div ${mvps[0].diversity}%)`);
     }
-    if (mostImproved) {
-      lines.push(`📈 Most Improved: ${mostImproved.name} — ${mostImproved.todayPct}% today (was ${mostImproved.priorPct}%)`);
+    if (mostImproved.length > 0) {
+      lines.push(`📈 Most Improved: ${mostImproved[0].name} — ${mostImproved[0].todayPct}% today (was ${mostImproved[0].priorPct}%)`);
     }
     if (dragonSlayer) {
       lines.push(`🐉 Dragon Slayer: ${dragonSlayer.name} — beat the toughest opponents today`);
@@ -1367,15 +1364,25 @@ export default function MatchesPage() {
             )}
 
             {/* Most Improved */}
-            {mostImproved && (
+            {mostImproved.length > 0 && (
               <div className="relative overflow-hidden rounded-3xl shadow-md shadow-sky-200 p-5 bg-gradient-to-br from-sky-400 via-cyan-500 to-teal-500 text-white">
                 <div className="absolute -top-3 -right-2 text-6xl opacity-15 select-none">📈</div>
                 <div className="relative">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-50/90">Most Improved today</p>
-                  <p className="mt-1 text-2xl font-extrabold tracking-tight">{mostImproved.name}</p>
+                  <p className="mt-1 text-2xl font-extrabold tracking-tight">{mostImproved[0].name}</p>
                   <p className="mt-1 text-sm font-semibold text-cyan-50">
-                    {mostImproved.todayPct}% today · up from {mostImproved.priorPct}% career
+                    {mostImproved[0].todayPct}% today · up from {mostImproved[0].priorPct}% career (+{mostImproved[0].delta}%)
                   </p>
+                  {mostImproved.length > 1 && (
+                    <div className="mt-3 space-y-1 border-t border-white/20 pt-3">
+                      {mostImproved.slice(1).map((p) => (
+                        <div key={p.name} className="flex items-center justify-between text-xs text-cyan-50/90">
+                          <span className="font-semibold">{p.name}</span>
+                          <span>{p.todayPct}% <span className="opacity-70">vs {p.priorPct}%</span> <span className="font-bold">+{p.delta}%</span></span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
