@@ -178,6 +178,8 @@ export async function POST(
 
   await prisma.$transaction(async (tx) => {
     await tx.match.deleteMany({ where: { sessionId } });
+    // Reset reopens the day — clear any prior finish stamp.
+    await tx.session.update({ where: { id: sessionId }, data: { finishedAt: null } });
     for (let i = 0; i < result.fixtures.length; i++) {
       const f = result.fixtures[i];
       await tx.match.create({

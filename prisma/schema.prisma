@@ -25,6 +25,7 @@ model Session {
   bamHariKid         Boolean      @default(false)
   arunDeepKid        Boolean      @default(false)
   avinashSharmiliKid Boolean      @default(false)
+  finishedAt         DateTime?
   attendance         Attendance[]
   matches            Match[]
 

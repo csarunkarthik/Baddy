@@ -37,7 +37,7 @@ export async function GET(
   const earlierMatches = await prisma.match.findMany({
     where: {
       winner: { not: null },
-      session: { date: { lt: session.date } },
+      session: { date: { lt: session.date }, sport: session.sport },
     },
     select: {
       winner: true,
@@ -62,7 +62,7 @@ export async function GET(
   // their gain across the session's matches. Compute once over all completed
   // matches in chronological order, then split the deltas by session.
   const allCompleted = await prisma.match.findMany({
-    where: { winner: { not: null } },
+    where: { winner: { not: null }, session: { sport: session.sport } },
     select: {
       id: true, matchNumber: true, winner: true,
       teamAScore: true, teamBScore: true, sessionId: true,
@@ -136,6 +136,7 @@ export async function GET(
       bamHariKid: session.bamHariKid,
       arunDeepKid: session.arunDeepKid,
       avinashSharmiliKid: session.avinashSharmiliKid,
+      finished: !!session.finishedAt,
       locked: isSessionLocked(session.date),
       attending: session.attendance
         .map((a) => ({ id: a.player.id, name: a.player.name, avatar: a.player.avatar }))

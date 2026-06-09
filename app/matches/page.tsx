@@ -36,6 +36,7 @@ type SessionInfo = {
   bamHariKid: boolean;
   arunDeepKid: boolean;
   avinashSharmiliKid: boolean;
+  finished: boolean;
   locked: boolean;
   attending: Player[];
 };
@@ -78,7 +79,6 @@ export default function MatchesPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const [totalMatchesDraft, setTotalMatchesDraft] = useState<number>(15);
   const [bamHariKidDraft, setBamHariKidDraft] = useState(false);
   const [arunDeepKidDraft, setArunDeepKidDraft] = useState(false);
   const [avinashSharmiliKidDraft, setAvinashSharmiliKidDraft] = useState(false);
@@ -86,7 +86,6 @@ export default function MatchesPage() {
   const [editingMatchId, setEditingMatchId] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState<{ a1: number; a2: number; b1: number; b2: number } | null>(null);
 
-  const [addCount, setAddCount] = useState<number>(4);
   // Accordion sections — Fixtures open by default, others closed once fixtures exist.
   const [openSetup, setOpenSetup] = useState(true);
   const [openFixtures, setOpenFixtures] = useState(true);
@@ -120,7 +119,6 @@ export default function MatchesPage() {
       const stats: WinStat[] = wRes.ok ? await wRes.json() : [];
       setData(payload);
       setWinStats(stats);
-      setTotalMatchesDraft(payload.session.totalMatches);
       setBamHariKidDraft(payload.session.bamHariKid);
       setArunDeepKidDraft(payload.session.arunDeepKid);
       setAvinashSharmiliKidDraft(payload.session.avinashSharmiliKid);
@@ -274,7 +272,10 @@ export default function MatchesPage() {
   const sessionDateStr = data?.session.date?.slice(0, 10) ?? "";
   const useNewMvpFormula = sessionDateStr >= MVP_NEW_FORMULA_FROM;
 
+  // Every current match has a winner — used to offer "Next Match". Distinct from
+  // sessionFinished, which is the explicit "day is over, crown the MVP" state.
   const allMatchesDone = !!data && data.matches.length > 0 && data.matches.every((m) => matchCompleted(m));
+  const sessionFinished = !!data?.session.finished;
   type MvpRow = { id: number; name: string; wins: number; played: number; winPct: number; diversity: number; winsN: number; mvp: number };
   const mvpRows = useMemo<MvpRow[]>(() => {
     if (sessionWins.length === 0) return [];
@@ -292,15 +293,15 @@ export default function MatchesPage() {
 
   // Co-MVPs: anyone within 0.5 of the top score.
   const mvps = useMemo(() => {
-    if (!allMatchesDone || mvpRows.length === 0) return [] as MvpRow[];
+    if (!sessionFinished || mvpRows.length === 0) return [] as MvpRow[];
     const topScore = mvpRows[0].mvp;
     return mvpRows.filter((r) => Math.abs(r.mvp - topScore) < 0.5);
-  }, [allMatchesDone, mvpRows]);
+  }, [sessionFinished, mvpRows]);
 
   // Confetti when the MVP is crowned (once per session).
   const confettiFiredFor = useRef<number | null>(null);
   useEffect(() => {
-    if (!allMatchesDone || mvps.length === 0) return;
+    if (!sessionFinished || mvps.length === 0) return;
     const sid = data?.session.id ?? null;
     if (sid === null || confettiFiredFor.current === sid) return;
     confettiFiredFor.current = sid;
@@ -309,14 +310,14 @@ export default function MatchesPage() {
       confetti({ particleCount: 90, spread: 70, origin: { y: 0.4 }, colors });
       setTimeout(() => confetti({ particleCount: 60, spread: 100, origin: { y: 0.5 }, colors }), 250);
     }
-  }, [allMatchesDone, mvps.length, data?.session.id]);
+  }, [sessionFinished, mvps.length, data?.session.id]);
 
   // Dragon Slayer: player with the biggest ELO gain in this session.
   // ELO is margin-aware (sqrt of point ratio when scores are recorded), so
   // the biggest gain corresponds to beating tough opponents by good margins.
   // We don't show the number — just the name + tagline.
   const dragonSlayer = useMemo(() => {
-    if (!data || !allMatchesDone) return null as { id: number; name: string } | null;
+    if (!data || !sessionFinished) return null as { id: number; name: string } | null;
     const gains = data.playerSessionGains || {};
     const mvpIds = new Set(mvps.map((m) => m.id));
     const excludeMvp = sessionDateStr >= DRAGON_SLAYER_NO_MVP_FROM;
@@ -329,7 +330,7 @@ export default function MatchesPage() {
     const p = data.session.attending.find((a) => a.id === pick.id);
     if (!p) return null;
     return { id: p.id, name: p.name };
-  }, [data, allMatchesDone, mvps, sessionDateStr, DRAGON_SLAYER_NO_MVP_FROM]);
+  }, [data, sessionFinished, mvps, sessionDateStr, DRAGON_SLAYER_NO_MVP_FROM]);
 
   // Most Improved: all players whose today win% exceeds their pre-today career win%.
   // Requires ≥2 played today AND ≥2 prior matches. Sorted by delta desc.
@@ -562,7 +563,7 @@ export default function MatchesPage() {
   async function generate() {
     if (!data) return;
     if (data.matches.length > 0) {
-      const ok = window.confirm("This will replace all current fixtures and clear winners. Continue?");
+      const ok = window.confirm("This deletes all current matches and winners and restarts from Match 1. Continue?");
       if (!ok) return;
     }
     setBusy(true);
@@ -571,8 +572,8 @@ export default function MatchesPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        // First time: generate just 1 match. Reset flow uses totalMatchesDraft.
-        totalMatches: data.matches.length === 0 ? 1 : totalMatchesDraft,
+        // One match at a time — always generate just Match 1.
+        totalMatches: 1,
         bamHariKid: bamHariKidDraft,
         arunDeepKid: arunDeepKidDraft,
         avinashSharmiliKid: avinashSharmiliKidDraft,
@@ -689,41 +690,41 @@ export default function MatchesPage() {
     }
   }
 
-  async function addMatches() {
+  async function finishSession() {
     if (!data) return;
-    const n = Math.max(1, Math.min(50, Math.floor(addCount)));
+    const unmarked = data.matches.filter((m) => !m.winner).length;
+    const msg = unmarked > 0
+      ? `Finish session & crown MVP? This deletes ${unmarked} unmarked match${unmarked === 1 ? "" : "es"} and locks in the MVP from the played matches.`
+      : `Finish session & crown MVP?`;
+    if (!window.confirm(msg)) return;
     setBusy(true);
     setError(null);
-    const res = await fetch(`/api/sessions/${data.session.id}/matches/add`, {
+    const res = await fetch(`/api/sessions/${data.session.id}/matches/finish`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ count: n }),
+      body: JSON.stringify({}),
     });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
-      setError(j.error || "Couldn't add fixtures");
+      setError(j.error || "Couldn't finish session");
     } else {
       await load(selectedDate);
     }
     setBusy(false);
   }
 
-  async function finishSession() {
+  async function reopenSession() {
     if (!data) return;
-    const unmarked = data.matches.filter((m) => !m.winner).length;
-    if (unmarked === 0) return;
-    const ok = window.confirm(
-      `Finish session? This will delete ${unmarked} unmarked match${unmarked === 1 ? "" : "es"} and lock in the MVP based on the matches with winners.`
-    );
-    if (!ok) return;
     setBusy(true);
     setError(null);
     const res = await fetch(`/api/sessions/${data.session.id}/matches/finish`, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reopen: true }),
     });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
-      setError(j.error || "Couldn't finish session");
+      setError(j.error || "Couldn't reopen session");
     } else {
       await load(selectedDate);
     }
@@ -933,41 +934,6 @@ export default function MatchesPage() {
 
               {!locked && (
                 <div className="pt-2 border-t border-gray-100 space-y-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <label className="text-sm font-semibold text-gray-700">Total matches</label>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          const n = Math.max(1, totalMatchesDraft - 1);
-                          setTotalMatchesDraft(n);
-                          saveConfig({ totalMatches: n });
-                        }}
-                        className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 font-bold text-gray-700"
-                      >
-                        −
-                      </button>
-                      <input
-                        type="number"
-                        min={1}
-                        max={50}
-                        value={totalMatchesDraft}
-                        onChange={(e) => setTotalMatchesDraft(Math.max(1, Math.min(50, parseInt(e.target.value) || 1)))}
-                        onBlur={() => saveConfig({ totalMatches: totalMatchesDraft })}
-                        className="w-14 text-center bg-gray-50 border-2 border-transparent focus:border-amber-300 rounded-xl py-1.5 text-sm font-bold text-gray-800 focus:outline-none"
-                      />
-                      <button
-                        onClick={() => {
-                          const n = Math.min(50, totalMatchesDraft + 1);
-                          setTotalMatchesDraft(n);
-                          saveConfig({ totalMatches: n });
-                        }}
-                        className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 font-bold text-gray-700"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-
                   {visibleCouples.length > 0 && (
                     <div className="space-y-2">
                       <p className="text-xs text-gray-400 font-semibold">Kid present? (couple can&apos;t play same match)</p>
@@ -1015,43 +981,9 @@ export default function MatchesPage() {
                       : !canGenerate
                       ? "Need 4+ attending players"
                       : data.matches.length > 0
-                      ? "🔄 Reset & regenerate all"
+                      ? "🔄 Reset & start over"
                       : "🎲 Generate Match 1"}
                   </button>
-
-                  {data.matches.length > 0 && canGenerate && (
-                    <div className="flex items-stretch gap-2 pt-1">
-                      <div className="flex items-center gap-1 bg-gray-50 rounded-2xl px-2">
-                        <button
-                          onClick={() => setAddCount(Math.max(1, addCount - 1))}
-                          className="w-7 h-7 rounded-full hover:bg-gray-200 font-bold text-gray-600"
-                        >
-                          −
-                        </button>
-                        <input
-                          type="number"
-                          min={1}
-                          max={50}
-                          value={addCount}
-                          onChange={(e) => setAddCount(Math.max(1, Math.min(50, parseInt(e.target.value) || 1)))}
-                          className="w-10 text-center bg-transparent text-sm font-bold text-gray-800 focus:outline-none"
-                        />
-                        <button
-                          onClick={() => setAddCount(Math.min(50, addCount + 1))}
-                          className="w-7 h-7 rounded-full hover:bg-gray-200 font-bold text-gray-600"
-                        >
-                          +
-                        </button>
-                      </div>
-                      <button
-                        onClick={addMatches}
-                        disabled={busy}
-                        className="flex-1 py-2.5 rounded-2xl text-sm font-bold bg-white border-2 border-amber-300 text-amber-700 hover:bg-amber-50 active:scale-[0.98] transition-all disabled:opacity-50"
-                      >
-                        + Add {addCount} more {addCount === 1 ? "match" : "matches"}
-                      </button>
-                    </div>
-                  )}
 
                   {error && (
                     <p className="text-xs text-rose-600 font-medium bg-rose-50 px-3 py-2 rounded-xl">{error}</p>
@@ -1094,7 +1026,7 @@ export default function MatchesPage() {
 
             {/* Fixtures + Stats wrap: when all matches are done, Stats moves above Fixtures */}
             <div className="flex flex-col gap-4">
-            <div className={allMatchesDone ? "order-2" : "order-1"}>
+            <div className={sessionFinished ? "order-2" : "order-1"}>
             {/* Matches list */}
             {data.matches.length > 0 && (
               <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 space-y-3">
@@ -1104,18 +1036,6 @@ export default function MatchesPage() {
                     {data.matches.filter((m) => m.winner).length} / {data.matches.length} played
                   </span>
                 </div>
-
-                {!locked &&
-                  data.matches.some((m) => m.winner) &&
-                  data.matches.some((m) => !m.winner) && (
-                    <button
-                      onClick={finishSession}
-                      disabled={busy}
-                      className="w-full py-2.5 rounded-2xl text-sm font-bold bg-emerald-50 border-2 border-emerald-200 text-emerald-700 hover:bg-emerald-100 active:scale-[0.98] transition-all disabled:opacity-50"
-                    >
-                      {busy ? "Working…" : "🏁 Finish session & crown MVP"}
-                    </button>
-                  )}
 
                 {(() => {
                   // Frozen order keeps positions stable while you edit. Active match =
@@ -1312,21 +1232,42 @@ export default function MatchesPage() {
                   );
                 })}
 
-                {/* Next Match button — appears once all current matches have a winner */}
-                {!locked && data.matches.length > 0 && data.matches.every(matchCompleted) && (
+                {/* Footer actions — Next Match + Finish appear once the current match
+                    is complete (and the session hasn't been explicitly finished). */}
+                {!locked && !sessionFinished && data.matches.length > 0 && data.matches.every(matchCompleted) && (
+                  <div className="space-y-2 pt-1">
+                    <button
+                      onClick={nextMatch}
+                      disabled={busy}
+                      className="w-full py-3 rounded-2xl font-bold text-sm bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-md shadow-indigo-200 hover:from-indigo-600 hover:to-violet-600 active:scale-[0.98] transition-all disabled:opacity-50"
+                    >
+                      {busy ? "Working…" : "▶ Next Match"}
+                    </button>
+                    <button
+                      onClick={finishSession}
+                      disabled={busy}
+                      className="w-full py-2.5 rounded-2xl text-sm font-bold bg-emerald-50 border-2 border-emerald-200 text-emerald-700 hover:bg-emerald-100 active:scale-[0.98] transition-all disabled:opacity-50"
+                    >
+                      {busy ? "Working…" : "🏁 Finish session & crown MVP"}
+                    </button>
+                  </div>
+                )}
+
+                {/* Reopen — once finished, allow continuing the day if needed. */}
+                {!locked && sessionFinished && (
                   <button
-                    onClick={nextMatch}
+                    onClick={reopenSession}
                     disabled={busy}
-                    className="w-full py-3 rounded-2xl font-bold text-sm bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-md shadow-indigo-200 hover:from-indigo-600 hover:to-violet-600 active:scale-[0.98] transition-all disabled:opacity-50"
+                    className="w-full py-2.5 rounded-2xl text-sm font-bold bg-slate-50 border-2 border-slate-200 text-slate-600 hover:bg-slate-100 active:scale-[0.98] transition-all disabled:opacity-50"
                   >
-                    {busy ? "Working…" : "▶ Next Match"}
+                    {busy ? "Working…" : "↩ Reopen session"}
                   </button>
                 )}
               </div>
             )}
             </div>
 
-            <div className={`space-y-4 ${allMatchesDone ? "order-1" : "order-2"}`}>
+            <div className={`space-y-4 ${sessionFinished ? "order-1" : "order-2"}`}>
             {/* Stats accordion */}
             <button
               onClick={() => setOpenStats(!openStats)}
@@ -1345,7 +1286,7 @@ export default function MatchesPage() {
             {openStats && (<>
 
             {/* MVP of the Day */}
-            {allMatchesDone && mvps.length > 0 && (
+            {sessionFinished && mvps.length > 0 && (
               <div className="space-y-1.5">
                 <div className="relative overflow-hidden rounded-3xl shadow-lg shadow-amber-200 p-5 bg-gradient-to-br from-yellow-400 via-amber-500 to-orange-500 text-white">
                   <div className="absolute -top-4 -right-2 text-7xl opacity-15 select-none">🏆</div>
