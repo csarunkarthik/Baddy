@@ -1038,6 +1038,37 @@ export default function MatchesPage() {
                   </span>
                 </div>
 
+                {/* Actions stay pinned at the top with the current match — Next Match +
+                    Finish appear once the current match is complete; Reopen after finish. */}
+                {!locked && !sessionFinished && data.matches.length > 0 && data.matches.every(matchCompleted) && (
+                  <div className="space-y-2">
+                    <button
+                      onClick={nextMatch}
+                      disabled={busy}
+                      className="w-full py-3 rounded-2xl font-bold text-sm bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-md shadow-indigo-200 hover:from-indigo-600 hover:to-violet-600 active:scale-[0.98] transition-all disabled:opacity-50"
+                    >
+                      {busy ? "Working…" : "▶ Next Match"}
+                    </button>
+                    <button
+                      onClick={finishSession}
+                      disabled={busy}
+                      className="w-full py-2.5 rounded-2xl text-sm font-bold bg-emerald-50 border-2 border-emerald-200 text-emerald-700 hover:bg-emerald-100 active:scale-[0.98] transition-all disabled:opacity-50"
+                    >
+                      {busy ? "Working…" : "🏁 Finish session & crown MVP"}
+                    </button>
+                  </div>
+                )}
+
+                {!locked && sessionFinished && (
+                  <button
+                    onClick={reopenSession}
+                    disabled={busy}
+                    className="w-full py-2.5 rounded-2xl text-sm font-bold bg-slate-50 border-2 border-slate-200 text-slate-600 hover:bg-slate-100 active:scale-[0.98] transition-all disabled:opacity-50"
+                  >
+                    {busy ? "Working…" : "↩ Reopen session"}
+                  </button>
+                )}
+
                 {(() => {
                   // Frozen order keeps positions stable while you edit. Active match =
                   // whatever you've edited in the last 10s, otherwise the first match
@@ -1232,38 +1263,6 @@ export default function MatchesPage() {
                     </div>
                   );
                 })}
-
-                {/* Footer actions — Next Match + Finish appear once the current match
-                    is complete (and the session hasn't been explicitly finished). */}
-                {!locked && !sessionFinished && data.matches.length > 0 && data.matches.every(matchCompleted) && (
-                  <div className="space-y-2 pt-1">
-                    <button
-                      onClick={nextMatch}
-                      disabled={busy}
-                      className="w-full py-3 rounded-2xl font-bold text-sm bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-md shadow-indigo-200 hover:from-indigo-600 hover:to-violet-600 active:scale-[0.98] transition-all disabled:opacity-50"
-                    >
-                      {busy ? "Working…" : "▶ Next Match"}
-                    </button>
-                    <button
-                      onClick={finishSession}
-                      disabled={busy}
-                      className="w-full py-2.5 rounded-2xl text-sm font-bold bg-emerald-50 border-2 border-emerald-200 text-emerald-700 hover:bg-emerald-100 active:scale-[0.98] transition-all disabled:opacity-50"
-                    >
-                      {busy ? "Working…" : "🏁 Finish session & crown MVP"}
-                    </button>
-                  </div>
-                )}
-
-                {/* Reopen — once finished, allow continuing the day if needed. */}
-                {!locked && sessionFinished && (
-                  <button
-                    onClick={reopenSession}
-                    disabled={busy}
-                    className="w-full py-2.5 rounded-2xl text-sm font-bold bg-slate-50 border-2 border-slate-200 text-slate-600 hover:bg-slate-100 active:scale-[0.98] transition-all disabled:opacity-50"
-                  >
-                    {busy ? "Working…" : "↩ Reopen session"}
-                  </button>
-                )}
               </div>
             )}
             </div>
