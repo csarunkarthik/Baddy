@@ -166,7 +166,8 @@ export default function MatchesPage() {
   const frozenOrderIds = useMemo<number[]>(() => {
     if (!data) return [];
     const pending = data.matches.filter((m) => !matchCompleted(m)).sort((a, b) => a.matchNumber - b.matchNumber);
-    const completed = data.matches.filter((m) => matchCompleted(m)).sort((a, b) => a.matchNumber - b.matchNumber);
+    // Completed: newest first, so the match you just finished sits right under the live one.
+    const completed = data.matches.filter((m) => matchCompleted(m)).sort((a, b) => b.matchNumber - a.matchNumber);
     return [...pending.map((m) => m.id), ...completed.map((m) => m.id)];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.session.id, data?.matches.length, freezeEpoch]);
