@@ -467,8 +467,15 @@ export async function GET() {
   // Distinct venues count
   const totalVenues = new Set(sessions.map((s) => s.venue)).size;
 
-  // Running tally so ties on metric prefer players with fewer badges so far (balancing).
+  // Running tally of trophies won so far, used to apply soft diversity pressure.
   const badgeCount = new Map<number, number>();
+
+  // Soft diversity pressure: each trophy already held reduces a player's effective
+  // (normalized) score by this much. Tuned so a dominant leader keeps a trophy but
+  // close races tip to whoever has fewer trophies. Trophies are assigned in order,
+  // marquee ones first (Champion, Sniper, MVP…), so the rightful winners still get
+  // those before pressure builds. 0 = old winner-take-all behavior.
+  const DIVERSITY_PRESSURE = 0.12;
 
   function pickWinner(
     metric: (p: PlayerStats) => number,
@@ -476,17 +483,34 @@ export async function GET() {
   ): number | null {
     const cands = Array.from(stats.values()).filter(eligibleFilter);
     if (cands.length === 0) return null;
-    cands.sort((a, b) => {
-      const diff = metric(b) - metric(a);
-      if (diff !== 0) return diff;
-      const ba = badgeCount.get(a.id) ?? 0;
-      const bb = badgeCount.get(b.id) ?? 0;
-      if (ba !== bb) return ba - bb;
+
+    // Preserve the original "is there a real winner?" guard: if the raw metric
+    // leader has a non-positive score, nobody qualifies for this trophy.
+    const rawTop = cands.reduce((best, p) => (metric(p) > metric(best) ? p : best), cands[0]);
+    if (metric(rawTop) <= 0) return null;
+
+    // Normalize metrics across candidates to [0,1] so the trophy penalty is
+    // comparable regardless of the metric's native scale.
+    const vals = cands.map(metric);
+    const maxM = Math.max(...vals);
+    const minM = Math.min(...vals);
+    const range = maxM - minM;
+    const norm = (p: PlayerStats) => (range > 0 ? (metric(p) - minM) / range : 1);
+    const adjusted = (p: PlayerStats) => norm(p) - (badgeCount.get(p.id) ?? 0) * DIVERSITY_PRESSURE;
+
+    // Only genuine contenders (positive metric) can win — never hand a trophy to a
+    // player with a zero/negative score just to balance counts.
+    const pool = cands.filter((p) => metric(p) > 0);
+    if (pool.length === 0) return null;
+
+    pool.sort((a, b) => {
+      const d = adjusted(b) - adjusted(a);
+      if (Math.abs(d) > 1e-9) return d;
+      const m = metric(b) - metric(a); // tie on adjusted → higher raw metric
+      if (m !== 0) return m;
       return a.name.localeCompare(b.name);
     });
-    const top = cands[0];
-    if (metric(top) <= 0) return null;
-    return top.id;
+    return pool[0].id;
   }
 
   type TrophyDef = {
