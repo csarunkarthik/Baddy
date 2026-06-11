@@ -10,7 +10,16 @@ export type GenerateInput = {
   priorPlayed?: Record<number, number>;
   /** Partner-pair counts from already-completed matches (for on-demand generation). */
   priorPartnered?: Record<string, number>;
+  /** Full-matchup signatures to avoid reproducing (e.g. the immediately previous match). */
+  avoidSignatures?: string[];
 };
+
+/** Canonical signature of a 2v2 matchup — its two partnerships, order-independent. */
+export function matchupSignature(teamA: [number, number], teamB: [number, number]): string {
+  const kA = [...teamA].sort((a, b) => a - b).join("-");
+  const kB = [...teamB].sort((a, b) => a - b).join("-");
+  return [kA, kB].sort().join("|");
+}
 
 export type GenerateResult =
   | { ok: true; fixtures: Fixture[] }
@@ -103,7 +112,10 @@ export function restEligiblePool(
 }
 
 export function generateFixtures(input: GenerateInput): GenerateResult {
-  const { attendingIds, totalMatches, forbiddenPairs, eloRatings = {}, priorPlayed = {}, priorPartnered = {} } = input;
+  const { attendingIds, totalMatches, forbiddenPairs, eloRatings = {}, priorPlayed = {}, priorPartnered = {}, avoidSignatures = [] } = input;
+  const avoidSet = new Set(avoidSignatures);
+  // Heavy penalty so an avoided matchup is only ever chosen when no alternative exists.
+  const AVOID_PENALTY = 1000;
 
   const unique = Array.from(new Set(attendingIds));
   if (unique.length < 4) {
@@ -156,7 +168,8 @@ export function generateFixtures(input: GenerateInput): GenerateResult {
       for (const [a1, a2, b1, b2] of SPLITS) {
         const teamA: [number, number] = [combo[a1], combo[a2]];
         const teamB: [number, number] = [combo[b1], combo[b2]];
-        const score = scoreSplit(teamA, teamB, partnered, eloRatings, played, minPlayed);
+        let score = scoreSplit(teamA, teamB, partnered, eloRatings, played, minPlayed);
+        if (avoidSet.has(matchupSignature(teamA, teamB))) score += AVOID_PENALTY;
         if (!best || score < best.score) {
           best = { teamA, teamB, score };
         }

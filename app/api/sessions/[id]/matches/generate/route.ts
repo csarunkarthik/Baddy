@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolveCouples, activeForbiddenPairs } from "@/lib/couples";
-import { generateFixtures, type Fixture } from "@/lib/fixtures";
+import { generateFixtures, matchupSignature, type Fixture } from "@/lib/fixtures";
 import { aiPickNextMatch, genderFromAvatar, type Gender } from "@/lib/ai-fixtures";
 import { isSessionLocked, LOCK_MESSAGE } from "@/lib/locking";
 import { computeElo, type EloMatch } from "@/lib/elo";
@@ -118,7 +118,9 @@ export async function POST(
   // anything invalid. Both share the same rest-eligibility + ELO inputs.
   async function produceOneFixture(
     played: Record<number, number>,
-    partnered: Record<string, number>
+    partnered: Record<string, number>,
+    opponents: Record<string, number>,
+    avoidSignatures: string[]
   ): Promise<{ fixture: Fixture; source: "ai" | "fallback" }> {
     const ai = await aiPickNextMatch({
       attendingIds,
@@ -126,8 +128,10 @@ export async function POST(
       eloRatings,
       played,
       partnered,
+      opponents,
       forbiddenPairs: forbidden,
       genders,
+      avoidSignatures,
     });
     if (ai) return { fixture: ai, source: "ai" };
 
@@ -138,6 +142,7 @@ export async function POST(
       eloRatings,
       priorPlayed: played,
       priorPartnered: partnered,
+      avoidSignatures,
     });
     if (!det.ok) throw new Error(det.error);
     return { fixture: det.fixtures[0], source: "fallback" };
@@ -153,23 +158,42 @@ export async function POST(
 
     const priorPlayed: Record<number, number> = {};
     const priorPartnered: Record<string, number> = {};
+    const priorOpponents: Record<string, number> = {};
     for (const m of sessionMatches) {
       for (const p of m.participants) {
         priorPlayed[p.playerId] = (priorPlayed[p.playerId] ?? 0) + 1;
       }
-      for (const team of ["A", "B"] as const) {
-        const ids = m.participants.filter((p) => p.team === team).map((p) => p.playerId);
+      const teamAIds = m.participants.filter((p) => p.team === "A").map((p) => p.playerId);
+      const teamBIds = m.participants.filter((p) => p.team === "B").map((p) => p.playerId);
+      for (const ids of [teamAIds, teamBIds]) {
         if (ids.length === 2) {
           const key = [...ids].sort((a, b) => a - b).join("-");
           priorPartnered[key] = (priorPartnered[key] ?? 0) + 1;
         }
+      }
+      for (const a of teamAIds) {
+        for (const b of teamBIds) {
+          const key = [a, b].sort((x, y) => x - y).join("-");
+          priorOpponents[key] = (priorOpponents[key] ?? 0) + 1;
+        }
+      }
+    }
+
+    // Avoid reproducing the immediately previous match.
+    const lastMatch = sessionMatches[sessionMatches.length - 1];
+    const avoidSignatures: string[] = [];
+    if (lastMatch) {
+      const a = lastMatch.participants.filter((p) => p.team === "A").map((p) => p.playerId);
+      const b = lastMatch.participants.filter((p) => p.team === "B").map((p) => p.playerId);
+      if (a.length === 2 && b.length === 2) {
+        avoidSignatures.push(matchupSignature([a[0], a[1]], [b[0], b[1]]));
       }
     }
 
     let fixture: Fixture;
     let source: "ai" | "fallback";
     try {
-      ({ fixture, source } = await produceOneFixture(priorPlayed, priorPartnered));
+      ({ fixture, source } = await produceOneFixture(priorPlayed, priorPartnered, priorOpponents, avoidSignatures));
     } catch (e) {
       return NextResponse.json({ error: e instanceof Error ? e.message : "Couldn't generate match" }, { status: 400 });
     }
@@ -203,23 +227,32 @@ export async function POST(
   // so we never hold a transaction open across AI network calls.
   const played: Record<number, number> = {};
   const partnered: Record<string, number> = {};
+  const opponents: Record<string, number> = {};
   const fixtures: Fixture[] = [];
   let usedAi = false;
+  let prevSignature: string | null = null;
   for (let i = 0; i < session.totalMatches; i++) {
     let fixture: Fixture;
     let source: "ai" | "fallback";
     try {
-      ({ fixture, source } = await produceOneFixture(played, partnered));
+      ({ fixture, source } = await produceOneFixture(played, partnered, opponents, prevSignature ? [prevSignature] : []));
     } catch (e) {
       return NextResponse.json({ error: e instanceof Error ? e.message : "Couldn't generate fixtures" }, { status: 400 });
     }
     if (source === "ai") usedAi = true;
     fixtures.push(fixture);
+    prevSignature = matchupSignature(fixture.teamA, fixture.teamB);
     for (const pid of [...fixture.teamA, ...fixture.teamB]) played[pid] = (played[pid] ?? 0) + 1;
     const kA = [...fixture.teamA].sort((a, b) => a - b).join("-");
     const kB = [...fixture.teamB].sort((a, b) => a - b).join("-");
     partnered[kA] = (partnered[kA] ?? 0) + 1;
     partnered[kB] = (partnered[kB] ?? 0) + 1;
+    for (const a of fixture.teamA) {
+      for (const b of fixture.teamB) {
+        const key = [a, b].sort((x, y) => x - y).join("-");
+        opponents[key] = (opponents[key] ?? 0) + 1;
+      }
+    }
   }
 
   await prisma.$transaction(async (tx) => {
