@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolveCouples, activeForbiddenPairs } from "@/lib/couples";
-import { generateFixtures } from "@/lib/fixtures";
+import { generateFixtures, type Fixture } from "@/lib/fixtures";
+import { aiPickNextMatch } from "@/lib/ai-fixtures";
 import { isSessionLocked, LOCK_MESSAGE } from "@/lib/locking";
 import { computeElo, type EloMatch } from "@/lib/elo";
 
@@ -105,6 +106,38 @@ export async function POST(
   const eloRatings: Record<number, number> = {};
   for (const [pid, stats] of eloMap) eloRatings[pid] = stats.rating;
 
+  const names: Record<number, string> = {};
+  for (const p of allPlayers) names[p.id] = p.name;
+
+  // Produce ONE fixture for the given session state: try the AI picker first,
+  // fall back to the deterministic generator if AI is unavailable or returns
+  // anything invalid. Both share the same rest-eligibility + ELO inputs.
+  async function produceOneFixture(
+    played: Record<number, number>,
+    partnered: Record<string, number>
+  ): Promise<{ fixture: Fixture; source: "ai" | "fallback" }> {
+    const ai = await aiPickNextMatch({
+      attendingIds,
+      names,
+      eloRatings,
+      played,
+      partnered,
+      forbiddenPairs: forbidden,
+    });
+    if (ai) return { fixture: ai, source: "ai" };
+
+    const det = generateFixtures({
+      attendingIds,
+      totalMatches: 1,
+      forbiddenPairs: forbidden,
+      eloRatings,
+      priorPlayed: played,
+      priorPartnered: partnered,
+    });
+    if (!det.ok) throw new Error(det.error);
+    return { fixture: det.fixtures[0], source: "fallback" };
+  }
+
   if (isNext) {
     // Build rest-rotation state from existing session matches.
     const sessionMatches = await prisma.match.findMany({
@@ -128,16 +161,12 @@ export async function POST(
       }
     }
 
-    const result = generateFixtures({
-      attendingIds,
-      totalMatches: 1,
-      forbiddenPairs: forbidden,
-      eloRatings,
-      priorPlayed,
-      priorPartnered,
-    });
-    if (!result.ok) {
-      return NextResponse.json({ error: result.error }, { status: 400 });
+    let fixture: Fixture;
+    let source: "ai" | "fallback";
+    try {
+      ({ fixture, source } = await produceOneFixture(priorPlayed, priorPartnered));
+    } catch (e) {
+      return NextResponse.json({ error: e instanceof Error ? e.message : "Couldn't generate match" }, { status: 400 });
     }
 
     const maxAgg = await prisma.match.aggregate({
@@ -146,42 +175,54 @@ export async function POST(
     });
     const nextNumber = (maxAgg._max.matchNumber ?? 0) + 1;
 
-    const f = result.fixtures[0];
     await prisma.match.create({
       data: {
         sessionId,
         matchNumber: nextNumber,
         participants: {
           create: [
-            { playerId: f.teamA[0], team: "A", position: 0 },
-            { playerId: f.teamA[1], team: "A", position: 1 },
-            { playerId: f.teamB[0], team: "B", position: 0 },
-            { playerId: f.teamB[1], team: "B", position: 1 },
+            { playerId: fixture.teamA[0], team: "A", position: 0 },
+            { playerId: fixture.teamA[1], team: "A", position: 1 },
+            { playerId: fixture.teamB[0], team: "B", position: 0 },
+            { playerId: fixture.teamB[1], team: "B", position: 1 },
           ],
         },
       },
     });
 
-    return NextResponse.json({ ok: true, count: 1 });
+    return NextResponse.json({ ok: true, count: 1, source });
   }
 
-  // Full regenerate — delete all existing and create totalMatches new fixtures.
-  const result = generateFixtures({
-    attendingIds,
-    totalMatches: session.totalMatches,
-    forbiddenPairs: forbidden,
-    eloRatings,
-  });
-  if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: 400 });
+  // Full regenerate. Build fixtures one at a time (AI-first per match, accumulating
+  // rest/partner state) so the same logic applies — done before the DB transaction
+  // so we never hold a transaction open across AI network calls.
+  const played: Record<number, number> = {};
+  const partnered: Record<string, number> = {};
+  const fixtures: Fixture[] = [];
+  let usedAi = false;
+  for (let i = 0; i < session.totalMatches; i++) {
+    let fixture: Fixture;
+    let source: "ai" | "fallback";
+    try {
+      ({ fixture, source } = await produceOneFixture(played, partnered));
+    } catch (e) {
+      return NextResponse.json({ error: e instanceof Error ? e.message : "Couldn't generate fixtures" }, { status: 400 });
+    }
+    if (source === "ai") usedAi = true;
+    fixtures.push(fixture);
+    for (const pid of [...fixture.teamA, ...fixture.teamB]) played[pid] = (played[pid] ?? 0) + 1;
+    const kA = [...fixture.teamA].sort((a, b) => a - b).join("-");
+    const kB = [...fixture.teamB].sort((a, b) => a - b).join("-");
+    partnered[kA] = (partnered[kA] ?? 0) + 1;
+    partnered[kB] = (partnered[kB] ?? 0) + 1;
   }
 
   await prisma.$transaction(async (tx) => {
     await tx.match.deleteMany({ where: { sessionId } });
     // Reset reopens the day — clear any prior finish stamp.
     await tx.session.update({ where: { id: sessionId }, data: { finishedAt: null } });
-    for (let i = 0; i < result.fixtures.length; i++) {
-      const f = result.fixtures[i];
+    for (let i = 0; i < fixtures.length; i++) {
+      const f = fixtures[i];
       await tx.match.create({
         data: {
           sessionId,
@@ -199,5 +240,5 @@ export async function POST(
     }
   });
 
-  return NextResponse.json({ ok: true, count: result.fixtures.length });
+  return NextResponse.json({ ok: true, count: fixtures.length, source: usedAi ? "ai" : "fallback" });
 }

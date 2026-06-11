@@ -22,7 +22,7 @@ function getElo(id: number, ratings: Record<number, number>): number {
   return ratings[id] ?? DEFAULT_ELO;
 }
 
-function violatesForbidden(ids: number[], forbidden: [number, number][]): boolean {
+export function violatesForbidden(ids: number[], forbidden: [number, number][]): boolean {
   for (const [a, b] of forbidden) {
     if (ids.includes(a) && ids.includes(b)) return true;
   }
@@ -30,7 +30,7 @@ function violatesForbidden(ids: number[], forbidden: [number, number][]): boolea
 }
 
 /** All k-combinations of arr. */
-function combinations(arr: number[], k: number): number[][] {
+export function combinations(arr: number[], k: number): number[][] {
   if (k === 0) return [[]];
   if (arr.length < k) return [];
   const [head, ...tail] = arr;
@@ -74,6 +74,32 @@ function scoreSplit(
     0
   );
   return eloImbalance / 150 + repeats * 2 + restPenalty;
+}
+
+/**
+ * Rest-eligible candidate pool for the NEXT match: the most-rested players,
+ * expanding the play-count spread only as far as needed to form one valid 4-set
+ * (no forbidden pair). This is the objective fairness rule — who is *allowed* to
+ * play next — shared by the deterministic generator and the AI generator so both
+ * honour rest rotation identically.
+ */
+export function restEligiblePool(
+  attendingIds: number[],
+  played: Record<number, number>,
+  forbiddenPairs: [number, number][]
+): number[] {
+  const unique = Array.from(new Set(attendingIds));
+  if (unique.length < 4) return [];
+  const minPlayed = Math.min(...unique.map((id) => played[id] ?? 0));
+  let candidates: number[] = unique;
+  for (let spread = 0; spread <= unique.length; spread++) {
+    candidates = unique.filter((id) => ((played[id] ?? 0) - minPlayed) <= spread);
+    const hasValid = combinations(candidates, 4).some(
+      (c) => !violatesForbidden(c, forbiddenPairs)
+    );
+    if (hasValid) break;
+  }
+  return candidates;
 }
 
 export function generateFixtures(input: GenerateInput): GenerateResult {
