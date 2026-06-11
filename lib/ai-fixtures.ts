@@ -10,6 +10,23 @@ import { restEligiblePool, violatesForbidden, type Fixture } from "./fixtures";
 const MODEL = "llama-3.3-70b-versatile";
 const DEFAULT_ELO = 1500;
 
+export type Gender = "M" | "F" | null;
+
+/**
+ * Infer a player's gender from their avatar emoji. We use the ♂/♀ sign embedded
+ * in many emoji, plus a few base gendered emoji. Gender-neutral avatars (e.g. 🥷)
+ * return null — those players just don't participate in the mixed-team preference.
+ */
+export function genderFromAvatar(avatar?: string | null): Gender {
+  if (!avatar) return null;
+  if (avatar.includes("♀")) return "F"; // ♀
+  if (avatar.includes("♂")) return "M"; // ♂
+  // Base gendered emoji that carry no ZWJ sign.
+  if (/[\u{1F469}\u{1F467}\u{1F470}\u{1F478}\u{1F930}\u{1F931}\u{1F9D5}]/u.test(avatar)) return "F"; // woman, girl, bride, princess, pregnant, breastfeeding, woman+headscarf
+  if (/[\u{1F468}\u{1F466}\u{1F9D4}\u{1F934}\u{1F977}\u{1F9B8}\u{1F9B9}]/u.test(avatar)) return "M"; // man, boy, person-beard, prince, ninja, superhero, supervillain (group convention → M)
+  return null;
+}
+
 export type AiFixtureInput = {
   attendingIds: number[];
   names: Record<number, string>;
@@ -19,6 +36,8 @@ export type AiFixtureInput = {
   /** Partner-pair counts this session, key = "lowId-highId". */
   partnered: Record<string, number>;
   forbiddenPairs: [number, number][];
+  /** Player gender (from avatar) — used as a soft mixed-doubles preference. */
+  genders?: Record<number, Gender>;
 };
 
 function pairKey(a: number, b: number) {
@@ -38,10 +57,15 @@ export async function aiPickNextMatch(input: AiFixtureInput): Promise<Fixture | 
   if (pool.length < 4) return null;
 
   const elo = (id: number) => input.eloRatings[id] ?? DEFAULT_ELO;
+  const genders = input.genders ?? {};
+  const genderTag = (id: number) => (genders[id] === "M" ? ", male" : genders[id] === "F" ? ", female" : "");
+  // Only nudge toward mixed teams if the pool actually has both genders to work with.
+  const hasMixedPotential =
+    pool.some((id) => genders[id] === "M") && pool.some((id) => genders[id] === "F");
 
   // Describe each eligible player.
   const playerLines = pool
-    .map((id) => `  ${id} = ${input.names[id] ?? `Player ${id}`} (ELO ${Math.round(elo(id))}, played ${input.played[id] ?? 0} so far)`)
+    .map((id) => `  ${id} = ${input.names[id] ?? `Player ${id}`} (ELO ${Math.round(elo(id))}, played ${input.played[id] ?? 0} so far${genderTag(id)})`)
     .join("\n");
 
   // Partnerships already seen this session among the pool (to avoid repeats).
@@ -58,14 +82,18 @@ export async function aiPickNextMatch(input: AiFixtureInput): Promise<Fixture | 
     .filter(([a, b]) => pool.includes(a) && pool.includes(b))
     .map(([a, b]) => `  ${input.names[a]} (${a}) and ${input.names[b]} (${b}) must NOT be in the same match`);
 
+  const mixedRule = hasMixedPotential
+    ? "3. Slightly prefer MIXED teams — each team being one male + one female — when it doesn't hurt the ELO balance above. This is a gentle preference, not a rule: if a sensible mixed split isn't available (or only same-gender teams keep the match fair), same-gender teams are perfectly fine. Players with no gender listed can go on either team.\n"
+    : "";
   const system =
     "You are setting the next doubles badminton match for a casual group. " +
     "Pick exactly 4 players from the eligible list and split them into two teams of 2 (Team A and Team B).\n\n" +
     "Optimise, in priority order:\n" +
     "1. HARD: only use player ids from the eligible list. Never put a forbidden pair in the same match.\n" +
     "2. Balance the two teams so their combined ELO is as close as possible (a fair, competitive match).\n" +
-    "3. Avoid pairing teammates who have already partnered this session; prefer fresh partnerships.\n" +
-    "4. When the eligible list has more than 4 players, prefer those with the fewest 'played so far' so everyone rotates evenly.\n\n" +
+    mixedRule +
+    "4. Avoid pairing teammates who have already partnered this session; prefer fresh partnerships.\n" +
+    "5. When the eligible list has more than 4 players, prefer those with the fewest 'played so far' so everyone rotates evenly.\n\n" +
     'Return ONLY JSON: { "teamA": [id, id], "teamB": [id, id] } using the numeric ids.';
 
   const user =

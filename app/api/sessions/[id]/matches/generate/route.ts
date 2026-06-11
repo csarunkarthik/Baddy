@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolveCouples, activeForbiddenPairs } from "@/lib/couples";
 import { generateFixtures, type Fixture } from "@/lib/fixtures";
-import { aiPickNextMatch } from "@/lib/ai-fixtures";
+import { aiPickNextMatch, genderFromAvatar, type Gender } from "@/lib/ai-fixtures";
 import { isSessionLocked, LOCK_MESSAGE } from "@/lib/locking";
 import { computeElo, type EloMatch } from "@/lib/elo";
 
@@ -107,7 +107,11 @@ export async function POST(
   for (const [pid, stats] of eloMap) eloRatings[pid] = stats.rating;
 
   const names: Record<number, string> = {};
-  for (const p of allPlayers) names[p.id] = p.name;
+  const genders: Record<number, Gender> = {};
+  for (const p of allPlayers) {
+    names[p.id] = p.name;
+    genders[p.id] = genderFromAvatar(p.avatar);
+  }
 
   // Produce ONE fixture for the given session state: try the AI picker first,
   // fall back to the deterministic generator if AI is unavailable or returns
@@ -123,6 +127,7 @@ export async function POST(
       played,
       partnered,
       forbiddenPairs: forbidden,
+      genders,
     });
     if (ai) return { fixture: ai, source: "ai" };
 
