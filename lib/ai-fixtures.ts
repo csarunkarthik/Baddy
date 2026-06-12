@@ -10,6 +10,10 @@ import { getGender } from "./avatars";
 
 const MODEL = "llama-3.3-70b-versatile";
 const DEFAULT_ELO = 1500;
+// Probability of an all-same-gender match — applied once for all-male and once
+// for all-female, so ~1/8 chance of each (1/4 chance of a same-gender match)
+// whenever the pool can support it without breaking rest rotation.
+const SAME_GENDER_PROB = 1 / 8;
 
 export type Gender = "M" | "F" | null;
 
@@ -49,6 +53,8 @@ export type AiFixtureInput = {
   genders?: Record<number, Gender>;
   /** Matchup signatures not to reproduce (e.g. the immediately previous match). */
   avoidSignatures?: string[];
+  /** Test hook to bypass the random same-gender roll. */
+  forceGenderMode?: "all-M" | "all-F" | "normal";
 };
 
 function pairKey(a: number, b: number) {
@@ -95,6 +101,23 @@ export async function aiPickNextMatch(input: AiFixtureInput): Promise<Fixture | 
   const femaleCount = pool.filter((id) => genders[id] === "F").length;
   const hasMixedPotential = maleCount >= 2 && femaleCount >= 2;
 
+  // Occasional all-same-gender match for variety — 1/8 chance each, but only when
+  // there are ≥4 of that gender AND the rest rule can still be honoured (all the
+  // must-play players are that gender, or ≥4 of them are in the rested group).
+  const sameGenderFeasible = (g: Gender): boolean => {
+    const ofG = pool.filter((id) => genders[id] === g);
+    if (ofG.length < 4) return false;
+    if (mustPlay.length) return mustPlay.every((id) => genders[id] === g);
+    if (mustChooseFrom) return mustChooseFrom.filter((id) => genders[id] === g).length >= 4;
+    return true;
+  };
+  const r = Math.random();
+  const roll = input.forceGenderMode ?? (r < SAME_GENDER_PROB ? "all-M" : r < SAME_GENDER_PROB * 2 ? "all-F" : "normal");
+  const genderMode: "all-M" | "all-F" | "normal" =
+    roll === "all-M" && sameGenderFeasible("M") ? "all-M" :
+    roll === "all-F" && sameGenderFeasible("F") ? "all-F" :
+    "normal";
+
   // Describe each eligible player.
   const playerLines = pool
     .map((id) => `  ${id} = ${input.names[id] ?? `Player ${id}`} (ELO ${Math.round(elo(id))}, played ${input.played[id] ?? 0} so far${genderTag(id)})`)
@@ -126,9 +149,14 @@ export async function aiPickNextMatch(input: AiFixtureInput): Promise<Fixture | 
 
   const restRule =
     "2. HARD — rest rotation: players listed under 'Must play next' have rested longest and MUST be in this match. Never bench a player who has played fewer matches in favour of one who has played more.\n";
-  const mixedRule = hasMixedPotential
-    ? "4. Slightly prefer MIXED teams — each team being one male + one female — when it doesn't hurt the ELO balance above. This is a gentle preference, not a rule: if a sensible mixed split isn't available (or only same-gender teams keep the match fair), same-gender teams are perfectly fine. Players with no gender listed can go on either team.\n"
-    : "";
+  // In a same-gender special, the gender rule replaces the mixed-team nudge.
+  const genderWord = genderMode === "all-M" ? "MALE" : "FEMALE";
+  const mixedRule =
+    genderMode !== "normal"
+      ? `4. SPECIAL MATCH — pick four ${genderWord} players only, so both teams are all-${genderWord.toLowerCase()}. Still honour the rest rule above.\n`
+      : hasMixedPotential
+      ? "4. Slightly prefer MIXED teams — each team being one male + one female — when it doesn't hurt the ELO balance above. This is a gentle preference, not a rule: if a sensible mixed split isn't available (or only same-gender teams keep the match fair), same-gender teams are perfectly fine. Players with no gender listed can go on either team.\n"
+      : "";
   const system =
     "You are setting the next doubles badminton match for a casual group. " +
     "Pick exactly 4 players from the eligible list and split them into two teams of 2 (Team A and Team B).\n\n" +
@@ -197,6 +225,9 @@ export async function aiPickNextMatch(input: AiFixtureInput): Promise<Fixture | 
   // more than four of them, all four must come from that group).
   if (mustPlay.length && !mustPlay.every((id) => four.includes(id))) return null;
   if (mustChooseFrom && !four.every((id) => mustChooseFrom.includes(id))) return null;
+  // Same-gender special: all four must be that gender (else fall back to a normal match).
+  if (genderMode === "all-M" && !four.every((id) => genders[id] === "M")) return null;
+  if (genderMode === "all-F" && !four.every((id) => genders[id] === "F")) return null;
 
   const teamAPair: [number, number] = [four[0], four[1]];
   const teamBPair: [number, number] = [four[2], four[3]];

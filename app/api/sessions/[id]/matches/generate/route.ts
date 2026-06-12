@@ -116,6 +116,10 @@ export async function POST(
   // Produce ONE fixture for the given session state: try the AI picker first,
   // fall back to the deterministic generator if AI is unavailable or returns
   // anything invalid. Both share the same rest-eligibility + ELO inputs.
+  // Optional override of the random same-gender roll (from the request body).
+  const forceGenderMode: "all-M" | "all-F" | undefined =
+    body.forceGenderMode === "all-M" || body.forceGenderMode === "all-F" ? body.forceGenderMode : undefined;
+
   async function produceOneFixture(
     played: Record<number, number>,
     partnered: Record<string, number>,
@@ -132,6 +136,7 @@ export async function POST(
       forbiddenPairs: forbidden,
       genders,
       avoidSignatures,
+      forceGenderMode,
     });
     if (ai) return { fixture: ai, source: "ai" };
 
