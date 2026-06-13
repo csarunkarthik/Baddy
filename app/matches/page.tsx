@@ -5,51 +5,25 @@ import Link from "next/link";
 import confetti from "canvas-confetti";
 import { usePullToRefresh } from "../hooks/usePullToRefresh";
 import PullIndicator from "../components/PullIndicator";
-import { MatchMicButton } from "../components/MatchEntryFab";
-
-type Player = { id: number; name: string; avatar?: string | null };
-type CoupleKey = "bamHari" | "arunDeep" | "avinashSharmili";
-type Match = {
-  id: number;
-  matchNumber: number;
-  winner: "A" | "B" | null;
-  teamAScore: number | null;
-  teamBScore: number | null;
-  teamA: Player[];
-  teamB: Player[];
-};
-// A match is visually "completed" only when winner is set AND scores satisfy the win condition
-// (one side ≥ 21 and the other is lower). If no scores are recorded, trust the winner field alone.
-function matchCompleted(m: Match): boolean {
-  if (!m.winner) return false;
-  if (m.teamAScore === null || m.teamBScore === null) return true;
-  return m.teamAScore !== m.teamBScore && Math.max(m.teamAScore, m.teamBScore) >= 21;
-}
-
-type Couple = { key: CoupleKey; label: string; bothAttending: boolean; player1Id?: number; player2Id?: number };
-type SessionInfo = {
-  id: number;
-  date: string;
-  sport: "BADMINTON" | "PICKLEBALL";
-  venue: string;
-  totalMatches: number;
-  bamHariKid: boolean;
-  arunDeepKid: boolean;
-  avinashSharmiliKid: boolean;
-  finished: boolean;
-  locked: boolean;
-  attending: Player[];
-};
-type MatchesPayload = {
-  session: SessionInfo;
-  matches: Match[];
-  couples: Couple[];
-  allPlayers: Player[];
-  playerPriorPcts: Record<string, number>;
-  playerPriorElos: Record<string, number>;
-  playerSessionGains: Record<string, number>;
-};
-type WinStat = { id: number; name: string; wins: number; played: number; winPct: number };
+import {
+  matchCompleted,
+  type Match,
+  type MatchesPayload,
+  type WinStat,
+  type CoupleKey,
+} from "./_components/types";
+import SetupCard from "./_components/SetupCard";
+import FixtureCard from "./_components/FixtureCard";
+import MvpCard from "./_components/MvpCard";
+import DragonSlayerCard from "./_components/DragonSlayerCard";
+import MostImprovedCard from "./_components/MostImprovedCard";
+import SynergyCard from "./_components/SynergyCard";
+import PointsTable from "./_components/PointsTable";
+import AllTimeWins from "./_components/AllTimeWins";
+import Leaderboards from "./_components/Leaderboards";
+import IntelAccordion from "./_components/IntelAccordion";
+import RecapModal from "./_components/RecapModal";
+import { useSessionStats } from "./_hooks/useSessionStats";
 
 const IST = "Asia/Kolkata";
 
@@ -194,110 +168,23 @@ export default function MatchesPage() {
   const attendingCount = data?.session.attending.length ?? 0;
   const canGenerate = attendingCount >= 4;
 
-  const sessionWins = useMemo(() => {
-    if (!data) return [] as WinStat[];
-    const byPlayer = new Map<number, { id: number; name: string; wins: number; played: number }>();
-    for (const m of data.matches) {
-      if (!m.winner) continue;
-      for (const p of m.teamA) {
-        const s = byPlayer.get(p.id) ?? { id: p.id, name: p.name, wins: 0, played: 0 };
-        s.played += 1;
-        if (m.winner === "A") s.wins += 1;
-        byPlayer.set(p.id, s);
-      }
-      for (const p of m.teamB) {
-        const s = byPlayer.get(p.id) ?? { id: p.id, name: p.name, wins: 0, played: 0 };
-        s.played += 1;
-        if (m.winner === "B") s.wins += 1;
-        byPlayer.set(p.id, s);
-      }
-    }
-    return Array.from(byPlayer.values())
-      .map((s) => ({ ...s, winPct: s.played ? Math.round((s.wins / s.played) * 1000) / 10 : 0 }))
-      .sort((a, b) => b.wins - a.wins || b.winPct - a.winPct || a.name.localeCompare(b.name));
-  }, [data]);
-
-  const sessionWinsByPct = useMemo(() => {
-    return [...sessionWins].sort(
-      (a, b) => b.winPct - a.winPct || b.wins - a.wins || a.name.localeCompare(b.name)
-    );
-  }, [sessionWins]);
-
-  // Per-session partner diversity (Pielou² capped at min(T, attendees-1)).
-  // Pure client-side compute from data.matches.
-  type DivRow = { id: number; name: string; matchesPlayed: number; distinctPartners: number; coAttendees: number; diversity: number };
-  const sessionDiversity = useMemo<DivRow[]>(() => {
-    if (!data) return [];
-    const K = Math.max(0, data.session.attending.length - 1);
-    type Acc = { id: number; name: string; partners: Map<number, number>; total: number };
-    const byPlayer = new Map<number, Acc>();
-    for (const m of data.matches) {
-      if (!m.winner) continue;
-      for (const team of [m.teamA, m.teamB]) {
-        if (team.length !== 2) continue;
-        for (const p of team) {
-          if (!byPlayer.has(p.id)) byPlayer.set(p.id, { id: p.id, name: p.name, partners: new Map(), total: 0 });
-          const s = byPlayer.get(p.id)!;
-          const partner = team.find((x) => x.id !== p.id)!;
-          s.partners.set(partner.id, (s.partners.get(partner.id) ?? 0) + 1);
-          s.total += 1;
-        }
-      }
-    }
-    return Array.from(byPlayer.values()).map((s) => {
-      const counts = Array.from(s.partners.values());
-      const T = s.total;
-      let entropy = 0;
-      for (const n of counts) {
-        const p = n / T;
-        if (p > 0) entropy -= p * Math.log(p);
-      }
-      const cap = Math.min(T, K);
-      const maxEntropy = cap > 1 ? Math.log(cap) : 0;
-      const pielou = maxEntropy > 0 ? entropy / maxEntropy : 0;
-      return {
-        id: s.id, name: s.name,
-        matchesPlayed: T,
-        distinctPartners: counts.length,
-        coAttendees: K,
-        diversity: Math.round(pielou * pielou * 1000) / 10,
-      };
-    }).sort((a, b) => b.diversity - a.diversity || b.distinctPartners - a.distinctPartners || a.name.localeCompare(b.name));
-  }, [data]);
-
-  // MVP formula cutover: sessions on or after this date use the new
-  // 60/40 wins/win-% formula. Earlier sessions keep the legacy 3-way
-  // average so historical MVPs don't retroactively change.
-  const MVP_NEW_FORMULA_FROM = "2026-05-24";
-  const DRAGON_SLAYER_NO_MVP_FROM = "2026-06-08";
-  const sessionDateStr = data?.session.date?.slice(0, 10) ?? "";
-  const useNewMvpFormula = sessionDateStr >= MVP_NEW_FORMULA_FROM;
-
-  // Every current match has a winner — used to offer "Next Match". Distinct from
-  // sessionFinished, which is the explicit "day is over, crown the MVP" state.
-  const allMatchesDone = !!data && data.matches.length > 0 && data.matches.every((m) => matchCompleted(m));
-  const sessionFinished = !!data?.session.finished;
-  type MvpRow = { id: number; name: string; wins: number; played: number; winPct: number; diversity: number; winsN: number; mvp: number };
-  const mvpRows = useMemo<MvpRow[]>(() => {
-    if (sessionWins.length === 0) return [];
-    const maxW = Math.max(...sessionWins.map((s) => s.wins));
-    return sessionWins.map((w) => {
-      const d = sessionDiversity.find((x) => x.id === w.id);
-      const diversity = d?.diversity ?? 0;
-      const winsN = maxW > 0 ? (w.wins / maxW) * 100 : 0;
-      const mvp = useNewMvpFormula
-        ? 0.6 * winsN + 0.4 * w.winPct
-        : (winsN + w.winPct + diversity) / 3;
-      return { id: w.id, name: w.name, wins: w.wins, played: w.played, winPct: w.winPct, diversity, winsN, mvp };
-    }).sort((a, b) => b.mvp - a.mvp || b.wins - a.wins || a.name.localeCompare(b.name));
-  }, [sessionWins, sessionDiversity, useNewMvpFormula]);
-
-  // Co-MVPs: anyone within 0.5 of the top score.
-  const mvps = useMemo(() => {
-    if (!sessionFinished || mvpRows.length === 0) return [] as MvpRow[];
-    const topScore = mvpRows[0].mvp;
-    return mvpRows.filter((r) => Math.abs(r.mvp - topScore) < 0.5);
-  }, [sessionFinished, mvpRows]);
+  // All derived session statistics (leaderboards, MVP, dragon slayer, points,
+  // synergy, match odds) — see app/matches/_hooks/useSessionStats.ts.
+  const {
+    sessionWins,
+    sessionWinsByPct,
+    sessionDiversity,
+    mvps,
+    dragonSlayer,
+    mostImproved,
+    sessionPoints,
+    todaySynergy,
+    matchProbs,
+    highImpactCount,
+    useNewMvpFormula,
+    sessionFinished,
+    HIGH_IMPACT_THRESHOLD,
+  } = useSessionStats(data, winStats);
 
   // Confetti when the MVP is crowned (once per session).
   const confettiFiredFor = useRef<number | null>(null);
@@ -313,146 +200,6 @@ export default function MatchesPage() {
     }
   }, [sessionFinished, mvps.length, data?.session.id]);
 
-  // Dragon Slayer: player with the biggest ELO gain in this session.
-  // ELO is margin-aware (sqrt of point ratio when scores are recorded), so
-  // the biggest gain corresponds to beating tough opponents by good margins.
-  // We don't show the number — just the name + tagline.
-  const dragonSlayer = useMemo(() => {
-    if (!data || !sessionFinished) return null as { id: number; name: string } | null;
-    const gains = data.playerSessionGains || {};
-    const mvpIds = new Set(mvps.map((m) => m.id));
-    const excludeMvp = sessionDateStr >= DRAGON_SLAYER_NO_MVP_FROM;
-    // Sort all gainers desc; pick first one that isn't MVP (if gate is active).
-    const sorted = Object.entries(gains)
-      .map(([pid, gain]) => ({ id: parseInt(pid), gain: gain as number }))
-      .sort((a, b) => b.gain - a.gain);
-    const pick = sorted.find((e) => !excludeMvp || !mvpIds.has(e.id));
-    if (!pick || pick.gain <= 0) return null;
-    const p = data.session.attending.find((a) => a.id === pick.id);
-    if (!p) return null;
-    return { id: p.id, name: p.name };
-  }, [data, sessionFinished, mvps, sessionDateStr, DRAGON_SLAYER_NO_MVP_FROM]);
-
-  // Most Improved: all players whose today win% exceeds their pre-today career win%.
-  // Requires ≥2 played today AND ≥2 prior matches. Sorted by delta desc.
-  const mostImproved = useMemo(() => {
-    if (!data || sessionWins.length === 0 || winStats.length === 0) return [] as { name: string; todayPct: number; priorPct: number; delta: number }[];
-    const results: { name: string; todayPct: number; priorPct: number; delta: number }[] = [];
-    for (const s of sessionWins) {
-      if (s.played < 2) continue;
-      const career = winStats.find((w) => w.id === s.id);
-      if (!career) continue;
-      const priorPlayed = career.played - s.played;
-      const priorWins = career.wins - s.wins;
-      if (priorPlayed < 2) continue;
-      const priorPct = Math.round((priorWins / priorPlayed) * 1000) / 10;
-      const delta = Math.round((s.winPct - priorPct) * 10) / 10;
-      if (delta <= 0) continue;
-      results.push({ name: s.name, todayPct: s.winPct, priorPct, delta });
-    }
-    return results.sort((a, b) => b.delta - a.delta);
-  }, [data, sessionWins, winStats]);
-
-  // Today's points: per-player aggregates from matches with both scores entered.
-  const sessionPoints = useMemo(() => {
-    if (!data) return [] as { id: number; name: string; totalPoints: number; matchesScored: number; bestSingleMatch: number; pointsConceded: number; pointDiff: number; avgPoints: number }[];
-    type Acc = { id: number; name: string; totalPoints: number; matchesScored: number; bestSingleMatch: number; pointsConceded: number };
-    const byPlayer = new Map<number, Acc>();
-    for (const m of data.matches) {
-      if (m.teamAScore === null || m.teamBScore === null) continue;
-      for (const team of ["A", "B"] as const) {
-        const players = team === "A" ? m.teamA : m.teamB;
-        const own = team === "A" ? m.teamAScore : m.teamBScore;
-        const opp = team === "A" ? m.teamBScore : m.teamAScore;
-        for (const p of players) {
-          const cur = byPlayer.get(p.id) ?? { id: p.id, name: p.name, totalPoints: 0, matchesScored: 0, bestSingleMatch: 0, pointsConceded: 0 };
-          cur.totalPoints += own;
-          cur.pointsConceded += opp;
-          cur.matchesScored += 1;
-          if (own > cur.bestSingleMatch) cur.bestSingleMatch = own;
-          byPlayer.set(p.id, cur);
-        }
-      }
-    }
-    return Array.from(byPlayer.values())
-      .map((a) => ({
-        ...a,
-        pointDiff: a.totalPoints - a.pointsConceded,
-        avgPoints: a.matchesScored > 0 ? Math.round((a.totalPoints / a.matchesScored) * 10) / 10 : 0,
-      }))
-      .sort((a, b) => b.totalPoints - a.totalPoints || b.bestSingleMatch - a.bestSingleMatch || a.name.localeCompare(b.name));
-  }, [data]);
-
-  // Today's Best Synergy: pair of teammates with most wins together today.
-  // Ties broken by highest win%, then by alphabetical names.
-  const todaySynergy = useMemo(() => {
-    if (!data) return [] as { p1: string; p2: string; wins: number; played: number; pct: number }[];
-    type Acc = { p1Id: number; p2Id: number; p1: string; p2: string; wins: number; played: number };
-    const byPair = new Map<string, Acc>();
-    function add(a: Player, b: Player, won: boolean) {
-      const [low, high] = a.id < b.id ? [a, b] : [b, a];
-      const key = `${low.id}-${high.id}`;
-      const cur = byPair.get(key) ?? { p1Id: low.id, p2Id: high.id, p1: low.name, p2: high.name, wins: 0, played: 0 };
-      cur.played += 1;
-      if (won) cur.wins += 1;
-      byPair.set(key, cur);
-    }
-    for (const m of data.matches) {
-      if (!m.winner) continue;
-      if (m.teamA.length === 2) add(m.teamA[0], m.teamA[1], m.winner === "A");
-      if (m.teamB.length === 2) add(m.teamB[0], m.teamB[1], m.winner === "B");
-    }
-    return Array.from(byPair.values())
-      .map((p) => ({ p1: p.p1, p2: p.p2, wins: p.wins, played: p.played, pct: p.played ? Math.round((p.wins / p.played) * 1000) / 10 : 0 }))
-      .filter((p) => p.wins > 0)
-      .sort((a, b) => b.wins - a.wins || b.pct - a.pct || a.p1.localeCompare(b.p1) || a.p2.localeCompare(b.p2));
-  }, [data]);
-
-  // Pre-match win probabilities. Server returns playerPriorPcts frozen at this
-  // session's date (only sessions strictly before count), so past fixtures'
-  // expected % never drifts as new sessions are added. Players with no prior
-  // data are assumed average (0.5). Every fixture gets a probability.
-  // High-impact = winner had < 50% expected probability (any underdog win).
-  const HIGH_IMPACT_THRESHOLD = 0.50;
-  const DEFAULT_PRIOR = 0.5;
-  const matchProbs = useMemo(() => {
-    const map = new Map<number, { probA: number; probB: number; winnerProb: number | null }>();
-    if (!data) return map;
-
-    const priorPct = new Map<number, number>();
-    for (const [pid, rate] of Object.entries(data.playerPriorPcts || {})) {
-      priorPct.set(parseInt(pid), rate);
-    }
-
-    function getPrior(id: number) {
-      return priorPct.has(id) ? priorPct.get(id)! : DEFAULT_PRIOR;
-    }
-
-    for (const m of data.matches) {
-      const aIds = m.teamA.map((p) => p.id);
-      const bIds = m.teamB.map((p) => p.id);
-      if (aIds.length !== 2 || bIds.length !== 2) continue;
-
-      const strA = (getPrior(aIds[0]) + getPrior(aIds[1])) / 2;
-      const strB = (getPrior(bIds[0]) + getPrior(bIds[1])) / 2;
-      const total = strA + strB;
-      if (total === 0) continue;
-
-      const probA = strA / total;
-      const probB = strB / total;
-      const winnerProb = m.winner === "A" ? probA : m.winner === "B" ? probB : null;
-      map.set(m.id, { probA, probB, winnerProb });
-    }
-    return map;
-  }, [data]);
-
-  const highImpactCount = useMemo(() => {
-    let n = 0;
-    matchProbs.forEach((v) => {
-      if (v && v.winnerProb !== null && v.winnerProb < HIGH_IMPACT_THRESHOLD) n++;
-    });
-    return n;
-  }, [matchProbs]);
 
   function buildShareText() {
     if (!data) return "";
@@ -559,6 +306,13 @@ export default function MatchesPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch),
     });
+  }
+
+  // Toggle a couple's kid flag: update the draft + persist, paired (used by SetupCard).
+  function toggleKid(key: CoupleKey, next: boolean) {
+    if (key === "bamHari") { setBamHariKidDraft(next); saveConfig({ bamHariKid: next }); }
+    else if (key === "arunDeep") { setArunDeepKidDraft(next); saveConfig({ arunDeepKid: next }); }
+    else { setAvinashSharmiliKidDraft(next); saveConfig({ avinashSharmiliKid: next }); }
   }
 
   async function generate() {
@@ -878,152 +632,36 @@ export default function MatchesPage() {
         ) : data ? (
           <>
             {/* Setup accordion */}
-            <button
-              onClick={() => setOpenSetup(!openSetup)}
-              className="w-full bg-white rounded-2xl shadow-sm border border-slate-100 px-4 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors"
-            >
-              <span className="font-bold text-slate-800 text-sm flex items-center gap-2">
-                <span>⚙️</span>
-                <span>Setup &amp; attendance</span>
-              </span>
-              <span className="text-slate-400 text-sm">{openSetup ? "▴" : "▾"}</span>
-            </button>
-            {openSetup && (
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">👥</span>
-                  <h2 className="font-bold text-gray-800 text-sm">Attending</h2>
-                </div>
-                <span className="text-white text-xs font-bold px-3 py-1 rounded-full bg-gradient-to-r from-amber-400 to-orange-500">
-                  {attendingCount} player{attendingCount === 1 ? "" : "s"}
-                </span>
-              </div>
-              {attendingCount === 0 ? (
-                <p className="text-xs text-gray-400">No one marked attending. Edit attendance in History.</p>
-              ) : (
-                <div className="flex flex-wrap gap-1.5">
-                  {data.session.attending.map((p) => (
-                    <span key={p.id} className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 text-xs font-semibold">
-                      {p.avatar && <span className="mr-1">{p.avatar}</span>}{p.name}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {!locked && (() => {
-                const attendingIds = new Set(data.session.attending.map((p) => p.id));
-                const missing = data.allPlayers.filter((p) => !attendingIds.has(p.id));
-                if (missing.length === 0) return null;
-                return (
-                  <div className="space-y-1.5">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">+ Add late joiner</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {missing.map((p) => (
-                        <button
-                          key={p.id}
-                          onClick={() => addAttendee(p.id)}
-                          className="px-2.5 py-1 rounded-full bg-slate-50 text-slate-600 text-xs font-semibold border border-dashed border-slate-300 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-300 active:scale-95 transition-all"
-                        >
-                          + {p.avatar && <span className="mr-0.5">{p.avatar}</span>}{p.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {!locked && (
-                <div className="pt-2 border-t border-gray-100 space-y-3">
-                  {visibleCouples.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-xs text-gray-400 font-semibold">Kid present? (couple can&apos;t play same match)</p>
-                      {visibleCouples.map((c) => {
-                        const flag =
-                          c.key === "bamHari" ? bamHariKidDraft :
-                          c.key === "arunDeep" ? arunDeepKidDraft :
-                          avinashSharmiliKidDraft;
-                        return (
-                          <button
-                            key={c.key}
-                            onClick={() => {
-                              const next = !flag;
-                              if (c.key === "bamHari") { setBamHariKidDraft(next); saveConfig({ bamHariKid: next }); }
-                              else if (c.key === "arunDeep") { setArunDeepKidDraft(next); saveConfig({ arunDeepKid: next }); }
-                              else { setAvinashSharmiliKidDraft(next); saveConfig({ avinashSharmiliKid: next }); }
-                            }}
-                            className={`w-full flex items-center justify-between px-4 py-2.5 rounded-2xl transition-all active:scale-[0.98] ${
-                              flag ? "bg-rose-50 border-2 border-rose-200" : "bg-gray-50 border-2 border-transparent"
-                            }`}
-                          >
-                            <span className={`text-sm font-semibold ${flag ? "text-rose-800" : "text-gray-500"}`}>
-                              👶 {c.label}
-                            </span>
-                            <div className={`w-6 h-6 rounded-full flex items-center justify-center ${flag ? "bg-rose-500" : "bg-white border-2 border-gray-200"}`}>
-                              {flag && <span className="text-white text-xs font-bold">✓</span>}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  <button
-                    onClick={generate}
-                    disabled={!canGenerate || busy}
-                    className={`w-full py-3.5 rounded-2xl font-bold text-sm transition-all active:scale-[0.98] ${
-                      canGenerate
-                        ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-200 hover:from-amber-600 hover:to-orange-600"
-                        : "bg-gray-100 text-gray-400"
-                    } disabled:opacity-50`}
-                  >
-                    {busy
-                      ? "Working…"
-                      : !canGenerate
-                      ? "Need 4+ attending players"
-                      : data.matches.length > 0
-                      ? "🔄 Reset & start over"
-                      : "🎲 Generate Match 1"}
-                  </button>
-
-                  {error && (
-                    <p className="text-xs text-rose-600 font-medium bg-rose-50 px-3 py-2 rounded-xl">{error}</p>
-                  )}
-                </div>
-              )}
-            </div>
-            )}
+            <SetupCard
+              open={openSetup}
+              onToggle={() => setOpenSetup(!openSetup)}
+              attending={data.session.attending}
+              attendingCount={attendingCount}
+              allPlayers={data.allPlayers}
+              visibleCouples={visibleCouples}
+              locked={locked}
+              busy={busy}
+              canGenerate={canGenerate}
+              hasMatches={data.matches.length > 0}
+              kidDrafts={{
+                bamHari: bamHariKidDraft,
+                arunDeep: arunDeepKidDraft,
+                avinashSharmili: avinashSharmiliKidDraft,
+              }}
+              onToggleKid={toggleKid}
+              onGenerate={generate}
+              onAddAttendee={addAttendee}
+              error={error}
+            />
 
             {/* 🧠 Today's Intel accordion */}
-            {(intelLoading || (intel && intel.length > 0)) && (
-              <>
-                <button
-                  onClick={() => setOpenIntel(!openIntel)}
-                  className="w-full bg-white rounded-2xl shadow-sm border border-slate-100 px-4 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors"
-                >
-                  <span className="font-bold text-slate-800 text-sm flex items-center gap-2">
-                    <span>🧠</span>
-                    <span>Today&apos;s Intel</span>
-                  </span>
-                  <span className="text-slate-400 text-sm">{openIntel ? "▴" : "▾"}</span>
-                </button>
-                {openIntel && (
-                  <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 space-y-2">
-                    {intelLoading ? (
-                      <div className="flex justify-center py-4">
-                        <div className="w-8 h-8 rounded-full border-4 border-indigo-200 border-t-indigo-500 animate-spin" />
-                      </div>
-                    ) : intelError ? (
-                      <p className="text-xs text-rose-600 font-medium">{intelError}</p>
-                    ) : (
-                      intel?.map((bullet, i) => (
-                        <p key={i} className="text-sm text-gray-700 leading-snug">{bullet}</p>
-                      ))
-                    )}
-                  </div>
-                )}
-              </>
-            )}
+            <IntelAccordion
+              open={openIntel}
+              loading={intelLoading}
+              error={intelError}
+              bullets={intel}
+              onToggle={() => setOpenIntel(!openIntel)}
+            />
 
             {/* Fixtures + Stats wrap: when all matches are done, Stats moves above Fixtures */}
             <div className="flex flex-col gap-4">
@@ -1094,173 +732,30 @@ export default function MatchesPage() {
                   );
 
                   return (
-                    <div key={m.id} className="space-y-1">
-                      {sectionLabel && (
-                        <p className={`text-[10px] font-bold uppercase tracking-wider mt-1 ${
-                          isActive ? "text-indigo-700" : "text-slate-400"
-                        }`}>
-                          {sectionLabel}
-                        </p>
-                      )}
-                      <div
-                        className={`rounded-2xl overflow-hidden transition-all ${
-                          isActive
-                            ? "border-2 border-indigo-400 shadow-lg shadow-indigo-100 bg-indigo-50/30"
-                            : m.winner
-                            ? "border border-slate-100 bg-slate-50 opacity-95"
-                            : "border border-gray-100 bg-gray-50"
-                        }`}
-                      >
-                      <div className={`flex items-center justify-between px-4 py-2 ${isActive ? "bg-indigo-50" : "bg-white"} border-b ${isActive ? "border-indigo-100" : "border-gray-100"}`}>
-                        <span className="text-xs font-bold text-gray-500 flex items-center gap-2 flex-wrap">
-                          Match #{m.matchNumber}
-                          {isActive && (
-                            <span className="text-[10px] font-extrabold text-white bg-indigo-600 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                              🔴 Live
-                            </span>
-                          )}
-                          {!matchCompleted(m) && (() => {
-                            const probs = matchProbs.get(m.id);
-                            if (!probs) return null;
-                            return (
-                              <span className="text-[10px] font-normal text-gray-400">
-                                A {Math.round(probs.probA * 100)}% · B {Math.round(probs.probB * 100)}%
-                              </span>
-                            );
-                          })()}
-                        </span>
-                        {!locked && (
-                          <div className="flex items-center gap-1">
-                            <MatchMicButton
-                              sessionId={data.session.id}
-                              match={{ matchNumber: m.matchNumber, teamA: m.teamA, teamB: m.teamB }}
-                              onSaved={() => load(selectedDate, selectedSport)}
-                            />
-                            <button
-                              onClick={() => (isEditing ? (setEditingMatchId(null), setEditDraft(null)) : startEdit(m))}
-                              className="text-xs font-semibold text-indigo-600 hover:bg-indigo-50 px-2 py-1 rounded-full transition-colors"
-                            >
-                              {isEditing ? "Cancel" : "Edit"}
-                            </button>
-                            <button
-                              onClick={() => deleteMatch(m.id)}
-                              className="text-xs font-semibold text-rose-600 hover:bg-rose-50 px-2 py-1 rounded-full transition-colors"
-                            >
-                              🗑
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      {(violated || droppedFromAttendance) && !isEditing && (
-                        <div className="px-4 py-1.5 text-[11px] font-semibold bg-amber-50 text-amber-700 border-b border-amber-100">
-                          {violated && <>⚠ {violated} both in this match. </>}
-                          {droppedFromAttendance && <>⚠ Includes a player no longer attending.</>}
-                        </div>
-                      )}
-
-                      {isEditing && editDraft ? (
-                        <div className="p-3 space-y-3 bg-white">
-                          {(["a1", "a2", "b1", "b2"] as const).map((slot, idx) => (
-                            <div key={slot} className="flex items-center gap-2">
-                              <span className="text-xs font-bold text-gray-500 w-14">
-                                {idx < 2 ? "Team A" : "Team B"}
-                              </span>
-                              <select
-                                value={editDraft[slot]}
-                                onChange={(e) => setEditDraft({ ...editDraft, [slot]: parseInt(e.target.value) })}
-                                className="flex-1 bg-gray-50 border-2 border-transparent focus:border-indigo-300 rounded-xl px-3 py-2 text-sm font-medium text-gray-800 focus:outline-none"
-                              >
-                                <option value={0}>—</option>
-                                {data.session.attending.map((p) => (
-                                  <option key={p.id} value={p.id}>
-                                    {p.name}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                          ))}
-                          <button
-                            onClick={saveEdit}
-                            className="w-full py-2.5 rounded-xl bg-indigo-500 text-white text-sm font-bold hover:bg-indigo-600 transition-colors"
-                          >
-                            Save override
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-2 divide-x divide-gray-100">
-                          {(["A", "B"] as const).map((team) => {
-                            const players = team === "A" ? m.teamA : m.teamB;
-                            const isWinner = m.winner === team && matchCompleted(m);
-                            const isLoser = matchCompleted(m) && m.winner !== team;
-                            return (
-                              <button
-                                key={team}
-                                onClick={() => !locked && setWinner(m.id, m.winner, team)}
-                                disabled={locked}
-                                className={`px-3 py-3 text-left transition-colors ${
-                                  isWinner
-                                    ? "bg-emerald-50"
-                                    : isLoser
-                                    ? "bg-gray-50 opacity-60"
-                                    : locked
-                                    ? "cursor-default"
-                                    : "hover:bg-amber-50"
-                                }`}
-                              >
-                                <div className="flex items-center justify-between mb-1.5">
-                                  <span className={`text-[10px] font-bold uppercase tracking-wider ${isWinner ? "text-emerald-700" : "text-gray-400"}`}>
-                                    Team {team}
-                                  </span>
-                                  {isWinner && (
-                                    <span className="text-[10px] font-bold bg-emerald-500 text-white px-2 py-0.5 rounded-full">
-                                      WON
-                                    </span>
-                                  )}
-                                </div>
-                                {players.map((p) => (
-                                  <div key={p.id} className={`text-sm font-semibold ${isWinner ? "text-emerald-900" : "text-gray-700"}`}>
-                                    {p.avatar && <span className="mr-1">{p.avatar}</span>}{p.name}
-                                  </div>
-                                ))}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      {(() => {
-                        if (!matchCompleted(m)) return null;
-                        const probs = matchProbs.get(m.id);
-                        if (!probs) return null;
-                        const a = Math.round(probs.probA * 100);
-                        const b = Math.round(probs.probB * 100);
-                        const isHighImpact =
-                          probs.winnerProb !== null && probs.winnerProb < HIGH_IMPACT_THRESHOLD;
-                        return (
-                          <>
-                            <div className="px-4 py-1.5 text-[10px] font-semibold text-gray-500 border-t border-gray-100 bg-white">
-                              Expected: A {a}% · B {b}%
-                            </div>
-                            {isHighImpact && probs.winnerProb !== null && (
-                              <div className="px-4 py-1.5 text-[11px] font-bold text-rose-700 bg-rose-50 border-t border-rose-100">
-                                🔥 High impact win — Team {m.winner} was {Math.round(probs.winnerProb * 100)}% expected
-                              </div>
-                            )}
-                          </>
-                        );
-                      })()}
-
-                      {!isEditing && !locked && (
-                        <ScoreRow match={m} sport={data.session.sport} onSave={saveScores} />
-                      )}
-                      {!isEditing && locked && (m.teamAScore !== null && m.teamBScore !== null) && (
-                        <div className="px-4 py-1.5 text-[11px] font-semibold text-gray-600 border-t border-gray-100 bg-gray-50 text-center">
-                          Score: <span className="font-bold text-gray-800">{m.teamAScore}</span> – <span className="font-bold text-gray-800">{m.teamBScore}</span>
-                        </div>
-                      )}
-                      </div>
-                    </div>
+                    <FixtureCard
+                      key={m.id}
+                      match={m}
+                      isActive={isActive}
+                      sectionLabel={sectionLabel}
+                      locked={locked}
+                      isEditing={isEditing}
+                      editDraft={editDraft}
+                      attending={data.session.attending}
+                      probs={matchProbs.get(m.id)}
+                      highImpactThreshold={HIGH_IMPACT_THRESHOLD}
+                      violated={violated}
+                      droppedFromAttendance={droppedFromAttendance}
+                      sport={data.session.sport}
+                      sessionId={data.session.id}
+                      onSetWinner={(team) => setWinner(m.id, m.winner, team)}
+                      onStartEdit={() => startEdit(m)}
+                      onCancelEdit={() => { setEditingMatchId(null); setEditDraft(null); }}
+                      onSaveEdit={saveEdit}
+                      onDeleteMatch={() => deleteMatch(m.id)}
+                      onSaveScores={saveScores}
+                      onEditDraftChange={setEditDraft}
+                      onMicSaved={() => load(selectedDate, selectedSport)}
+                    />
                   );
                 })}
               </div>
@@ -1286,234 +781,35 @@ export default function MatchesPage() {
             {openStats && (<>
 
             {/* MVP of the Day */}
-            {sessionFinished && mvps.length > 0 && (
-              <div className="space-y-1.5">
-                <div className="relative overflow-hidden rounded-3xl shadow-lg shadow-amber-200 p-5 bg-gradient-to-br from-yellow-400 via-amber-500 to-orange-500 text-white">
-                  <div className="absolute -top-4 -right-2 text-7xl opacity-15 select-none">🏆</div>
-                  <div className="relative">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-yellow-50/90">
-                      {mvps.length > 1 ? "Co-MVPs of the day" : "MVP of the day"}
-                    </p>
-                    <div className="mt-1 flex items-baseline gap-2 flex-wrap">
-                      {mvps.map((p, i) => (
-                        <span key={p.id} className="text-2xl font-extrabold tracking-tight">
-                          {p.name}{i < mvps.length - 1 ? "," : ""}
-                        </span>
-                      ))}
-                    </div>
-                    <p className="mt-1 text-sm font-semibold text-yellow-50">
-                      MVP score {mvps[0].mvp.toFixed(1)} · {mvps[0].wins}W · {mvps[0].winPct}%
-                      {!useNewMvpFormula && <> · {mvps[0].diversity}% diverse</>}
-                    </p>
-                  </div>
-                </div>
-                <p className="text-[10px] text-slate-500 px-1 leading-relaxed">
-                  {useNewMvpFormula ? (
-                    <>
-                      MVP = <b>60 % wins</b> (relative to day&apos;s max) + <b>40 % win %</b>.
-                    </>
-                  ) : (
-                    <>
-                      MVP = average of three sub-scores: <b>wins</b> (relative to day&apos;s max),
-                      <b> win %</b>, and <b>diversity</b> (Pielou&apos;s evenness² of partner spread).
-                    </>
-                  )}
-                </p>
-              </div>
-            )}
+            {sessionFinished && <MvpCard mvps={mvps} useNewMvpFormula={useNewMvpFormula} />}
 
             {/* Dragon Slayer of the day — beat the toughest opponents (ELO-based) */}
-            {dragonSlayer && (
-              <div className="relative overflow-hidden rounded-3xl shadow-md shadow-rose-200 p-5 bg-gradient-to-br from-rose-500 via-red-600 to-orange-700 text-white">
-                <div className="absolute -top-4 -right-2 text-7xl opacity-15 select-none">🐉</div>
-                <div className="relative">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-rose-50/90">🐉 Dragon Slayer of the day</p>
-                  <p className="mt-1 text-2xl font-extrabold tracking-tight">{dragonSlayer.name}</p>
-                  <p className="mt-1 text-sm font-semibold text-rose-50">Beat the toughest opponents today.</p>
-                </div>
-              </div>
-            )}
+            <DragonSlayerCard dragonSlayer={dragonSlayer} />
 
             {/* Most Improved */}
-            {mostImproved.length > 0 && (
-              <div className="relative overflow-hidden rounded-3xl shadow-md shadow-sky-200 p-5 bg-gradient-to-br from-sky-400 via-cyan-500 to-teal-500 text-white">
-                <div className="absolute -top-3 -right-2 text-6xl opacity-15 select-none">📈</div>
-                <div className="relative">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-50/90">Most Improved today</p>
-                  <p className="mt-1 text-2xl font-extrabold tracking-tight">{mostImproved[0].name}</p>
-                  <p className="mt-1 text-sm font-semibold text-cyan-50">
-                    {mostImproved[0].todayPct}% today · up from {mostImproved[0].priorPct}% career (+{mostImproved[0].delta}%)
-                  </p>
-                  {mostImproved.length > 1 && (
-                    <div className="mt-3 space-y-1 border-t border-white/20 pt-3">
-                      {mostImproved.slice(1).map((p) => (
-                        <div key={p.name} className="flex items-center justify-between text-xs text-cyan-50/90">
-                          <span className="font-semibold">{p.name}</span>
-                          <span>{p.todayPct}% <span className="opacity-70">vs {p.priorPct}%</span> <span className="font-bold">+{p.delta}%</span></span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+            <MostImprovedCard mostImproved={mostImproved} />
 
             {/* Today's Best Synergy */}
-            {todaySynergy.length > 0 && (
-              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5">
-                <h2 className="font-bold text-gray-800 text-sm mb-3 flex items-center gap-2">
-                  🤝 Today&apos;s best pairings
-                </h2>
-                <div className="space-y-1.5">
-                  {todaySynergy.slice(0, 5).map((s) => (
-                    <div
-                      key={`${s.p1}-${s.p2}`}
-                      className="flex items-center justify-between px-3 py-2 rounded-xl bg-gray-50 text-xs"
-                    >
-                      <span className="font-semibold text-gray-700 truncate pr-2">
-                        {s.p1} <span className="text-gray-400">+</span> {s.p2}
-                      </span>
-                      <span className="font-bold text-emerald-600 shrink-0">
-                        {s.wins}W / {s.played}P
-                        <span className="text-gray-400 ml-2">{s.pct}%</span>
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            <SynergyCard synergy={todaySynergy} />
 
             {/* Today's wins — two leaderboards */}
             {data.matches.length > 0 && (
-              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 space-y-5">
-                <div className="flex items-center justify-between gap-2">
-                  <h2 className="font-bold text-gray-800 text-sm flex items-center gap-2">
-                    🥇 Today&apos;s leaderboards
-                  </h2>
-                  {sessionWins.length > 0 && (
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        onClick={generateRecap}
-                        className="text-xs font-bold text-white bg-violet-500 hover:bg-violet-600 active:scale-95 px-3 py-1.5 rounded-full transition-all flex items-center gap-1"
-                        title="Generate AI recap"
-                      >
-                        <span>✨</span>
-                        <span>AI Recap</span>
-                      </button>
-                      <button
-                        onClick={shareOnWhatsApp}
-                        className="text-xs font-bold text-white bg-emerald-500 hover:bg-emerald-600 active:scale-95 px-3 py-1.5 rounded-full transition-all flex items-center gap-1"
-                        title="Share on WhatsApp"
-                      >
-                        <span>📤</span>
-                        <span>WhatsApp</span>
-                      </button>
-                      <button
-                        onClick={copyShareText}
-                        className="text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 active:scale-95 px-3 py-1.5 rounded-full transition-all"
-                        title="Copy summary to clipboard"
-                      >
-                        {copied ? "✓ Copied" : "📋"}
-                      </button>
-                    </div>
-                  )}
-                </div>
-                {sessionWins.length === 0 ? (
-                  <p className="text-xs text-gray-400">No completed matches yet — tap a team to mark the winner.</p>
-                ) : (
-                  <>
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">🏆 By wins</p>
-                      <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 gap-y-1.5 text-xs">
-                        <div className="font-bold text-gray-400 uppercase tracking-wider">Player</div>
-                        <div className="font-bold text-gray-400 uppercase tracking-wider text-right">W</div>
-                        <div className="font-bold text-gray-400 uppercase tracking-wider text-right">P</div>
-                        <div className="font-bold text-gray-400 uppercase tracking-wider text-right">%</div>
-                        {sessionWins.map((s) => (
-                          <PlayerRow key={s.id} stat={s} />
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">🎯 By win %</p>
-                      <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 gap-y-1.5 text-xs">
-                        <div className="font-bold text-gray-400 uppercase tracking-wider">Player</div>
-                        <div className="font-bold text-gray-400 uppercase tracking-wider text-right">W</div>
-                        <div className="font-bold text-gray-400 uppercase tracking-wider text-right">P</div>
-                        <div className="font-bold text-gray-400 uppercase tracking-wider text-right">%</div>
-                        {sessionWinsByPct.map((s) => (
-                          <PlayerRow key={s.id} stat={s} />
-                        ))}
-                      </div>
-                    </div>
-                    {sessionDiversity.length > 0 && (
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">🌐 By diversity</p>
-                        <div className="grid grid-cols-[1fr_auto_auto] gap-x-3 gap-y-1.5 text-xs">
-                          <div className="font-bold text-gray-400 uppercase tracking-wider">Player</div>
-                          <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Partners</div>
-                          <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Score</div>
-                          {sessionDiversity.map((d) => (
-                            <div key={d.id} className="contents">
-                              <div className="font-semibold text-gray-700 truncate">{d.name}</div>
-                              <div className="text-right text-gray-500">{d.distinctPartners} / {d.coAttendees}</div>
-                              <div className="text-right font-bold text-indigo-700">{d.diversity}%</div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
+              <Leaderboards
+                sessionWins={sessionWins}
+                sessionWinsByPct={sessionWinsByPct}
+                sessionDiversity={sessionDiversity}
+                copied={copied}
+                onRecap={generateRecap}
+                onShareWhatsApp={shareOnWhatsApp}
+                onCopy={copyShareText}
+              />
             )}
 
             {/* Today's points (only when at least one match has scores) */}
-            {sessionPoints.length > 0 && (
-              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5">
-                <h2 className="font-bold text-gray-800 text-sm mb-3 flex items-center gap-2">
-                  🎯 Today&apos;s points
-                </h2>
-                <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-2 gap-y-1.5 text-[11px]">
-                  <div className="font-bold text-gray-400 uppercase tracking-wider">Player</div>
-                  <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Tot</div>
-                  <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Avg</div>
-                  <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Best</div>
-                  <div className="font-bold text-gray-400 uppercase tracking-wider text-right">+/−</div>
-                  {sessionPoints.map((p) => (
-                    <div key={p.id} className="contents">
-                      <div className="font-semibold text-gray-700 truncate">{p.name}</div>
-                      <div className="text-right font-bold text-amber-600">{p.totalPoints}</div>
-                      <div className="text-right text-gray-700 font-semibold">{p.avgPoints}</div>
-                      <div className="text-right text-emerald-600 font-semibold">{p.bestSingleMatch}</div>
-                      <div className={`text-right font-bold ${p.pointDiff >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
-                        {p.pointDiff >= 0 ? "+" : ""}{p.pointDiff}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            <PointsTable points={sessionPoints} />
 
             {/* All-time wins */}
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5">
-              <h2 className="font-bold text-gray-800 text-sm mb-3 flex items-center gap-2">
-                📊 All-time wins
-              </h2>
-              {winStats.length === 0 ? (
-                <p className="text-xs text-gray-400">No completed matches yet.</p>
-              ) : (
-                <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 gap-y-1.5 text-xs">
-                  <div className="font-bold text-gray-400 uppercase tracking-wider">Player</div>
-                  <div className="font-bold text-gray-400 uppercase tracking-wider text-right">W</div>
-                  <div className="font-bold text-gray-400 uppercase tracking-wider text-right">P</div>
-                  <div className="font-bold text-gray-400 uppercase tracking-wider text-right">%</div>
-                  {winStats.map((s) => (
-                    <PlayerRow key={s.id} stat={s} />
-                  ))}
-                </div>
-              )}
-            </div>
+            <AllTimeWins winStats={winStats} />
             </>)}
             </div>
             </div>
@@ -1522,201 +818,12 @@ export default function MatchesPage() {
       </div>
 
       {/* AI Recap modal */}
-      {showRecapModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm"
-          onClick={(e) => { if (e.target === e.currentTarget) setShowRecapModal(false); }}
-        >
-          <div className="w-full max-w-lg bg-white rounded-t-3xl p-5 pb-8 space-y-4 shadow-xl">
-            <div className="flex items-center justify-between">
-              <h2 className="font-bold text-gray-800 text-base flex items-center gap-2">✨ AI Session Recap</h2>
-              <button onClick={() => setShowRecapModal(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
-            </div>
-            {recapLoading ? (
-              <div className="flex items-center gap-3 py-6 justify-center text-violet-600">
-                <div className="w-5 h-5 rounded-full border-2 border-violet-300 border-t-violet-600 animate-spin" />
-                <span className="text-sm font-medium">Generating recap…</span>
-              </div>
-            ) : (
-              <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{aiRecap}</p>
-            )}
-            {!recapLoading && aiRecap && (
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    if (aiRecap) window.open(`https://wa.me/?text=${encodeURIComponent(aiRecap)}`, "_blank");
-                  }}
-                  className="flex-1 py-2.5 rounded-2xl text-sm font-bold text-white bg-emerald-500 hover:bg-emerald-600 active:scale-95 transition-all flex items-center justify-center gap-1.5"
-                >
-                  <span>📤</span> Share on WhatsApp
-                </button>
-                <button
-                  onClick={async () => {
-                    if (!aiRecap) return;
-                    try { await navigator.clipboard.writeText(aiRecap); } catch { /* ignore */ }
-                  }}
-                  className="px-4 py-2.5 rounded-2xl text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 active:scale-95 transition-all"
-                >
-                  📋
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function PlayerRow({ stat }: { stat: WinStat }) {
-  return (
-    <>
-      <div className="font-semibold text-gray-700 truncate">{stat.name}</div>
-      <div className="text-right font-bold text-emerald-600">{stat.wins}</div>
-      <div className="text-right text-gray-500">{stat.played}</div>
-      <div className="text-right text-gray-500">{stat.winPct}%</div>
-    </>
-  );
-}
-
-function ScoreRow({ match, sport, onSave }: { match: Match; sport: "BADMINTON" | "PICKLEBALL"; onSave: (id: number, a: number | null, b: number | null) => void }) {
-  const [a, setA] = useState<number | null>(match.teamAScore);
-  const [b, setB] = useState<number | null>(match.teamBScore);
-  const [editingTeam, setEditingTeam] = useState<"A" | "B" | null>(null);
-  const [editVal, setEditVal] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    setA(match.teamAScore);
-    setB(match.teamBScore);
-  }, [match.teamAScore, match.teamBScore]);
-
-  useEffect(() => {
-    if (editingTeam) inputRef.current?.select();
-  }, [editingTeam]);
-
-  function clamp(n: number) { return Math.max(0, Math.min(99, n)); }
-  function persist(aVal: number | null, bVal: number | null) {
-    if (aVal === match.teamAScore && bVal === match.teamBScore) return;
-    onSave(match.id, aVal, bVal);
-  }
-
-  const defaultScore = sport === "PICKLEBALL" ? 11 : 21;
-
-  function bumpFromDefault(team: "A" | "B", delta: number) {
-    const aBase = a ?? defaultScore;
-    const bBase = b ?? defaultScore;
-    if (team === "A") {
-      const aNext = clamp(aBase + delta);
-      setA(aNext);
-      if (b === null) setB(bBase);
-      persist(aNext, bBase);
-    } else {
-      const bNext = clamp(bBase + delta);
-      setB(bNext);
-      if (a === null) setA(aBase);
-      persist(aBase, bNext);
-    }
-  }
-
-  function startEdit(team: "A" | "B") {
-    const current = team === "A" ? (a ?? defaultScore) : (b ?? defaultScore);
-    setEditVal(String(current));
-    setEditingTeam(team);
-  }
-
-  function commitEdit() {
-    if (!editingTeam) return;
-    const parsed = parseInt(editVal, 10);
-    const val = Number.isFinite(parsed) ? clamp(parsed) : null;
-    const aBase = a ?? defaultScore;
-    const bBase = b ?? defaultScore;
-    if (editingTeam === "A") {
-      const aNext = val ?? aBase;
-      setA(aNext);
-      if (b === null) setB(bBase);
-      persist(aNext, b ?? bBase);
-    } else {
-      const bNext = val ?? bBase;
-      setB(bNext);
-      if (a === null) setA(aBase);
-      persist(a ?? aBase, bNext);
-    }
-    setEditingTeam(null);
-  }
-
-  const aDisplay = a ?? defaultScore;
-  const bDisplay = b ?? defaultScore;
-  const aMuted = a === null;
-  const bMuted = b === null;
-
-  function scoreDisplay(team: "A" | "B") {
-    const display = team === "A" ? aDisplay : bDisplay;
-    const muted = team === "A" ? aMuted : bMuted;
-    if (editingTeam === team) {
-      return (
-        <input
-          ref={inputRef}
-          type="number"
-          inputMode="numeric"
-          value={editVal}
-          onChange={(e) => setEditVal(e.target.value)}
-          onBlur={commitEdit}
-          onKeyDown={(e) => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") setEditingTeam(null); }}
-          className="w-9 text-center text-sm font-bold tabular-nums bg-white border border-blue-400 rounded outline-none text-slate-800"
-        />
-      );
-    }
-    return (
-      <button
-        onClick={() => startEdit(team)}
-        className={`w-9 text-center text-sm font-bold tabular-nums rounded hover:bg-slate-200 active:scale-95 ${muted ? "text-slate-400" : "text-slate-800"}`}
-        aria-label={`Edit team ${team} score`}
-      >
-        {display}
-      </button>
-    );
-  }
-
-  return (
-    <div className="border-t border-slate-100 bg-white px-3 py-2 flex items-center justify-center gap-3">
-      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">A</span>
-      <div className="flex items-center bg-slate-50 rounded-full">
-        <button
-          onClick={() => bumpFromDefault("A", -1)}
-          aria-label="Decrease team A score"
-          className="w-8 h-8 flex items-center justify-center text-slate-600 hover:bg-slate-200 active:scale-95 font-bold text-base rounded-l-full"
-        >
-          −
-        </button>
-        {scoreDisplay("A")}
-        <button
-          onClick={() => bumpFromDefault("A", 1)}
-          aria-label="Increase team A score"
-          className="w-8 h-8 flex items-center justify-center text-slate-600 hover:bg-slate-200 active:scale-95 font-bold text-base rounded-r-full"
-        >
-          +
-        </button>
-      </div>
-      <span className="text-slate-300 font-bold">–</span>
-      <div className="flex items-center bg-slate-50 rounded-full">
-        <button
-          onClick={() => bumpFromDefault("B", -1)}
-          aria-label="Decrease team B score"
-          className="w-8 h-8 flex items-center justify-center text-slate-600 hover:bg-slate-200 active:scale-95 font-bold text-base rounded-l-full"
-        >
-          −
-        </button>
-        {scoreDisplay("B")}
-        <button
-          onClick={() => bumpFromDefault("B", 1)}
-          aria-label="Increase team B score"
-          className="w-8 h-8 flex items-center justify-center text-slate-600 hover:bg-slate-200 active:scale-95 font-bold text-base rounded-r-full"
-        >
-          +
-        </button>
-      </div>
-      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">B</span>
+      <RecapModal
+        open={showRecapModal}
+        loading={recapLoading}
+        recap={aiRecap}
+        onClose={() => setShowRecapModal(false)}
+      />
     </div>
   );
 }
