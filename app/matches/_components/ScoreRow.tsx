@@ -91,14 +91,14 @@ export default function ScoreRow({ match, sport, onSave }: { match: Match; sport
           onChange={(e) => setEditVal(e.target.value)}
           onBlur={commitEdit}
           onKeyDown={(e) => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") setEditingTeam(null); }}
-          className="w-9 text-center text-sm font-bold tabular-nums bg-white border border-blue-400 rounded outline-none text-slate-800"
+          className="w-9 text-center text-sm font-bold tabular-nums bg-surface border border-accent rounded outline-none text-text"
         />
       );
     }
     return (
       <button
         onClick={() => startEdit(team)}
-        className={`w-9 text-center text-sm font-bold tabular-nums rounded hover:bg-slate-200 active:scale-95 ${muted ? "text-slate-400" : "text-slate-800"}`}
+        className={`w-9 text-center text-sm font-bold tabular-nums rounded hover:bg-surface-hover active:scale-95 ${muted ? "text-faint" : "text-text"}`}
         aria-label={`Edit team ${team} score`}
       >
         {display}
@@ -107,13 +107,13 @@ export default function ScoreRow({ match, sport, onSave }: { match: Match; sport
   }
 
   return (
-    <div className="border-t border-slate-100 bg-white px-3 py-2 flex items-center justify-center gap-3">
-      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">A</span>
-      <div className="flex items-center bg-slate-50 rounded-full">
+    <div className="border-t border-border bg-surface-raised px-3 py-2 flex items-center justify-center gap-3">
+      <span className="text-[10px] font-bold uppercase tracking-wider text-faint">A</span>
+      <div className="flex items-center bg-surface-hover rounded-full">
         <button
           onClick={() => bumpFromDefault("A", -1)}
           aria-label="Decrease team A score"
-          className="w-8 h-8 flex items-center justify-center text-slate-600 hover:bg-slate-200 active:scale-95 font-bold text-base rounded-l-full"
+          className="w-8 h-8 flex items-center justify-center text-muted hover:bg-surface active:scale-95 font-bold text-base rounded-l-full"
         >
           −
         </button>
@@ -121,17 +121,17 @@ export default function ScoreRow({ match, sport, onSave }: { match: Match; sport
         <button
           onClick={() => bumpFromDefault("A", 1)}
           aria-label="Increase team A score"
-          className="w-8 h-8 flex items-center justify-center text-slate-600 hover:bg-slate-200 active:scale-95 font-bold text-base rounded-r-full"
+          className="w-8 h-8 flex items-center justify-center text-muted hover:bg-surface active:scale-95 font-bold text-base rounded-r-full"
         >
           +
         </button>
       </div>
-      <span className="text-slate-300 font-bold">–</span>
-      <div className="flex items-center bg-slate-50 rounded-full">
+      <span className="text-faint font-bold">–</span>
+      <div className="flex items-center bg-surface-hover rounded-full">
         <button
           onClick={() => bumpFromDefault("B", -1)}
           aria-label="Decrease team B score"
-          className="w-8 h-8 flex items-center justify-center text-slate-600 hover:bg-slate-200 active:scale-95 font-bold text-base rounded-l-full"
+          className="w-8 h-8 flex items-center justify-center text-muted hover:bg-surface active:scale-95 font-bold text-base rounded-l-full"
         >
           −
         </button>
@@ -139,12 +139,12 @@ export default function ScoreRow({ match, sport, onSave }: { match: Match; sport
         <button
           onClick={() => bumpFromDefault("B", 1)}
           aria-label="Increase team B score"
-          className="w-8 h-8 flex items-center justify-center text-slate-600 hover:bg-slate-200 active:scale-95 font-bold text-base rounded-r-full"
+          className="w-8 h-8 flex items-center justify-center text-muted hover:bg-surface active:scale-95 font-bold text-base rounded-r-full"
         >
           +
         </button>
       </div>
-      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">B</span>
+      <span className="text-[10px] font-bold uppercase tracking-wider text-faint">B</span>
     </div>
   );
 }

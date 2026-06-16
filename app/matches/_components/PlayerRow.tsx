@@ -5,10 +5,10 @@ import { type WinStat } from "./types";
 export default function PlayerRow({ stat }: { stat: WinStat }) {
   return (
     <>
-      <div className="font-semibold text-gray-700 truncate">{stat.name}</div>
-      <div className="text-right font-bold text-emerald-600">{stat.wins}</div>
-      <div className="text-right text-gray-500">{stat.played}</div>
-      <div className="text-right text-gray-500">{stat.winPct}%</div>
+      <div className="font-semibold text-text truncate">{stat.name}</div>
+      <div className="text-right font-bold text-accent-2">{stat.wins}</div>
+      <div className="text-right text-muted">{stat.played}</div>
+      <div className="text-right text-muted">{stat.winPct}%</div>
     </>
   );
 }

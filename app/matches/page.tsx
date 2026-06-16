@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import confetti from "canvas-confetti";
+import { ArrowLeft, Calendar, ChevronDown, ChevronUp, Play } from "lucide-react";
 import { usePullToRefresh } from "../hooks/usePullToRefresh";
 import PullIndicator from "../components/PullIndicator";
 import {
@@ -24,6 +25,11 @@ import Leaderboards from "./_components/Leaderboards";
 import IntelAccordion from "./_components/IntelAccordion";
 import RecapModal from "./_components/RecapModal";
 import { useSessionStats } from "./_hooks/useSessionStats";
+import Card from "../components/ui/Card";
+import Button from "../components/ui/Button";
+import Skeleton from "../components/ui/Skeleton";
+import EmptyState from "../components/ui/EmptyState";
+import { useToast } from "../components/ui/ToastProvider";
 
 const IST = "Asia/Kolkata";
 
@@ -43,6 +49,7 @@ function formatDisplay(dateStr: string) {
 
 export default function MatchesPage() {
   const todayStr = toDateInput(new Date());
+  const { showToast } = useToast();
 
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [selectedSport, setSelectedSport] = useState<"BADMINTON" | "PICKLEBALL">("BADMINTON");
@@ -313,7 +320,9 @@ export default function MatchesPage() {
     });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
-      setError(j.error || "Couldn't generate fixtures");
+      const msg = j.error || "Couldn't generate fixtures";
+      setError(msg);
+      showToast(msg, "danger");
     } else {
       await load(selectedDate);
     }
@@ -331,7 +340,9 @@ export default function MatchesPage() {
     });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
-      setError(j.error || "Couldn't generate next match");
+      const msg = j.error || "Couldn't generate next match";
+      setError(msg);
+      showToast(msg, "danger");
     } else {
       await load(selectedDate);
     }
@@ -357,6 +368,7 @@ export default function MatchesPage() {
       body: JSON.stringify({ winner: next }),
     });
     if (!res.ok) {
+      showToast("Couldn't update winner", "danger");
       load(selectedDate);
     } else {
       const ws = await fetch(`/api/stats/wins`);
@@ -383,6 +395,7 @@ export default function MatchesPage() {
       body: JSON.stringify({ teamAScore: aScore, teamBScore: bScore }),
     });
     if (!res.ok) {
+      showToast("Couldn't save scores", "danger");
       load(selectedDate);
     } else {
       const ws = await fetch(`/api/stats/wins`);
@@ -392,7 +405,8 @@ export default function MatchesPage() {
 
   async function deleteMatch(matchId: number) {
     if (!window.confirm("Delete this match?")) return;
-    await fetch(`/api/matches/${matchId}`, { method: "DELETE" });
+    const res = await fetch(`/api/matches/${matchId}`, { method: "DELETE" });
+    if (!res.ok) showToast("Couldn't delete match", "danger");
     load(selectedDate);
   }
 
@@ -417,7 +431,9 @@ export default function MatchesPage() {
       // Roll back and surface error.
       await load(selectedDate);
       const j = await res.json().catch(() => ({}));
-      setError(j.error || "Couldn't add attendee");
+      const msg = j.error || "Couldn't add attendee";
+      setError(msg);
+      showToast(msg, "danger");
     }
   }
 
@@ -437,7 +453,9 @@ export default function MatchesPage() {
     });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
-      setError(j.error || "Couldn't finish session");
+      const msg = j.error || "Couldn't finish session";
+      setError(msg);
+      showToast(msg, "danger");
     } else {
       await load(selectedDate);
     }
@@ -455,7 +473,9 @@ export default function MatchesPage() {
     });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
-      setError(j.error || "Couldn't reopen session");
+      const msg = j.error || "Couldn't reopen session";
+      setError(msg);
+      showToast(msg, "danger");
     } else {
       await load(selectedDate);
     }
@@ -494,7 +514,9 @@ export default function MatchesPage() {
     });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
-      setError(j.error || "Couldn't update");
+      const msg = j.error || "Couldn't update";
+      setError(msg);
+      showToast(msg, "danger");
       return;
     }
     setEditingMatchId(null);
@@ -528,8 +550,8 @@ export default function MatchesPage() {
       <PullIndicator distance={pull.distance} refreshing={pull.refreshing} threshold={pull.threshold} />
       <div className="relative overflow-hidden app-header px-5 pt-12 pb-8">
         <div className="relative flex items-start gap-3">
-          <Link href="/" className="mt-1 w-9 h-9 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors font-bold">
-            ←
+          <Link href="/" aria-label="Back" className="mt-1 w-9 h-9 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors">
+            <ArrowLeft size={18} strokeWidth={2.5} />
           </Link>
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight flex items-center gap-2">
@@ -546,26 +568,26 @@ export default function MatchesPage() {
       <div className="px-4 py-5 max-w-lg mx-auto space-y-4">
 
         {/* Date — compact one-row picker */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-3 py-2 flex items-center gap-2">
-          <span className="text-base shrink-0" aria-hidden>📅</span>
+        <Card padding="sm" className="flex items-center gap-2">
+          <Calendar size={16} className="text-faint shrink-0" />
           <input
             type="date"
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
-            className="flex-1 min-w-0 bg-transparent text-sm font-semibold text-slate-800 focus:outline-none"
+            className="flex-1 min-w-0 bg-transparent text-sm font-semibold text-text focus:outline-none [color-scheme:dark]"
           />
           {selectedDate !== todayStr && (
             <button
               onClick={() => setSelectedDate(todayStr)}
-              className="shrink-0 text-xs text-indigo-700 font-bold bg-indigo-50 px-3 py-1 rounded-full hover:bg-indigo-100 transition-colors"
+              className="shrink-0 text-xs text-accent-2 font-bold bg-accent/15 px-3 py-1 rounded-full hover:bg-accent/25 transition-colors"
             >
               Today
             </button>
           )}
-        </div>
+        </Card>
 
         {/* Sport — compact segmented control */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-1 flex gap-1">
+        <Card padding="sm" className="flex gap-1">
           {([
             { v: "BADMINTON" as const, label: "🏸 Badminton" },
             { v: "PICKLEBALL" as const, label: "🥒 Pickleball" },
@@ -576,35 +598,50 @@ export default function MatchesPage() {
                 key={opt.v}
                 onClick={() => setSelectedSport(opt.v)}
                 className={`flex-1 py-2 rounded-xl text-xs font-bold transition-colors ${
-                  on ? "bg-indigo-500 text-white" : "text-slate-500 hover:bg-slate-50"
+                  on ? "bg-gradient-to-br from-accent to-accent-2 text-white" : "text-muted hover:bg-surface-hover"
                 }`}
               >
                 {opt.label}
               </button>
             );
           })}
-        </div>
+        </Card>
 
         {locked && (
-          <div className="rounded-2xl border border-amber-300 bg-amber-50 text-amber-800 px-4 py-3 text-xs font-semibold flex items-start gap-2">
+          <div className="rounded-2xl border border-warn/30 bg-warn/10 text-amber-400 px-4 py-3 text-xs font-semibold flex items-start gap-2">
             <span className="text-base leading-tight">🔒</span>
             <span>This session is locked — entries can only be edited within 2 days of the match date.</span>
           </div>
         )}
 
         {loading ? (
-          <div className="flex justify-center py-16">
-            <div className="w-10 h-10 rounded-full border-4 border-amber-200 border-t-amber-500 animate-spin" />
+          <div className="space-y-4">
+            <Card>
+              <Skeleton className="h-4 w-32 mb-4" />
+              <div className="space-y-3">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            </Card>
+            <Card>
+              <Skeleton className="h-4 w-24 mb-4" />
+              <Skeleton className="h-16 w-full" />
+            </Card>
           </div>
         ) : noSession ? (
-          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 text-center">
-            <div className="text-4xl mb-3">📝</div>
-            <p className="text-gray-600 font-semibold text-sm">No entry for this date yet</p>
-            <p className="text-gray-400 text-xs mt-1 mb-4">Add the day&apos;s attendance on the home page first.</p>
-            <Link href="/" className="inline-block px-4 py-2 rounded-full bg-amber-500 text-white text-sm font-bold hover:bg-amber-600 transition-colors">
-              Go to Home →
-            </Link>
-          </div>
+          <Card padding="lg">
+            <EmptyState
+              icon={<span>📝</span>}
+              title="No entry for this date yet"
+              subtitle="Add the day's attendance on the home page first."
+              action={
+                <Link href="/">
+                  <Button variant="primary" size="sm">Go to Home →</Button>
+                </Link>
+              }
+            />
+          </Card>
         ) : data ? (
           <>
             {/* Setup accordion */}
@@ -644,10 +681,10 @@ export default function MatchesPage() {
             <div className={sessionFinished ? "order-2" : "order-1"}>
             {/* Matches list */}
             {data.matches.length > 0 && (
-              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 space-y-3">
+              <Card className="space-y-3">
                 <div className="flex items-center justify-between px-1">
-                  <h2 className="font-bold text-gray-800 text-sm">🏸 Fixtures</h2>
-                  <span className="text-xs text-gray-400 font-medium">
+                  <h2 className="font-bold text-text text-sm">🏸 Fixtures</h2>
+                  <span className="text-xs text-faint font-medium">
                     {data.matches.filter((m) => m.winner).length} / {data.matches.length} played
                   </span>
                 </div>
@@ -656,31 +693,25 @@ export default function MatchesPage() {
                     Finish appear once the current match is complete; Reopen after finish. */}
                 {!locked && !sessionFinished && data.matches.length > 0 && data.matches.every(matchCompleted) && (
                   <div className="space-y-2">
-                    <button
-                      onClick={nextMatch}
-                      disabled={busy}
-                      className="w-full py-3 rounded-2xl font-bold text-sm bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-md shadow-indigo-200 hover:from-indigo-600 hover:to-violet-600 active:scale-[0.98] transition-all disabled:opacity-50"
-                    >
-                      {busy ? "Working…" : "▶ Next Match"}
-                    </button>
-                    <button
+                    <Button onClick={nextMatch} disabled={busy} loading={busy} className="w-full">
+                      {!busy && <Play size={15} fill="currentColor" />} Next Match
+                    </Button>
+                    <Button
                       onClick={finishSession}
                       disabled={busy}
-                      className="w-full py-2.5 rounded-2xl text-sm font-bold bg-emerald-50 border-2 border-emerald-200 text-emerald-700 hover:bg-emerald-100 active:scale-[0.98] transition-all disabled:opacity-50"
+                      loading={busy}
+                      variant="secondary"
+                      className="w-full !border-accent/30 !text-accent-2 hover:!bg-accent/10"
                     >
-                      {busy ? "Working…" : "🏁 Finish session & crown MVP"}
-                    </button>
+                      {!busy && <span>🏁</span>} Finish session &amp; crown MVP
+                    </Button>
                   </div>
                 )}
 
                 {!locked && sessionFinished && (
-                  <button
-                    onClick={reopenSession}
-                    disabled={busy}
-                    className="w-full py-2.5 rounded-2xl text-sm font-bold bg-slate-50 border-2 border-slate-200 text-slate-600 hover:bg-slate-100 active:scale-[0.98] transition-all disabled:opacity-50"
-                  >
-                    {busy ? "Working…" : "↩ Reopen session"}
-                  </button>
+                  <Button onClick={reopenSession} disabled={busy} loading={busy} variant="secondary" className="w-full">
+                    {!busy && <span>↩</span>} Reopen session
+                  </Button>
                 )}
 
                 {(() => {
@@ -728,7 +759,7 @@ export default function MatchesPage() {
                     />
                   );
                 })}
-              </div>
+              </Card>
             )}
             </div>
 
@@ -736,9 +767,9 @@ export default function MatchesPage() {
             {/* Stats accordion */}
             <button
               onClick={() => setOpenStats(!openStats)}
-              className="w-full bg-white rounded-2xl shadow-sm border border-slate-100 px-4 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors"
+              className="w-full bg-surface-raised rounded-2xl shadow-sm border border-border px-4 py-3 flex items-center justify-between hover:bg-surface-hover transition-colors"
             >
-              <span className="font-bold text-slate-800 text-sm flex items-center gap-2">
+              <span className="font-bold text-text text-sm flex items-center gap-2">
                 <span>📊</span>
                 <span>
                   {new Date(selectedDate + "T00:00:00Z").toLocaleDateString("en-GB", {
@@ -746,7 +777,7 @@ export default function MatchesPage() {
                   })} stats
                 </span>
               </span>
-              <span className="text-slate-400 text-sm">{openStats ? "▴" : "▾"}</span>
+              {openStats ? <ChevronUp size={16} className="text-faint" /> : <ChevronDown size={16} className="text-faint" />}
             </button>
             {openStats && (<>
 

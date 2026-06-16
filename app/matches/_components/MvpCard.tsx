@@ -25,7 +25,7 @@ export default function MvpCard({ mvps, useNewMvpFormula }: { mvps: MvpRow[]; us
           </p>
         </div>
       </div>
-      <p className="text-[10px] text-slate-500 px-1 leading-relaxed">
+      <p className="text-[10px] text-faint px-1 leading-relaxed">
         {useNewMvpFormula ? (
           <>
             MVP = <b>60 % wins</b> (relative to day&apos;s max) + <b>40 % win %</b>.

@@ -1,3 +1,7 @@
+import { ChevronDown, ChevronUp } from "lucide-react";
+import Card from "../../components/ui/Card";
+import Skeleton from "../../components/ui/Skeleton";
+
 // "🧠 Today's Intel" collapsible card. Hidden entirely unless loading or there
 // are bullets. The data fetch lives in the page; this only renders.
 export default function IntelAccordion({
@@ -18,28 +22,30 @@ export default function IntelAccordion({
     <>
       <button
         onClick={onToggle}
-        className="w-full bg-white rounded-2xl shadow-sm border border-slate-100 px-4 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors"
+        className="w-full bg-surface-raised rounded-2xl shadow-sm border border-border px-4 py-3 flex items-center justify-between hover:bg-surface-hover transition-colors"
       >
-        <span className="font-bold text-slate-800 text-sm flex items-center gap-2">
+        <span className="font-bold text-text text-sm flex items-center gap-2">
           <span>🧠</span>
           <span>Today&apos;s Intel</span>
         </span>
-        <span className="text-slate-400 text-sm">{open ? "▴" : "▾"}</span>
+        {open ? <ChevronUp size={16} className="text-faint" /> : <ChevronDown size={16} className="text-faint" />}
       </button>
       {open && (
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 space-y-2">
+        <Card className="space-y-2">
           {loading ? (
-            <div className="flex justify-center py-4">
-              <div className="w-8 h-8 rounded-full border-4 border-indigo-200 border-t-indigo-500 animate-spin" />
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-5/6" />
+              <Skeleton className="h-4 w-2/3" />
             </div>
           ) : error ? (
-            <p className="text-xs text-rose-600 font-medium">{error}</p>
+            <p className="text-xs text-rose-400 font-medium">{error}</p>
           ) : (
             bullets?.map((bullet, i) => (
-              <p key={i} className="text-sm text-gray-700 leading-snug">{bullet}</p>
+              <p key={i} className="text-sm text-muted leading-snug">{bullet}</p>
             ))
           )}
-        </div>
+        </Card>
       )}
     </>
   );

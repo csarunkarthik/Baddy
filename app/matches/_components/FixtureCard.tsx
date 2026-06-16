@@ -1,5 +1,7 @@
+import { Pencil, Trash2, X } from "lucide-react";
 import { MatchMicButton } from "../../components/MatchEntryFab";
 import ScoreRow from "./ScoreRow";
+import Chip from "../../components/ui/Chip";
 import { matchCompleted, type Match, type Player, type MatchProb, type EditDraft } from "./types";
 
 // A single fixture row: header (match #, live badge, pre-match odds, mic/edit/
@@ -55,7 +57,7 @@ export default function FixtureCard({
     <div className="space-y-1">
       {sectionLabel && (
         <p className={`text-[10px] font-bold uppercase tracking-wider mt-1 ${
-          isActive ? "text-indigo-700" : "text-slate-400"
+          isActive ? "text-accent-2" : "text-faint"
         }`}>
           {sectionLabel}
         </p>
@@ -63,22 +65,22 @@ export default function FixtureCard({
       <div
         className={`rounded-2xl overflow-hidden transition-all ${
           isActive
-            ? "border-2 border-indigo-400 shadow-lg shadow-indigo-100 bg-indigo-50/30"
+            ? "border-2 border-accent shadow-lg shadow-accent/20 bg-accent/5"
             : m.winner
-            ? "border border-slate-100 bg-slate-50 opacity-95"
-            : "border border-gray-100 bg-gray-50"
+            ? "border border-border bg-surface-hover opacity-95"
+            : "border border-border bg-surface-hover"
         }`}
       >
-      <div className={`flex items-center justify-between px-4 py-2 ${isActive ? "bg-indigo-50" : "bg-white"} border-b ${isActive ? "border-indigo-100" : "border-gray-100"}`}>
-        <span className="text-xs font-bold text-gray-500 flex items-center gap-2 flex-wrap">
+      <div className={`flex items-center justify-between px-4 py-2 ${isActive ? "bg-accent/10" : "bg-surface-raised"} border-b border-border`}>
+        <span className="text-xs font-bold text-muted flex items-center gap-2 flex-wrap">
           Match #{m.matchNumber}
           {isActive && (
-            <span className="text-[10px] font-extrabold text-white bg-indigo-600 px-2 py-0.5 rounded-full uppercase tracking-wider">
+            <span className="text-[10px] font-extrabold text-white bg-accent px-2 py-0.5 rounded-full uppercase tracking-wider">
               🔴 Live
             </span>
           )}
           {!matchCompleted(m) && probs && (
-            <span className="text-[10px] font-normal text-gray-400">
+            <span className="text-[10px] font-normal text-faint">
               A {Math.round(probs.probA * 100)}% · B {Math.round(probs.probB * 100)}%
             </span>
           )}
@@ -92,38 +94,40 @@ export default function FixtureCard({
             />
             <button
               onClick={() => (isEditing ? onCancelEdit() : onStartEdit())}
-              className="text-xs font-semibold text-indigo-600 hover:bg-indigo-50 px-2 py-1 rounded-full transition-colors"
+              aria-label={isEditing ? "Cancel edit" : "Edit match"}
+              className="w-7 h-7 flex items-center justify-center text-accent-2 hover:bg-accent/10 rounded-full transition-colors"
             >
-              {isEditing ? "Cancel" : "Edit"}
+              {isEditing ? <X size={14} /> : <Pencil size={14} />}
             </button>
             <button
               onClick={onDeleteMatch}
-              className="text-xs font-semibold text-rose-600 hover:bg-rose-50 px-2 py-1 rounded-full transition-colors"
+              aria-label="Delete match"
+              className="w-7 h-7 flex items-center justify-center text-danger hover:bg-danger/10 rounded-full transition-colors"
             >
-              🗑
+              <Trash2 size={14} />
             </button>
           </div>
         )}
       </div>
 
       {(violated || droppedFromAttendance) && !isEditing && (
-        <div className="px-4 py-1.5 text-[11px] font-semibold bg-amber-50 text-amber-700 border-b border-amber-100">
+        <div className="px-4 py-1.5 text-[11px] font-semibold bg-warn/10 text-amber-400 border-b border-warn/20">
           {violated && <>⚠ {violated} both in this match. </>}
           {droppedFromAttendance && <>⚠ Includes a player no longer attending.</>}
         </div>
       )}
 
       {isEditing && editDraft ? (
-        <div className="p-3 space-y-3 bg-white">
+        <div className="p-3 space-y-3 bg-surface-raised">
           {(["a1", "a2", "b1", "b2"] as const).map((slot, idx) => (
             <div key={slot} className="flex items-center gap-2">
-              <span className="text-xs font-bold text-gray-500 w-14">
+              <span className="text-xs font-bold text-muted w-14">
                 {idx < 2 ? "Team A" : "Team B"}
               </span>
               <select
                 value={editDraft[slot]}
                 onChange={(e) => onEditDraftChange({ ...editDraft, [slot]: parseInt(e.target.value) })}
-                className="flex-1 bg-gray-50 border-2 border-transparent focus:border-indigo-300 rounded-xl px-3 py-2 text-sm font-medium text-gray-800 focus:outline-none"
+                className="flex-1 bg-surface-hover border-2 border-transparent focus:border-accent rounded-xl px-3 py-2 text-sm font-medium text-text focus:outline-none"
               >
                 <option value={0}>—</option>
                 {attending.map((p) => (
@@ -136,13 +140,13 @@ export default function FixtureCard({
           ))}
           <button
             onClick={onSaveEdit}
-            className="w-full py-2.5 rounded-xl bg-indigo-500 text-white text-sm font-bold hover:bg-indigo-600 transition-colors"
+            className="w-full py-2.5 rounded-xl bg-gradient-to-br from-accent to-accent-2 text-white text-sm font-bold hover:brightness-110 transition-all"
           >
             Save override
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-2 divide-x divide-gray-100">
+        <div className="grid grid-cols-2 divide-x divide-border">
           {(["A", "B"] as const).map((team) => {
             const players = team === "A" ? m.teamA : m.teamB;
             const isWinner = m.winner === team && matchCompleted(m);
@@ -154,26 +158,22 @@ export default function FixtureCard({
                 disabled={locked}
                 className={`px-3 py-3 text-left transition-colors ${
                   isWinner
-                    ? "bg-emerald-50"
+                    ? "bg-accent/15"
                     : isLoser
-                    ? "bg-gray-50 opacity-60"
+                    ? "bg-surface-raised opacity-60"
                     : locked
                     ? "cursor-default"
-                    : "hover:bg-amber-50"
+                    : "hover:bg-surface-raised"
                 }`}
               >
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className={`text-[10px] font-bold uppercase tracking-wider ${isWinner ? "text-emerald-700" : "text-gray-400"}`}>
+                  <span className={`text-[10px] font-bold uppercase tracking-wider ${isWinner ? "text-accent-2" : "text-faint"}`}>
                     Team {team}
                   </span>
-                  {isWinner && (
-                    <span className="text-[10px] font-bold bg-emerald-500 text-white px-2 py-0.5 rounded-full">
-                      WON
-                    </span>
-                  )}
+                  {isWinner && <Chip tone="accent">WON</Chip>}
                 </div>
                 {players.map((p) => (
-                  <div key={p.id} className={`text-sm font-semibold ${isWinner ? "text-emerald-900" : "text-gray-700"}`}>
+                  <div key={p.id} className={`text-sm font-semibold ${isWinner ? "text-text" : "text-muted"}`}>
                     {p.avatar && <span className="mr-1">{p.avatar}</span>}{p.name}
                   </div>
                 ))}
@@ -192,11 +192,11 @@ export default function FixtureCard({
           probs.winnerProb !== null && probs.winnerProb < highImpactThreshold;
         return (
           <>
-            <div className="px-4 py-1.5 text-[10px] font-semibold text-gray-500 border-t border-gray-100 bg-white">
+            <div className="px-4 py-1.5 text-[10px] font-semibold text-muted border-t border-border bg-surface-raised">
               Expected: A {a}% · B {b}%
             </div>
             {isHighImpact && probs.winnerProb !== null && (
-              <div className="px-4 py-1.5 text-[11px] font-bold text-rose-700 bg-rose-50 border-t border-rose-100">
+              <div className="px-4 py-1.5 text-[11px] font-bold text-gold bg-gold/10 border-t border-gold/20">
                 🔥 High impact win — Team {m.winner} was {Math.round(probs.winnerProb * 100)}% expected
               </div>
             )}
@@ -208,8 +208,8 @@ export default function FixtureCard({
         <ScoreRow match={m} sport={sport} onSave={onSaveScores} />
       )}
       {!isEditing && locked && (m.teamAScore !== null && m.teamBScore !== null) && (
-        <div className="px-4 py-1.5 text-[11px] font-semibold text-gray-600 border-t border-gray-100 bg-gray-50 text-center">
-          Score: <span className="font-bold text-gray-800">{m.teamAScore}</span> – <span className="font-bold text-gray-800">{m.teamBScore}</span>
+        <div className="px-4 py-1.5 text-[11px] font-semibold text-muted border-t border-border bg-surface-raised text-center">
+          Score: <span className="font-bold text-text">{m.teamAScore}</span> – <span className="font-bold text-text">{m.teamBScore}</span>
         </div>
       )}
       </div>

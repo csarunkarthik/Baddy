@@ -4,7 +4,7 @@ import { type ImprovedRow } from "./types";
 export default function MostImprovedCard({ mostImproved }: { mostImproved: ImprovedRow[] }) {
   if (mostImproved.length === 0) return null;
   return (
-    <div className="relative overflow-hidden rounded-3xl shadow-md shadow-sky-200 p-5 bg-gradient-to-br from-sky-400 via-cyan-500 to-teal-500 text-white">
+    <div className="relative overflow-hidden rounded-3xl shadow-md shadow-sky-900/30 p-5 bg-gradient-to-br from-sky-500 via-cyan-600 to-accent text-white">
       <div className="absolute -top-3 -right-2 text-6xl opacity-15 select-none">📈</div>
       <div className="relative">
         <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-50/90">Most Improved today</p>
