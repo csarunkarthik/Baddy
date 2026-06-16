@@ -3,6 +3,21 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* Dark token system — "Spotify-grade" night palette.
+     Single source of truth for surfaces/text/accents across the app. */
+  --surface: #0e0f13;
+  --surface-raised: #16171d;
+  --surface-hover: #1d1f27;
+  --border: rgba(255, 255, 255, 0.08);
+  --text: #f5f5f7;
+  --text-muted: #a1a1aa;
+  --text-faint: #6b7280;
+  --accent: #6366f1;
+  --accent-2: #8b5cf6;
+  --warn: #f59e0b;
+  --danger: #f43f5e;
+  --gold: #f59e0b;
 }
 
 @theme inline {
@@ -10,27 +25,42 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-hover: var(--surface-hover);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-muted: var(--text-muted);
+  --color-faint: var(--text-faint);
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+  --color-gold: var(--gold);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--surface);
+  color: var(--text);
   font-family: Arial, Helvetica, sans-serif;
 }
 
 /* Night Match palette — central design tokens.
    Change values here to re-skin the whole app. */
 .app-bg {
+  background-color: var(--surface);
   background-image:
     url("/court-pattern.svg"),
     linear-gradient(to bottom right,
-      var(--color-slate-50),
-      var(--color-indigo-50),
-      var(--color-violet-50));
+      var(--surface),
+      var(--surface-raised),
+      var(--surface));
   background-size: 320px 320px, cover;
   background-repeat: repeat, no-repeat;
   background-attachment: fixed, fixed;
   min-height: 100vh;
+  color: var(--text);
 }
 .app-header {
   /* Shared badminton photo, layered under a black transparent wash so the

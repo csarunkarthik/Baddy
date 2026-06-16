@@ -2,6 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { ArrowLeft, Crosshair, ShieldAlert, Sparkles, Swords, Trophy, Users } from "lucide-react";
+import Card from "../components/ui/Card";
+import SectionHeader from "../components/ui/SectionHeader";
+import Chip from "../components/ui/Chip";
+import Skeleton from "../components/ui/Skeleton";
+import EmptyState from "../components/ui/EmptyState";
 
 type TrophyWinner = { id: number; name: string };
 type Trophy = { key: string; label: string; emoji: string; criteria: string; winner: TrophyWinner | null };
@@ -58,12 +64,14 @@ export default function AwardsPage() {
         .sort((a, b) => b.trophies.length + b.milestones.length - (a.trophies.length + a.milestones.length))
     : [];
 
+  const hasAnyAwards = !loading && awards && (awarded.length > 0 || unclaimed.length > 0);
+
   return (
     <div className="app-bg">
       <div className="relative overflow-hidden app-header px-5 pt-12 pb-8">
         <div className="relative flex items-start gap-3">
-          <Link href="/" className="mt-1 w-9 h-9 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors font-bold">
-            ←
+          <Link href="/" className="mt-1 w-9 h-9 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors" aria-label="Back">
+            <ArrowLeft size={18} strokeWidth={2.5} />
           </Link>
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight">Awards</h1>
@@ -75,65 +83,83 @@ export default function AwardsPage() {
       <div className="px-4 py-5 max-w-lg mx-auto space-y-4">
 
         {loading ? (
-          <div className="flex justify-center py-16">
-            <div className="w-10 h-10 rounded-full border-4 border-amber-200 border-t-amber-500 animate-spin" />
+          <div className="space-y-4">
+            <Card>
+              <Skeleton className="h-4 w-32 mb-4" />
+              <div className="space-y-3">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            </Card>
+            <Card>
+              <Skeleton className="h-4 w-24 mb-4" />
+              <Skeleton className="h-16 w-full" />
+            </Card>
           </div>
+        ) : !hasAnyAwards ? (
+          <Card>
+            <EmptyState
+              icon={<Trophy size={36} />}
+              title="No trophies yet"
+              subtitle="Play some sessions to start unlocking awards and milestones."
+            />
+          </Card>
         ) : (
           <>
             {/* Trophy gallery — dense single-line rows */}
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4">
-              <h2 className="font-bold text-gray-800 text-sm mb-2 flex items-center gap-2">
-                🏆 Trophies
-                <span className="text-xs text-gray-400 font-semibold ml-auto">{awarded.length} awarded</span>
-              </h2>
-              <div className="divide-y divide-amber-50">
+            <Card>
+              <SectionHeader right={`${awarded.length} awarded`}>
+                <Trophy size={16} className="text-gold" /> Trophies
+              </SectionHeader>
+              <div className="divide-y divide-border mt-2">
                 {awarded.map((t) => (
                   <div key={t.key} className="px-1 py-1.5">
                     <div className="flex items-center gap-2 text-xs">
                       <span className="text-base leading-none shrink-0">{t.emoji}</span>
-                      <span className="font-semibold text-gray-800 truncate flex-1 min-w-0">{t.label}</span>
-                      <span className="font-bold text-amber-700 truncate shrink-0 max-w-[40%] text-right">{t.winner?.name}</span>
+                      <span className="font-semibold text-text truncate flex-1 min-w-0">{t.label}</span>
+                      <span className="font-bold text-amber-400 truncate shrink-0 max-w-[40%] text-right">{t.winner?.name}</span>
                     </div>
-                    <p className="text-[10px] text-gray-500 mt-0.5 pl-6 leading-snug">{t.criteria}</p>
+                    <p className="text-[10px] text-faint mt-0.5 pl-6 leading-snug">{t.criteria}</p>
                   </div>
                 ))}
               </div>
               {unclaimed.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-gray-100">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Awaiting data ({unclaimed.length})</p>
+                <div className="mt-3 pt-3 border-t border-border">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-faint mb-1.5">Awaiting data ({unclaimed.length})</p>
                   <div className="flex flex-wrap gap-1">
                     {unclaimed.map((t) => (
-                      <span key={t.key} title={t.criteria} className="px-2 py-0.5 rounded-full text-[10px] font-semibold text-gray-500 bg-gray-100">
+                      <Chip key={t.key} tone="neutral" title={t.criteria}>
                         {t.emoji} {t.label}
-                      </span>
+                      </Chip>
                     ))}
                   </div>
                 </div>
               )}
-            </div>
+            </Card>
 
             {/* Team awards — three angles that don't duplicate /stats */}
             {teamAwards && (teamAwards.chemistry.length + teamAwards.ironDuos.length + teamAwards.dragonSlayerDuos.length) > 0 && (
-              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 space-y-4">
-                <h2 className="font-bold text-gray-800 text-sm flex items-center gap-2">
-                  🏟️ Team awards
-                </h2>
+              <Card className="space-y-4">
+                <SectionHeader>
+                  <Users size={16} className="text-accent-2" /> Team awards
+                </SectionHeader>
 
                 {teamAwards.chemistry.length > 0 && (
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 flex items-center gap-1">
-                      <span>✨</span> Chemistry
-                      <span className="text-gray-300 normal-case font-medium ml-1">1+1&gt;2</span>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-faint mb-1.5 flex items-center gap-1">
+                      <Sparkles size={11} className="text-accent-2" /> Chemistry
+                      <span className="text-faint normal-case font-medium ml-1">1+1&gt;2</span>
                     </p>
-                    <div className="divide-y divide-violet-50">
+                    <div className="divide-y divide-border">
                       {teamAwards.chemistry.map((d, i) => (
                         <div key={`chem-${d.p1}-${d.p2}`} className="flex items-center gap-2 px-1 py-1.5 text-xs">
-                          <span className="text-[10px] font-bold text-violet-700 w-4 shrink-0">{i + 1}</span>
-                          <span className="font-semibold text-violet-900 truncate flex-1 min-w-0">
-                            {d.p1} <span className="text-violet-400">+</span> {d.p2}
+                          <span className="text-[10px] font-bold text-accent-2 w-4 shrink-0">{i + 1}</span>
+                          <span className="font-semibold text-text truncate flex-1 min-w-0">
+                            {d.p1} <span className="text-muted">+</span> {d.p2}
                           </span>
-                          <span className="font-bold text-violet-700 shrink-0 whitespace-nowrap">
-                            +{d.synergy}% <span className="text-violet-400 ml-0.5 font-medium">({d.jointPct}% vs {d.soloAvgPct}%)</span>
+                          <span className="font-bold text-accent-2 shrink-0 whitespace-nowrap">
+                            +{d.synergy}% <span className="text-muted ml-0.5 font-medium">({d.jointPct}% vs {d.soloAvgPct}%)</span>
                           </span>
                         </div>
                       ))}
@@ -143,19 +169,19 @@ export default function AwardsPage() {
 
                 {teamAwards.dragonSlayerDuos.length > 0 && (
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 flex items-center gap-1">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-faint mb-1.5 flex items-center gap-1">
                       <span>🐉</span> Dragon Slayer Duo
-                      <span className="text-gray-300 normal-case font-medium ml-1">avg opponent ELO on wins</span>
+                      <span className="text-faint normal-case font-medium ml-1">avg opponent ELO on wins</span>
                     </p>
-                    <div className="divide-y divide-rose-50">
+                    <div className="divide-y divide-border">
                       {teamAwards.dragonSlayerDuos.map((d, i) => (
                         <div key={`drg-${d.p1}-${d.p2}`} className="flex items-center gap-2 px-1 py-1.5 text-xs">
-                          <span className="text-[10px] font-bold text-rose-700 w-4 shrink-0">{i + 1}</span>
-                          <span className="font-semibold text-rose-900 truncate flex-1 min-w-0">
-                            {d.p1} <span className="text-rose-400">+</span> {d.p2}
+                          <span className="text-[10px] font-bold text-danger w-4 shrink-0">{i + 1}</span>
+                          <span className="font-semibold text-text truncate flex-1 min-w-0">
+                            {d.p1} <span className="text-muted">+</span> {d.p2}
                           </span>
-                          <span className="font-bold text-rose-700 shrink-0 whitespace-nowrap">
-                            {d.avgSlainElo} <span className="text-rose-400 ml-0.5 font-medium">({d.wins}W)</span>
+                          <span className="font-bold text-danger shrink-0 whitespace-nowrap">
+                            {d.avgSlainElo} <span className="text-muted ml-0.5 font-medium">({d.wins}W)</span>
                           </span>
                         </div>
                       ))}
@@ -165,132 +191,124 @@ export default function AwardsPage() {
 
                 {teamAwards.ironDuos.length > 0 && (
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 flex items-center gap-1">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-faint mb-1.5 flex items-center gap-1">
                       <span>⛓️</span> Iron Duo
-                      <span className="text-gray-300 normal-case font-medium ml-1">most together</span>
+                      <span className="text-faint normal-case font-medium ml-1">most together</span>
                     </p>
-                    <div className="divide-y divide-slate-100">
+                    <div className="divide-y divide-border">
                       {teamAwards.ironDuos.map((d, i) => (
                         <div key={`iron-${d.p1}-${d.p2}`} className="flex items-center gap-2 px-1 py-1.5 text-xs">
-                          <span className="text-[10px] font-bold text-slate-600 w-4 shrink-0">{i + 1}</span>
-                          <span className="font-semibold text-slate-800 truncate flex-1 min-w-0">
-                            {d.p1} <span className="text-slate-400">+</span> {d.p2}
+                          <span className="text-[10px] font-bold text-muted w-4 shrink-0">{i + 1}</span>
+                          <span className="font-semibold text-text truncate flex-1 min-w-0">
+                            {d.p1} <span className="text-muted">+</span> {d.p2}
                           </span>
-                          <span className="font-bold text-slate-700 shrink-0 whitespace-nowrap">
-                            {d.played} <span className="text-slate-400 ml-0.5 font-medium">({d.wins}W · {d.winPct}%)</span>
+                          <span className="font-bold text-muted shrink-0 whitespace-nowrap">
+                            {d.played} <span className="text-faint ml-0.5 font-medium">({d.wins}W · {d.winPct}%)</span>
                           </span>
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
-              </div>
+              </Card>
             )}
 
             {/* Per-player overview */}
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5">
-              <h2 className="font-bold text-gray-800 text-sm mb-3 flex items-center gap-2">
-                👥 By player
-              </h2>
+            <Card>
+              <SectionHeader className="mb-3">
+                <Users size={16} className="text-accent" /> By player
+              </SectionHeader>
               <div className="space-y-3">
                 {perPlayerList.map((p) => (
-                  <div key={p.id} className="border-b border-gray-50 last:border-0 pb-3 last:pb-0">
+                  <div key={p.id} className="border-b border-border last:border-0 pb-3 last:pb-0">
                     <div className="flex items-baseline justify-between mb-1">
-                      <span className="font-bold text-gray-800 text-sm">{p.name}</span>
-                      <span className="text-[10px] text-gray-400 font-semibold">
+                      <span className="font-bold text-text text-sm">{p.name}</span>
+                      <span className="text-[10px] text-faint font-semibold">
                         {p.trophies.length} trophy{p.trophies.length === 1 ? "" : "s"} · {p.milestones.length} milestone{p.milestones.length === 1 ? "" : "s"}
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-1.5">
                       {p.trophies.map((t) => (
-                        <span
-                          key={t.key}
-                          title={`${t.label} — ${t.criteria}`}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 text-[10px] font-bold"
-                        >
+                        <Chip key={t.key} tone="gold" title={`${t.label} — ${t.criteria}`}>
                           {t.emoji} {t.label}
-                        </span>
+                        </Chip>
                       ))}
                       {p.milestones.map((m) => (
-                        <span
-                          key={m.key}
-                          title={m.label}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-50 text-slate-600 text-[10px] font-semibold"
-                        >
+                        <Chip key={m.key} tone="neutral" title={m.label}>
                           {m.emoji} {m.label}
-                        </span>
+                        </Chip>
                       ))}
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
+            </Card>
 
-            {/* 🎯 Next Milestone Radar */}
+            {/* Next Milestone Radar */}
             {awards?.nextFor && (() => {
               const rows = (Object.entries(awards.nextFor) as [string, NextMilestone | null][])
                 .filter((entry): entry is [string, NextMilestone] => entry[1] !== null)
                 .sort((a, b) => a[1].gap - b[1].gap);
               if (rows.length === 0) return null;
               return (
-                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4">
-                  <h2 className="font-bold text-gray-800 text-sm mb-3 flex items-center gap-2">
-                    🎯 Next Milestone
-                  </h2>
+                <Card>
+                  <SectionHeader className="mb-3">
+                    <Crosshair size={16} className="text-accent" /> Next Milestone
+                  </SectionHeader>
                   <div className="space-y-2">
                     {rows.map(([pid, next]) => {
                       const name = playerById.get(parseInt(pid)) ?? `Player #${pid}`;
                       return (
-                        <div key={pid} className="flex items-center gap-2 text-xs py-1 border-b border-gray-50 last:border-0">
+                        <div key={pid} className="flex items-center gap-2 text-xs py-1 border-b border-border last:border-0">
                           <span className="text-base leading-none shrink-0">{next.emoji}</span>
-                          <span className="font-semibold text-gray-800 flex-1 min-w-0 truncate">
+                          <span className="font-semibold text-text flex-1 min-w-0 truncate">
                             {name}
                           </span>
-                          <span className="text-gray-600 truncate">
+                          <span className="text-muted truncate">
                             {next.label}
                           </span>
-                          <span className="font-bold text-indigo-600 shrink-0 whitespace-nowrap ml-1">
+                          <span className="font-bold text-accent shrink-0 whitespace-nowrap ml-1">
                             {next.gap} away
                           </span>
                         </div>
                       );
                     })}
                   </div>
-                </div>
+                </Card>
               );
             })()}
 
-            {/* 😈 Rivals */}
+            {/* Rivals */}
             {h2h?.perPlayer && (() => {
               const rivalRows = Object.entries(h2h.perPlayer).filter(
                 ([, v]) => v.archnemesis !== null || v.favouriteVictim !== null
               );
               if (rivalRows.length === 0) return null;
               return (
-                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4">
-                  <h2 className="font-bold text-gray-800 text-sm mb-3 flex items-center gap-2">
-                    😈 Rivals
-                  </h2>
+                <Card>
+                  <SectionHeader className="mb-3">
+                    <ShieldAlert size={16} className="text-danger" /> Rivals
+                  </SectionHeader>
                   <div className="space-y-3">
                     {rivalRows.map(([pid, v]) => (
-                      <div key={pid} className="border-b border-gray-50 last:border-0 pb-3 last:pb-0">
-                        <p className="font-bold text-gray-800 text-xs mb-1.5">{v.playerName}</p>
+                      <div key={pid} className="border-b border-border last:border-0 pb-3 last:pb-0">
+                        <p className="font-bold text-text text-xs mb-1.5">{v.playerName}</p>
                         <div className="flex flex-wrap gap-1.5">
                           {v.archnemesis && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-bold">
-                              😈 {v.archnemesis.name}
-                            </span>
+                            <Chip tone="danger">
+                              <Swords size={10} /> {v.archnemesis.name}
+                            </Chip>
                           )}
                           {v.favouriteVictim && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold">
-                              🎯 {v.favouriteVictim.name}
-                            </span>
+                            <Chip tone="accent">
+                              <Crosshair size={10} /> {v.favouriteVictim.name}
+                            </Chip>
                           )}
                         </div>
                       </div>
                     ))}
                   </div>
-                </div>
+                </Card>
               );
             })()}
           </>
