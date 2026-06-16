@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ChevronDown, Lock, Trash2 } from "lucide-react";
 import { isSessionLocked } from "@/lib/locking";
+import { apiGet, apiSend } from "@/lib/api";
+import Card from "./ui/Card";
+import Skeleton from "./ui/Skeleton";
+import EmptyState from "./ui/EmptyState";
+import Chip from "./ui/Chip";
+import Spinner from "./ui/Spinner";
+import { useToast } from "./ui/ToastProvider";
 
 type Player = { id: number; name: string };
 type Session = {
@@ -15,18 +23,29 @@ type Session = {
 const IST = "Asia/Kolkata";
 
 export default function HistoryList() {
+  const { showToast } = useToast();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [expanded, setExpanded] = useState<number | null>(null);
   const [toggling, setToggling] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState<Set<number>>(new Set());
 
   async function loadAll() {
-    const [h, p] = await Promise.all([fetch("/api/history"), fetch("/api/players")]);
-    const [historyData, playersData] = await Promise.all([h.json(), p.json()]);
-    setSessions(historyData);
-    setPlayers(playersData);
+    setLoading(true);
+    setError(false);
+    const [h, p] = await Promise.all([
+      apiGet<Session[]>("/api/history"),
+      apiGet<Player[]>("/api/players"),
+    ]);
+    if (!h.data || !p.data) {
+      setError(true);
+      setLoading(false);
+      return;
+    }
+    setSessions(h.data);
+    setPlayers(p.data);
     setLoading(false);
   }
   useEffect(() => { loadAll(); }, []);
@@ -49,6 +68,7 @@ export default function HistoryList() {
     if (toggling.has(key)) return;
     setToggling((prev) => new Set(prev).add(key));
 
+    const prevSessions = sessions;
     setSessions((prev) =>
       prev.map((s) => {
         if (s.id !== sessionId) return s;
@@ -60,11 +80,12 @@ export default function HistoryList() {
       })
     );
 
-    await fetch(`/api/sessions/${sessionId}/attendance`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ playerId, present }),
-    });
+    const { error: err } = await apiSend(`/api/sessions/${sessionId}/attendance`, "POST", { playerId, present });
+
+    if (err) {
+      setSessions(prevSessions);
+      showToast("Couldn't update attendance", "danger");
+    }
 
     setToggling((prev) => { const n = new Set(prev); n.delete(key); return n; });
   }
@@ -75,8 +96,12 @@ export default function HistoryList() {
     if (!ok) return;
 
     setDeleting((prev) => new Set(prev).add(sessionId));
-    const res = await fetch(`/api/sessions/${sessionId}`, { method: "DELETE" });
-    if (res.ok) {
+    const prevSessions = sessions;
+    const { error: err } = await apiSend(`/api/sessions/${sessionId}`, "DELETE");
+    if (err) {
+      showToast("Couldn't delete session", "danger");
+      setSessions(prevSessions);
+    } else {
       setSessions((prev) => prev.filter((s) => s.id !== sessionId));
       setExpanded((prev) => (prev === sessionId ? null : prev));
     }
@@ -85,17 +110,25 @@ export default function HistoryList() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 gap-3">
-        <div className="w-10 h-10 rounded-full border-4 border-orange-200 border-t-orange-500 animate-spin" />
+      <div className="space-y-3">
+        <Card><Skeleton className="h-16 w-full" /></Card>
+        <Card><Skeleton className="h-16 w-full" /></Card>
+        <Card><Skeleton className="h-16 w-full" /></Card>
       </div>
+    );
+  }
+  if (error) {
+    return (
+      <Card>
+        <EmptyState icon={<span>🏸</span>} title="Couldn't load history" subtitle="Something went wrong. Try refreshing." />
+      </Card>
     );
   }
   if (sessions.length === 0) {
     return (
-      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-10 text-center">
-        <div className="text-4xl mb-3">🏸</div>
-        <p className="text-gray-400 text-sm font-medium">No sessions yet</p>
-      </div>
+      <Card>
+        <EmptyState icon={<span>🏸</span>} title="No sessions yet" />
+      </Card>
     );
   }
 
@@ -107,56 +140,58 @@ export default function HistoryList() {
         const today = isToday(s.date);
         const locked = isSessionLocked(s.date);
         return (
-          <div
+          <Card
             key={s.id}
-            className={`bg-white rounded-3xl shadow-sm overflow-hidden transition-shadow hover:shadow-md ${today ? "ring-2 ring-emerald-300" : "border border-gray-100"}`}
+            padding="none"
+            className={`overflow-hidden transition-shadow hover:shadow-md ${today ? "ring-2 ring-accent/50" : ""}`}
           >
             <button
               onClick={() => setExpanded(isOpen ? null : s.id)}
               className="w-full flex items-center justify-between px-5 py-4 text-left"
             >
               <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-lg shrink-0 ${today ? "bg-emerald-100" : "bg-gradient-to-br from-orange-100 to-pink-100"}`}>
-                  {today ? "🟢" : locked ? "🔒" : s.sport === "PICKLEBALL" ? "🥒" : "🏸"}
+                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-lg shrink-0 ${today ? "bg-accent/20" : "bg-gradient-to-br from-accent/15 to-accent-2/15"}`}>
+                  {today ? "🟢" : locked ? <Lock size={16} className="text-faint" /> : s.sport === "PICKLEBALL" ? "🥒" : "🏸"}
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <p className="font-bold text-gray-800 text-sm">{formatDate(s.date)}</p>
-                    {s.sport === "PICKLEBALL" && <span className="text-xs bg-lime-100 text-lime-700 font-bold px-2 py-0.5 rounded-full">🥒 Pickle</span>}
-                    {today && <span className="text-xs bg-emerald-100 text-emerald-700 font-bold px-2 py-0.5 rounded-full">Live</span>}
-                    {locked && <span className="text-xs bg-amber-100 text-amber-700 font-bold px-2 py-0.5 rounded-full">Locked</span>}
+                    <p className="font-bold text-text text-sm">{formatDate(s.date)}</p>
+                    {s.sport === "PICKLEBALL" && <Chip tone="accent">🥒 Pickle</Chip>}
+                    {today && <Chip tone="accent">Live</Chip>}
+                    {locked && <Chip tone="warn">Locked</Chip>}
                   </div>
-                  <p className="text-xs text-gray-400 mt-0.5 font-medium">{s.venue || "No venue"}</p>
+                  <p className="text-xs text-faint mt-0.5 font-medium">{s.venue || "No venue"}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className={`text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-sm ${today ? "bg-emerald-500" : "bg-gradient-to-r from-orange-400 to-pink-500"}`}>
+                <span className={`text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-sm ${today ? "bg-accent" : "bg-gradient-to-r from-accent to-accent-2"}`}>
                   {s.attendance.length} {s.attendance.length === 1 ? "player" : "players"}
                 </span>
-                <span className={`text-gray-300 text-xs transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}>▼</span>
+                <ChevronDown size={14} className={`text-faint transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
               </div>
             </button>
 
             {isOpen && (
-              <div className="px-5 pb-5 border-t border-gray-50 pt-4 space-y-2">
+              <div className="px-5 pb-5 border-t border-border pt-4 space-y-2">
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs text-gray-400 font-medium">
+                  <p className="text-xs text-faint font-medium">
                     {locked ? "Read-only — locked 2 days after the session date." : "Tap to toggle attendance"}
                   </p>
                   {!locked && (
                     <button
                       onClick={() => deleteSession(s.id, s.date)}
                       disabled={deleting.has(s.id)}
-                      className="text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 active:scale-95 disabled:opacity-50 px-3 py-1.5 rounded-full transition-all flex items-center gap-1"
+                      aria-label="Delete session"
+                      className="text-xs font-bold text-danger bg-danger/10 hover:bg-danger/20 active:scale-95 disabled:opacity-50 px-3 py-1.5 rounded-full transition-all flex items-center gap-1"
                     >
                       {deleting.has(s.id) ? (
-                        <><span className="w-3 h-3 rounded-full border-2 border-rose-300 border-t-rose-600 animate-spin" />Deleting…</>
-                      ) : <>🗑 Delete session</>}
+                        <><Spinner size="sm" />Deleting…</>
+                      ) : <><Trash2 size={12} />Delete session</>}
                     </button>
                   )}
                 </div>
                 {players.length === 0 ? (
-                  <p className="text-sm text-gray-400">No players registered yet</p>
+                  <p className="text-sm text-faint">No players registered yet</p>
                 ) : (
                   players.map((player) => {
                     const present = attendeeIds.has(player.id);
@@ -168,18 +203,18 @@ export default function HistoryList() {
                         disabled={busy || locked}
                         className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl transition-all active:scale-[0.98] ${
                           present
-                            ? "bg-emerald-50 border-2 border-emerald-200"
-                            : "bg-gray-50 border-2 border-transparent hover:border-gray-200"
+                            ? "bg-accent/15 border-2 border-accent/40"
+                            : "bg-surface-hover border-2 border-transparent hover:border-border"
                         } ${locked ? "cursor-default opacity-90" : ""}`}
                       >
-                        <span className={`text-sm font-semibold ${present ? "text-emerald-800" : "text-gray-400"}`}>
+                        <span className={`text-sm font-semibold ${present ? "text-text" : "text-faint"}`}>
                           {player.name}
                         </span>
                         <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${
-                          present ? "bg-emerald-500" : "bg-white border-2 border-gray-200"
+                          present ? "bg-accent" : "bg-surface border-2 border-border"
                         }`}>
                           {busy ? (
-                            <div className="w-3 h-3 rounded-full border-2 border-emerald-300 border-t-white animate-spin" />
+                            <Spinner size="sm" className="border-white/30 border-t-white w-3 h-3" />
                           ) : present ? (
                             <span className="text-white text-xs font-bold">✓</span>
                           ) : null}
@@ -190,7 +225,7 @@ export default function HistoryList() {
                 )}
               </div>
             )}
-          </div>
+          </Card>
         );
       })}
     </div>

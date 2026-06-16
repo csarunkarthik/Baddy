@@ -2,15 +2,25 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { ArrowLeft, Flame, Moon, Pencil, Trash2, User, X } from "lucide-react";
 import { AVATARS } from "@/lib/avatars";
+import { apiGet, apiSend } from "@/lib/api";
+import Card from "../components/ui/Card";
+import Button from "../components/ui/Button";
+import Skeleton from "../components/ui/Skeleton";
+import EmptyState from "../components/ui/EmptyState";
+import { useToast } from "../components/ui/ToastProvider";
 
 type Player = { id: number; name: string; avatar?: string | null };
 type PlayerStat = { id: number; sessions: number };
+type StatsResponse = { players: PlayerStat[] };
 
 export default function PlayersPage() {
+  const { showToast } = useToast();
   const [players, setPlayers] = useState<Player[]>([]);
   const [statsMap, setStatsMap] = useState<Record<number, number>>({});
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [newName, setNewName] = useState("");
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -19,15 +29,20 @@ export default function PlayersPage() {
   const [avatarPickerId, setAvatarPickerId] = useState<number | null>(null);
 
   useEffect(() => {
-    Promise.all([fetch("/api/players"), fetch("/api/stats")])
-      .then(([p, s]) => Promise.all([p.json(), s.json()]))
-      .then(([playersData, statsData]: [Player[], { players: PlayerStat[] }]) => {
-        setPlayers(playersData);
+    Promise.all([apiGet<Player[]>("/api/players"), apiGet<StatsResponse>("/api/stats")]).then(
+      ([p, s]) => {
+        if (!p.data || !s.data) {
+          setError(true);
+          setLoading(false);
+          return;
+        }
+        setPlayers(p.data);
         const map: Record<number, number> = {};
-        statsData.players.forEach((p) => { map[p.id] = p.sessions; });
+        s.data.players.forEach((pl) => { map[pl.id] = pl.sessions; });
         setStatsMap(map);
         setLoading(false);
-      });
+      }
+    );
   }, []);
 
   const sorted = [...players].sort((a, b) => (statsMap[b.id] ?? 0) - (statsMap[a.id] ?? 0));
@@ -37,12 +52,12 @@ export default function PlayersPage() {
   async function addPlayer() {
     if (!newName.trim()) return;
     setAdding(true);
-    const res = await fetch("/api/players", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newName.trim() }),
-    });
-    const player = await res.json();
+    const { data: player, error: err } = await apiSend<Player>("/api/players", "POST", { name: newName.trim() });
+    if (!player) {
+      showToast(err ?? "Couldn't add player", "danger");
+      setAdding(false);
+      return;
+    }
     setPlayers((prev) => [...prev, player].sort((a, b) => a.name.localeCompare(b.name)));
     setNewName("");
     setAdding(false);
@@ -55,12 +70,11 @@ export default function PlayersPage() {
 
   async function saveEdit(id: number) {
     if (!editName.trim()) return;
-    const res = await fetch(`/api/players/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: editName.trim() }),
-    });
-    const updated = await res.json();
+    const { data: updated, error: err } = await apiSend<Player>(`/api/players/${id}`, "PATCH", { name: editName.trim() });
+    if (!updated) {
+      showToast(err ?? "Couldn't save name", "danger");
+      return;
+    }
     setPlayers((prev) =>
       prev.map((p) => (p.id === id ? updated : p)).sort((a, b) => a.name.localeCompare(b.name))
     );
@@ -68,25 +82,29 @@ export default function PlayersPage() {
   }
 
   async function pickAvatar(playerId: number, avatar: string | null) {
-    const res = await fetch(`/api/players/${playerId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ avatar }),
-    });
-    if (res.ok) {
-      const updated = await res.json();
+    const { data: updated, error: err } = await apiSend<Player>(`/api/players/${playerId}`, "PATCH", { avatar });
+    if (updated) {
       setPlayers((prev) => prev.map((p) => (p.id === playerId ? updated : p)));
+    } else {
+      showToast(err ?? "Couldn't update avatar", "danger");
     }
     setAvatarPickerId(null);
   }
 
   async function deletePlayer(id: number) {
     setDeletingId(id);
-    await fetch(`/api/players/${id}`, { method: "DELETE" });
+    const { error: err } = await apiSend(`/api/players/${id}`, "DELETE");
+    if (err) {
+      showToast(err, "danger");
+      setDeletingId(null);
+      return;
+    }
     setPlayers((prev) => prev.filter((p) => p.id !== id));
-    const newMap = { ...statsMap };
-    delete newMap[id];
-    setStatsMap(newMap);
+    setStatsMap((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
     setDeletingId(null);
   }
 
@@ -94,8 +112,8 @@ export default function PlayersPage() {
     <div className="app-bg">
       <div className="relative overflow-hidden app-header px-5 pt-12 pb-8">
         <div className="relative flex items-start gap-3">
-          <Link href="/" className="mt-1 w-9 h-9 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors font-bold">
-            ←
+          <Link href="/" aria-label="Back" className="mt-1 w-9 h-9 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors">
+            <ArrowLeft size={18} strokeWidth={2.5} />
           </Link>
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight">Players</h1>
@@ -106,176 +124,198 @@ export default function PlayersPage() {
 
       <div className="px-4 py-5 max-w-lg mx-auto space-y-4">
 
-        {/* Most / Least Active */}
-        {!loading && top3.length > 0 && (
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4">
-              <div className="flex items-center gap-1.5 mb-3">
-                <span>🔥</span>
-                <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">Most Active</span>
-              </div>
-              <div className="space-y-2">
-                {top3.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-gray-800 truncate">{p.name}</span>
-                    <span className="text-xs font-bold text-emerald-600 ml-1 shrink-0">{statsMap[p.id] ?? 0}</span>
-                  </div>
-                ))}
-              </div>
+        {loading ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <Card><Skeleton className="h-24 w-full" /></Card>
+              <Card><Skeleton className="h-24 w-full" /></Card>
             </div>
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4">
-              <div className="flex items-center gap-1.5 mb-3">
-                <span>💤</span>
-                <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">Least Active</span>
+            <Card><Skeleton className="h-12 w-full" /></Card>
+            <Card>
+              <div className="space-y-3">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
               </div>
-              <div className="space-y-2">
-                {bottom3.length > 0 ? bottom3.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-gray-800 truncate">{p.name}</span>
-                    <span className="text-xs font-bold text-orange-500 ml-1 shrink-0">{statsMap[p.id] ?? 0}</span>
-                  </div>
-                )) : <p className="text-xs text-gray-400">Not enough players yet</p>}
-              </div>
-            </div>
+            </Card>
           </div>
-        )}
+        ) : error ? (
+          <Card>
+            <EmptyState icon={<User size={36} />} title="Couldn't load players" subtitle="Something went wrong. Try refreshing." />
+          </Card>
+        ) : (
+          <>
+            {/* Most / Least Active */}
+            {top3.length > 0 && (
+              <div className="grid grid-cols-2 gap-3">
+                <Card>
+                  <div className="flex items-center gap-1.5 mb-3">
+                    <Flame size={14} className="text-gold" />
+                    <span className="text-xs font-bold text-muted uppercase tracking-wide">Most Active</span>
+                  </div>
+                  <div className="space-y-2">
+                    {top3.map((p) => (
+                      <div key={p.id} className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-text truncate">{p.name}</span>
+                        <span className="text-xs font-bold text-accent-2 ml-1 shrink-0">{statsMap[p.id] ?? 0}</span>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+                <Card>
+                  <div className="flex items-center gap-1.5 mb-3">
+                    <Moon size={14} className="text-faint" />
+                    <span className="text-xs font-bold text-muted uppercase tracking-wide">Least Active</span>
+                  </div>
+                  <div className="space-y-2">
+                    {bottom3.length > 0 ? bottom3.map((p) => (
+                      <div key={p.id} className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-text truncate">{p.name}</span>
+                        <span className="text-xs font-bold text-warn ml-1 shrink-0">{statsMap[p.id] ?? 0}</span>
+                      </div>
+                    )) : <p className="text-xs text-faint">Not enough players yet</p>}
+                  </div>
+                </Card>
+              </div>
+            )}
 
-        {/* Add player */}
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 space-y-3">
-          <h2 className="font-bold text-gray-800">Add Player</h2>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder="Name or nickname..."
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addPlayer()}
-              className="flex-1 bg-gray-50 border-2 border-transparent focus:border-indigo-400 rounded-2xl px-4 py-3 text-sm font-medium text-gray-900 placeholder-gray-400 focus:outline-none transition-colors"
-            />
-            <button
-              onClick={addPlayer}
-              disabled={adding || !newName.trim()}
-              className="bg-indigo-600 text-white px-5 py-3 rounded-2xl text-sm font-bold shadow-md disabled:opacity-40 disabled:shadow-none hover:bg-indigo-700 active:scale-95 transition-all"
-            >
-              {adding ? "..." : "+ Add"}
-            </button>
-          </div>
-        </div>
+            {/* Add player */}
+            <Card className="space-y-3">
+              <h2 className="font-bold text-text">Add Player</h2>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Name or nickname..."
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addPlayer()}
+                  className="flex-1 bg-surface-hover border-2 border-transparent focus:border-accent rounded-2xl px-4 py-3 text-sm font-medium text-text placeholder-faint focus:outline-none transition-colors"
+                />
+                <Button onClick={addPlayer} disabled={!newName.trim()} loading={adding}>
+                  {adding ? "" : "+ Add"}
+                </Button>
+              </div>
+            </Card>
 
-        {/* Full player list */}
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5">
-          <h2 className="font-bold text-gray-800 mb-4">All Players</h2>
-          {loading ? (
-            <div className="flex justify-center py-8">
-              <div className="w-8 h-8 rounded-full border-4 border-indigo-200 border-t-indigo-500 animate-spin" />
-            </div>
-          ) : players.length === 0 ? (
-            <div className="text-center py-8 text-gray-400">
-              <div className="text-4xl mb-2">👤</div>
-              <p className="text-sm">No players yet — add one above</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {players.map((player) => {
-                const showPicker = avatarPickerId === player.id;
-                return (
-                  <div key={player.id} className="space-y-2">
-                    <div className="flex items-center gap-3">
-                      {editingId === player.id ? (
-                        <>
-                          <input
-                            autoFocus
-                            type="text"
-                            value={editName}
-                            onChange={(e) => setEditName(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") saveEdit(player.id);
-                              if (e.key === "Escape") setEditingId(null);
-                            }}
-                            className="flex-1 bg-indigo-50 border-2 border-indigo-300 rounded-2xl px-4 py-2.5 text-sm font-medium text-gray-900 focus:outline-none"
-                          />
-                          <button onClick={() => saveEdit(player.id)} className="bg-indigo-600 text-white px-4 py-2.5 rounded-2xl text-sm font-bold hover:bg-indigo-700 active:scale-95 transition-all">
-                            Save
-                          </button>
-                          <button onClick={() => setEditingId(null)} className="text-gray-400 px-3 py-2.5 rounded-2xl text-sm font-medium hover:bg-gray-100 transition-colors">
-                            ✕
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button
-                            onClick={() => setAvatarPickerId(showPicker ? null : player.id)}
-                            className="w-10 h-10 rounded-2xl bg-gradient-to-br from-slate-100 to-indigo-100 flex items-center justify-center text-xl shrink-0 hover:from-indigo-100 hover:to-violet-100 active:scale-95 transition-all"
-                            title="Tap to pick an avatar"
-                          >
-                            {player.avatar ?? <span className="text-sm font-bold text-indigo-700">{player.name[0].toUpperCase()}</span>}
-                          </button>
-                          <span className="flex-1 text-sm font-semibold text-gray-800">{player.name}</span>
-                          <span className="text-xs font-bold text-gray-400">{statsMap[player.id] ?? 0} sessions</span>
-                          <button onClick={() => startEdit(player)} className="text-gray-400 hover:text-indigo-600 px-2 py-1 rounded-xl text-sm transition-colors">✏️</button>
-                          <button
-                            onClick={() => deletePlayer(player.id)}
-                            disabled={deletingId === player.id}
-                            className="text-gray-300 hover:text-red-400 px-2 py-1 rounded-xl text-sm transition-colors disabled:opacity-40"
-                          >
-                            🗑️
-                          </button>
-                        </>
-                      )}
-                    </div>
-
-                    {showPicker && (
-                      <div className="ml-12 p-3 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Male</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {AVATARS.filter((a) => a.gender === "M").map((a) => (
+            {/* Full player list */}
+            <Card>
+              <h2 className="font-bold text-text mb-4">All Players</h2>
+              {players.length === 0 ? (
+                <EmptyState icon={<User size={36} />} title="No players yet" subtitle="Add one above to get started." />
+              ) : (
+                <div className="space-y-2">
+                  {players.map((player) => {
+                    const showPicker = avatarPickerId === player.id;
+                    return (
+                      <div key={player.id} className="space-y-2">
+                        <div className="flex items-center gap-3">
+                          {editingId === player.id ? (
+                            <>
+                              <input
+                                autoFocus
+                                type="text"
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") saveEdit(player.id);
+                                  if (e.key === "Escape") setEditingId(null);
+                                }}
+                                className="flex-1 bg-surface-hover border-2 border-accent rounded-2xl px-4 py-2.5 text-sm font-medium text-text focus:outline-none"
+                              />
+                              <Button size="sm" onClick={() => saveEdit(player.id)}>Save</Button>
                               <button
-                                key={a.emoji}
-                                onClick={() => pickAvatar(player.id, a.emoji)}
-                                title={a.label}
-                                className={`w-9 h-9 rounded-xl text-lg flex items-center justify-center transition-all active:scale-95 ${
-                                  player.avatar === a.emoji ? "bg-indigo-200 ring-2 ring-indigo-500" : "bg-white hover:bg-indigo-50"
-                                }`}
+                                onClick={() => setEditingId(null)}
+                                aria-label="Cancel edit"
+                                className="text-faint px-3 py-2.5 rounded-2xl text-sm font-medium hover:bg-surface-hover transition-colors"
                               >
-                                {a.emoji}
+                                <X size={16} />
                               </button>
-                            ))}
-                          </div>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Female</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {AVATARS.filter((a) => a.gender === "F").map((a) => (
+                            </>
+                          ) : (
+                            <>
                               <button
-                                key={a.emoji}
-                                onClick={() => pickAvatar(player.id, a.emoji)}
-                                title={a.label}
-                                className={`w-9 h-9 rounded-xl text-lg flex items-center justify-center transition-all active:scale-95 ${
-                                  player.avatar === a.emoji ? "bg-pink-200 ring-2 ring-pink-500" : "bg-white hover:bg-pink-50"
-                                }`}
+                                onClick={() => setAvatarPickerId(showPicker ? null : player.id)}
+                                aria-label={`Change avatar for ${player.name}`}
+                                className="w-10 h-10 rounded-2xl bg-gradient-to-br from-surface-hover to-accent/20 flex items-center justify-center text-xl shrink-0 hover:from-accent/20 hover:to-accent-2/20 active:scale-95 transition-all"
+                                title="Tap to pick an avatar"
                               >
-                                {a.emoji}
+                                {player.avatar ?? <span className="text-sm font-bold text-accent">{player.name[0].toUpperCase()}</span>}
                               </button>
-                            ))}
-                          </div>
+                              <span className="flex-1 text-sm font-semibold text-text">{player.name}</span>
+                              <span className="text-xs font-bold text-faint">{statsMap[player.id] ?? 0} sessions</span>
+                              <button
+                                onClick={() => startEdit(player)}
+                                aria-label={`Edit ${player.name}`}
+                                className="text-faint hover:text-accent px-2 py-1 rounded-xl text-sm transition-colors"
+                              >
+                                <Pencil size={15} />
+                              </button>
+                              <button
+                                onClick={() => deletePlayer(player.id)}
+                                disabled={deletingId === player.id}
+                                aria-label={`Delete ${player.name}`}
+                                className="text-faint hover:text-danger px-2 py-1 rounded-xl text-sm transition-colors disabled:opacity-40"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </>
+                          )}
                         </div>
-                        {player.avatar && (
-                          <button
-                            onClick={() => pickAvatar(player.id, null)}
-                            className="text-[10px] font-bold text-slate-500 hover:text-rose-600 px-2 py-1"
-                          >
-                            Clear avatar
-                          </button>
+
+                        {showPicker && (
+                          <div className="ml-12 p-3 rounded-2xl bg-surface-hover border border-border space-y-2">
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-faint mb-1.5">Male</p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {AVATARS.filter((a) => a.gender === "M").map((a) => (
+                                  <button
+                                    key={a.emoji}
+                                    onClick={() => pickAvatar(player.id, a.emoji)}
+                                    title={a.label}
+                                    className={`w-9 h-9 rounded-xl text-lg flex items-center justify-center transition-all active:scale-95 ${
+                                      player.avatar === a.emoji ? "bg-accent/25 ring-2 ring-accent" : "bg-surface hover:bg-accent/10"
+                                    }`}
+                                  >
+                                    {a.emoji}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-faint mb-1.5">Female</p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {AVATARS.filter((a) => a.gender === "F").map((a) => (
+                                  <button
+                                    key={a.emoji}
+                                    onClick={() => pickAvatar(player.id, a.emoji)}
+                                    title={a.label}
+                                    className={`w-9 h-9 rounded-xl text-lg flex items-center justify-center transition-all active:scale-95 ${
+                                      player.avatar === a.emoji ? "bg-accent-2/25 ring-2 ring-accent-2" : "bg-surface hover:bg-accent-2/10"
+                                    }`}
+                                  >
+                                    {a.emoji}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            {player.avatar && (
+                              <button
+                                onClick={() => pickAvatar(player.id, null)}
+                                className="text-[10px] font-bold text-faint hover:text-danger px-2 py-1"
+                              >
+                                Clear avatar
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                    );
+                  })}
+                </div>
+              )}
+            </Card>
+          </>
+        )}
 
       </div>
     </div>

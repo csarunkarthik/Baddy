@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-
+import { ArrowLeft, MapPin, Target, Globe2, Handshake, Trophy } from "lucide-react";
+import { apiGet } from "@/lib/api";
+import Card from "../components/ui/Card";
+import SectionHeader from "../components/ui/SectionHeader";
+import Skeleton from "../components/ui/Skeleton";
+import EmptyState from "../components/ui/EmptyState";
 
 type PlayerStat = { id: number; name: string; sessions: number; percentage: number; rank: number };
 type VenueStat = { venue: string; count: number };
@@ -20,6 +25,7 @@ type PointsStat = {
   totalPoints: number; matchesScored: number; bestSingleMatch: number;
   pointsConceded: number; avgPoints: number; avgConceded: number; pointDiff: number;
 };
+type StatsResponse = { players: Omit<PlayerStat, "rank">[]; totalDays: number; availableYears: number[] };
 
 const MEDAL: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
 
@@ -42,6 +48,7 @@ export default function StatsPage() {
   const [totalDays, setTotalDays] = useState(0);
   const [availableYears, setAvailableYears] = useState<number[]>([currentYear]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   function buildQuery(ys: number[], ms: number[], vs: string[], n: number | null) {
     const params = new URLSearchParams();
@@ -54,39 +61,41 @@ export default function StatsPage() {
 
   async function loadStats(ys: number[], ms: number[], vs: string[], n: number | null) {
     setLoading(true);
+    setError(false);
     const qs = buildQuery(ys, ms, vs, n);
     const pickleQs = qs ? `${qs}&sport=PICKLEBALL` : "sport=PICKLEBALL";
     const [statsRes, venuesRes, winsRes, partnersRes, pointsRes, diversityRes, pickleWinsRes] = await Promise.all([
-      fetch(`/api/stats?${qs}`),
-      fetch(`/api/venues`),
-      fetch(`/api/stats/wins?${qs}`),
-      fetch(`/api/stats/best-partners?${qs}`),
-      fetch(`/api/stats/points?${qs}`),
-      fetch(`/api/stats/diversity?${qs}`),
-      fetch(`/api/stats/wins?${pickleQs}`),
+      apiGet<StatsResponse>(`/api/stats?${qs}`),
+      apiGet<VenueStat[]>(`/api/venues`),
+      apiGet<WinStat[]>(`/api/stats/wins?${qs}`),
+      apiGet<BestPartnersData>(`/api/stats/best-partners?${qs}`),
+      apiGet<PointsStat[]>(`/api/stats/points?${qs}`),
+      apiGet<DiversityStat[]>(`/api/stats/diversity?${qs}`),
+      apiGet<WinStat[]>(`/api/stats/wins?${pickleQs}`),
     ]);
-    const statsData = await statsRes.json();
-    const ranked = statsData.players.map((p: Omit<PlayerStat, "rank">) => ({
+
+    if (!statsRes.data) {
+      setError(true);
+      setLoading(false);
+      return;
+    }
+
+    const statsData = statsRes.data;
+    const ranked = statsData.players.map((p) => ({
       ...p,
-      rank: statsData.players.filter((o: Omit<PlayerStat, "rank">) => o.sessions > p.sessions).length + 1,
+      rank: statsData.players.filter((o) => o.sessions > p.sessions).length + 1,
     }));
     setStats(ranked);
     setTotalDays(statsData.totalDays);
     const yrs: number[] = statsData.availableYears.length ? statsData.availableYears : [currentYear];
     setAvailableYears(yrs);
-    setVenues(await venuesRes.json());
-    const winsArr: WinStat[] = winsRes.ok ? await winsRes.json() : [];
+    setVenues(venuesRes.data ?? []);
+    const winsArr: WinStat[] = winsRes.data ?? [];
     setWins(Object.fromEntries(winsArr.map((w) => [w.id, w])));
-    const partnersData: BestPartnersData = partnersRes.ok
-      ? await partnersRes.json()
-      : { perPlayer: [], topDuos: [] };
-    setPartners(partnersData);
-    const pointsData: PointsStat[] = pointsRes.ok ? await pointsRes.json() : [];
-    setPoints(pointsData);
-    const divData: DiversityStat[] = diversityRes.ok ? await diversityRes.json() : [];
-    setDiversity(divData);
-    const pickleArr: WinStat[] = pickleWinsRes.ok ? await pickleWinsRes.json() : [];
-    setPickleWins(pickleArr);
+    setPartners(partnersRes.data ?? { perPlayer: [], topDuos: [] });
+    setPoints(pointsRes.data ?? []);
+    setDiversity(diversityRes.data ?? []);
+    setPickleWins(pickleWinsRes.data ?? []);
     setLoading(false);
   }
 
@@ -125,7 +134,9 @@ export default function StatsPage() {
     <div className="app-bg">
       <div className="relative overflow-hidden app-header px-5 pt-12 pb-8">
         <div className="relative flex items-start gap-3">
-          <Link href="/" className="mt-1 w-9 h-9 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors font-bold">←</Link>
+          <Link href="/" aria-label="Back" className="mt-1 w-9 h-9 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors">
+            <ArrowLeft size={18} strokeWidth={2.5} />
+          </Link>
           <div className="flex-1">
             <h1 className="text-3xl font-extrabold tracking-tight">Stats</h1>
             <p className="app-header-subtle text-sm mt-0.5">{sliceLabel} · {totalDays} {totalDays === 1 ? "day" : "days"} · {stats.length} players</p>
@@ -203,40 +214,58 @@ export default function StatsPage() {
 
       <div className="px-4 py-5 max-w-lg mx-auto space-y-4">
         {loading ? (
-          <div className="flex justify-center py-16">
-            <div className="w-10 h-10 rounded-full border-4 border-blue-200 border-t-blue-500 animate-spin" />
+          <div className="space-y-4">
+            <Card>
+              <Skeleton className="h-4 w-24 mb-4" />
+              <div className="space-y-3">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            </Card>
+            <Card>
+              <Skeleton className="h-4 w-32 mb-4" />
+              <Skeleton className="h-20 w-full" />
+            </Card>
           </div>
+        ) : error ? (
+          <Card>
+            <EmptyState
+              icon={<Trophy size={36} />}
+              title="Couldn't load stats"
+              subtitle="Something went wrong fetching the latest numbers. Try again in a moment."
+            />
+          </Card>
         ) : (
           <>
             {/* Player leaderboard */}
             {stats.length === 0 ? (
-              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-10 text-center">
-                <div className="text-4xl mb-3">🏸</div>
-                <p className="text-gray-400 text-sm font-medium">No sessions match this filter</p>
-              </div>
+              <Card>
+                <EmptyState icon={<span>🏸</span>} title="No sessions match this filter" />
+              </Card>
             ) : (
-              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 space-y-2">
-                <h2 className="font-bold text-gray-800 px-2 pb-1">Players</h2>
+              <Card padding="sm" className="space-y-2">
+                <SectionHeader className="px-2 pt-1">Players</SectionHeader>
                 {stats.map((p) => (
                   <div key={p.id} className="flex items-center gap-3 p-2">
                     <span className="w-8 text-center text-lg shrink-0">
-                      {MEDAL[p.rank] ?? <span className="text-xs text-gray-400 font-bold">{p.rank}</span>}
+                      {MEDAL[p.rank] ?? <span className="text-xs text-faint font-bold">{p.rank}</span>}
                     </span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-bold text-gray-800 truncate">{p.name}</span>
+                        <span className="text-sm font-bold text-text truncate">{p.name}</span>
                         <div className="flex items-center gap-2 ml-2 shrink-0">
-                          <span className="text-xs font-bold text-indigo-500">{p.percentage}%</span>
-                          <span className="text-sm font-extrabold text-blue-600">{p.sessions}</span>
+                          <span className="text-xs font-bold text-accent-2">{p.percentage}%</span>
+                          <span className="text-sm font-extrabold text-accent">{p.sessions}</span>
                         </div>
                       </div>
-                      <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-2.5 bg-surface-hover rounded-full overflow-hidden">
                         <div
                           className={`h-full rounded-full ${
-                            p.rank === 1 ? "bg-gradient-to-r from-yellow-400 to-amber-500" :
-                            p.rank === 2 ? "bg-gradient-to-r from-gray-400 to-gray-500" :
+                            p.rank === 1 ? "bg-gradient-to-r from-amber-400 to-amber-500" :
+                            p.rank === 2 ? "bg-gradient-to-r from-zinc-400 to-zinc-500" :
                             p.rank === 3 ? "bg-gradient-to-r from-orange-400 to-orange-500" :
-                            "bg-gradient-to-r from-blue-400 to-indigo-500"
+                            "bg-gradient-to-r from-accent to-accent-2"
                           }`}
                           style={{ width: `${Math.max(4, (p.sessions / max) * 100)}%` }}
                         />
@@ -244,37 +273,35 @@ export default function StatsPage() {
                     </div>
                   </div>
                 ))}
-                <p className="text-center text-xs text-gray-400 pt-1">% = sessions attended out of {totalDays} total</p>
-              </div>
+                <p className="text-center text-xs text-faint pt-1">% = sessions attended out of {totalDays} total</p>
+              </Card>
             )}
 
             {/* Partner Diversity */}
             {diversity.length > 0 && (
-              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5">
-                <div className="flex items-baseline gap-2 mb-3">
-                  <span className="text-lg">🌐</span>
-                  <h2 className="font-bold text-gray-800 text-sm">Partner Diversity</h2>
-                  <span className="text-[10px] text-gray-400 font-semibold ml-auto">how evenly you spread partnerships</span>
-                </div>
+              <Card>
+                <SectionHeader right="how evenly you spread partnerships" className="mb-3">
+                  <Globe2 size={16} className="text-accent-2" /> Partner Diversity
+                </SectionHeader>
                 <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 gap-y-1.5 text-[11px]">
-                  <div className="font-bold text-gray-400 uppercase tracking-wider">Player</div>
-                  <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Distinct</div>
-                  <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Matches</div>
-                  <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Score</div>
+                  <div className="font-bold text-faint uppercase tracking-wider">Player</div>
+                  <div className="font-bold text-faint uppercase tracking-wider text-right">Distinct</div>
+                  <div className="font-bold text-faint uppercase tracking-wider text-right">Matches</div>
+                  <div className="font-bold text-faint uppercase tracking-wider text-right">Score</div>
                   {diversity.map((d) => (
                     <div key={d.id} className="contents">
-                      <div className="font-semibold text-gray-700 truncate">{d.name}</div>
-                      <div className="text-right text-gray-600">{d.distinctPartners} / {d.coAttendees}</div>
-                      <div className="text-right text-gray-400">{d.matchesPlayed}</div>
-                      <div className="text-right font-bold text-indigo-700">{d.diversity}%</div>
+                      <div className="font-semibold text-text truncate">{d.name}</div>
+                      <div className="text-right text-muted">{d.distinctPartners} / {d.coAttendees}</div>
+                      <div className="text-right text-faint">{d.matchesPlayed}</div>
+                      <div className="text-right font-bold text-accent-2">{d.diversity}%</div>
                     </div>
                   ))}
                 </div>
-                <p className="text-[10px] text-gray-400 mt-3 leading-relaxed">
+                <p className="text-[10px] text-faint mt-3 leading-relaxed">
                   Pielou&apos;s evenness² capped at min(matches, possible partners). Spreading evenly across
                   more partners (and across multiple rounds) raises the score.
                 </p>
-              </div>
+              </Card>
             )}
 
             {/* Wins */}
@@ -284,109 +311,105 @@ export default function StatsPage() {
                 .sort((a, b) => b.wins - a.wins || b.winPct - a.winPct || a.name.localeCompare(b.name));
               if (winsList.length === 0) return null;
               return (
-                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 space-y-1">
-                  <h2 className="font-bold text-gray-800 px-2 pb-1 flex items-center gap-2">
-                    🏆 <span>Wins</span>
-                  </h2>
+                <Card padding="sm" className="space-y-1">
+                  <SectionHeader className="px-2 pt-1 pb-1">
+                    <Trophy size={16} className="text-gold" /> Wins
+                  </SectionHeader>
                   <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 gap-y-1.5 px-2 py-1 text-xs">
-                    <div className="font-bold text-gray-400 uppercase tracking-wider">Player</div>
-                    <div className="font-bold text-gray-400 uppercase tracking-wider text-right">W</div>
-                    <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Played</div>
-                    <div className="font-bold text-gray-400 uppercase tracking-wider text-right">%</div>
+                    <div className="font-bold text-faint uppercase tracking-wider">Player</div>
+                    <div className="font-bold text-faint uppercase tracking-wider text-right">W</div>
+                    <div className="font-bold text-faint uppercase tracking-wider text-right">Played</div>
+                    <div className="font-bold text-faint uppercase tracking-wider text-right">%</div>
                     {winsList.map((w) => (
                       <span key={w.id} className="contents">
-                        <span className="font-semibold text-gray-700 truncate">{w.name}</span>
-                        <span className="text-right font-bold text-emerald-600">{w.wins}</span>
-                        <span className="text-right text-gray-500">{w.played}</span>
-                        <span className="text-right text-gray-500">{w.winPct}%</span>
+                        <span className="font-semibold text-text truncate">{w.name}</span>
+                        <span className="text-right font-bold text-accent">{w.wins}</span>
+                        <span className="text-right text-muted">{w.played}</span>
+                        <span className="text-right text-muted">{w.winPct}%</span>
                       </span>
                     ))}
                   </div>
-                </div>
+                </Card>
               );
             })()}
 
             {/* Venues */}
             {venues.length > 0 && (
-              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 space-y-2">
-                <h2 className="font-bold text-gray-800 px-2 pb-1">Venues</h2>
+              <Card padding="sm" className="space-y-2">
+                <SectionHeader className="px-2 pt-1">Venues</SectionHeader>
                 {venues.map((v) => (
                   <div key={v.venue} className="flex items-center gap-3 p-2">
-                    <span className="text-lg shrink-0">📍</span>
+                    <span className="shrink-0 text-faint"><MapPin size={18} /></span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-sm font-bold text-gray-800 truncate">{v.venue}</span>
+                        <span className="text-sm font-bold text-text truncate">{v.venue}</span>
                         <div className="flex items-center gap-1.5 ml-2 shrink-0">
-                          <span className="text-sm font-extrabold text-indigo-600">{v.count}</span>
-                          <span className="text-xs text-gray-400">{v.count === 1 ? "session" : "sessions"}</span>
+                          <span className="text-sm font-extrabold text-accent">{v.count}</span>
+                          <span className="text-xs text-faint">{v.count === 1 ? "session" : "sessions"}</span>
                         </div>
                       </div>
-                      <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div className="h-full rounded-full bg-gradient-to-r from-indigo-400 to-purple-500"
+                      <div className="h-2.5 bg-surface-hover rounded-full overflow-hidden">
+                        <div className="h-full rounded-full bg-gradient-to-r from-accent to-accent-2"
                           style={{ width: `${Math.max(4, (v.count / maxVenue) * 100)}%` }} />
                       </div>
                     </div>
                   </div>
                 ))}
-              </div>
+              </Card>
             )}
             {/* Points scored */}
             {points.length > 0 && (
-              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-lg">🎯</span>
-                  <h2 className="font-bold text-gray-800 text-sm">Points scored</h2>
-                  <span className="text-[10px] text-gray-400 font-semibold ml-auto">scored matches only</span>
-                </div>
+              <Card>
+                <SectionHeader right="scored matches only" className="mb-3">
+                  <Target size={16} className="text-accent" /> Points scored
+                </SectionHeader>
                 <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-x-2 gap-y-1.5 text-[11px]">
-                  <div className="font-bold text-gray-400 uppercase tracking-wider">Player</div>
-                  <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Tot</div>
-                  <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Avg</div>
-                  <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Best</div>
-                  <div className="font-bold text-gray-400 uppercase tracking-wider text-right">+/−</div>
-                  <div className="font-bold text-gray-400 uppercase tracking-wider text-right">M</div>
+                  <div className="font-bold text-faint uppercase tracking-wider">Player</div>
+                  <div className="font-bold text-faint uppercase tracking-wider text-right">Tot</div>
+                  <div className="font-bold text-faint uppercase tracking-wider text-right">Avg</div>
+                  <div className="font-bold text-faint uppercase tracking-wider text-right">Best</div>
+                  <div className="font-bold text-faint uppercase tracking-wider text-right">+/−</div>
+                  <div className="font-bold text-faint uppercase tracking-wider text-right">M</div>
                   {points.map((p) => (
                     <div key={p.id} className="contents">
-                      <div className="font-semibold text-gray-700 truncate">{p.name}</div>
-                      <div className="text-right font-bold text-amber-600">{p.totalPoints}</div>
-                      <div className="text-right text-gray-700 font-semibold">{p.avgPoints}</div>
-                      <div className="text-right text-emerald-600 font-semibold">{p.bestSingleMatch}</div>
-                      <div className={`text-right font-bold ${p.pointDiff >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
+                      <div className="font-semibold text-text truncate">{p.name}</div>
+                      <div className="text-right font-bold text-gold">{p.totalPoints}</div>
+                      <div className="text-right text-muted font-semibold">{p.avgPoints}</div>
+                      <div className="text-right text-accent-2 font-semibold">{p.bestSingleMatch}</div>
+                      <div className={`text-right font-bold ${p.pointDiff >= 0 ? "text-accent-2" : "text-danger"}`}>
                         {p.pointDiff >= 0 ? "+" : ""}{p.pointDiff}
                       </div>
-                      <div className="text-right text-gray-400">{p.matchesScored}</div>
+                      <div className="text-right text-faint">{p.matchesScored}</div>
                     </div>
                   ))}
                 </div>
-              </div>
+              </Card>
             )}
 
             {/* Best Partners */}
             {(partners.topDuos.length > 0 || partners.perPlayer.length > 0) && (
-              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 space-y-5">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">🤝</span>
-                  <h2 className="font-bold text-gray-800 text-sm">Best partnerships</h2>
-                  <span className="text-[10px] text-gray-400 font-semibold ml-auto">min 2 together</span>
-                </div>
+              <Card className="space-y-5">
+                <SectionHeader right="min 2 together">
+                  <Handshake size={16} className="text-accent-2" /> Best partnerships
+                </SectionHeader>
 
                 {partners.topDuos.length > 0 && (
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Top duos</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-faint mb-2">Top duos</p>
                     <div className="space-y-1.5">
                       {partners.topDuos.map((d, i) => (
                         <div
                           key={`${d.p1}-${d.p2}`}
-                          className="flex items-center justify-between px-3 py-2 rounded-xl bg-gray-50 text-xs"
+                          className="flex items-center justify-between px-3 py-2 rounded-xl bg-surface-hover text-xs"
                         >
                           <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-[10px] font-bold text-gray-400 w-5 shrink-0">{i + 1}.</span>
-                            <span className="font-semibold text-gray-800 truncate">
-                              {d.p1} <span className="text-gray-400">+</span> {d.p2}
+                            <span className="text-[10px] font-bold text-faint w-5 shrink-0">{i + 1}.</span>
+                            <span className="font-semibold text-text truncate">
+                              {d.p1} <span className="text-faint">+</span> {d.p2}
                             </span>
                           </div>
-                          <span className="font-bold text-emerald-600 shrink-0 whitespace-nowrap">
-                            {d.wins}W/{d.played}P <span className="text-gray-400 ml-1">{d.winPct}%</span>
+                          <span className="font-bold text-accent-2 shrink-0 whitespace-nowrap">
+                            {d.wins}W/{d.played}P <span className="text-faint ml-1">{d.winPct}%</span>
                           </span>
                         </div>
                       ))}
@@ -396,25 +419,25 @@ export default function StatsPage() {
 
                 {partners.perPlayer.length > 0 && (
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Each player&apos;s best partner</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-faint mb-2">Each player&apos;s best partner</p>
                     <div className="space-y-1.5">
                       {partners.perPlayer.map((r) => (
                         <div
                           key={r.playerId}
-                          className="flex items-center justify-between px-3 py-2 rounded-xl bg-gray-50 text-xs"
+                          className="flex items-center justify-between px-3 py-2 rounded-xl bg-surface-hover text-xs"
                         >
-                          <span className="font-semibold text-gray-800 truncate pr-2">
-                            {r.playerName} <span className="text-gray-400">→</span> {r.partnerName}
+                          <span className="font-semibold text-text truncate pr-2">
+                            {r.playerName} <span className="text-faint">→</span> {r.partnerName}
                           </span>
-                          <span className="font-bold text-emerald-600 shrink-0 whitespace-nowrap">
-                            {r.wins}W/{r.played}P <span className="text-gray-400 ml-1">{r.winPct}%</span>
+                          <span className="font-bold text-accent-2 shrink-0 whitespace-nowrap">
+                            {r.wins}W/{r.played}P <span className="text-faint ml-1">{r.winPct}%</span>
                           </span>
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
-              </div>
+              </Card>
             )}
 
             {/* Pickleball — opt-in mini block, hidden until there's data */}
@@ -422,48 +445,47 @@ export default function StatsPage() {
               const list = pickleWins.filter((w) => w.played > 0);
               const byPct = [...list].sort((a, b) => b.winPct - a.winPct || b.wins - a.wins || a.name.localeCompare(b.name));
               return (
-                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 space-y-4 mt-2">
-                  <h2 className="font-bold text-gray-800 text-sm px-2 pb-1 flex items-center gap-2">
-                    🥒 <span>Pickleball</span>
-                    <span className="text-[10px] text-gray-400 font-semibold ml-auto">wins · win %</span>
-                  </h2>
+                <Card padding="sm" className="space-y-4 mt-2">
+                  <SectionHeader right="wins · win %" className="px-2 pt-1 pb-1">
+                    <span>🥒</span> Pickleball
+                  </SectionHeader>
 
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 px-2">By wins</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-faint mb-1.5 px-2">By wins</p>
                     <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 gap-y-1.5 px-2 py-1 text-xs">
-                      <div className="font-bold text-gray-400 uppercase tracking-wider">Player</div>
-                      <div className="font-bold text-gray-400 uppercase tracking-wider text-right">W</div>
-                      <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Played</div>
-                      <div className="font-bold text-gray-400 uppercase tracking-wider text-right">%</div>
+                      <div className="font-bold text-faint uppercase tracking-wider">Player</div>
+                      <div className="font-bold text-faint uppercase tracking-wider text-right">W</div>
+                      <div className="font-bold text-faint uppercase tracking-wider text-right">Played</div>
+                      <div className="font-bold text-faint uppercase tracking-wider text-right">%</div>
                       {list.map((w) => (
                         <span key={`pw-${w.id}`} className="contents">
-                          <span className="font-semibold text-gray-700 truncate">{w.name}</span>
-                          <span className="text-right font-bold text-emerald-600">{w.wins}</span>
-                          <span className="text-right text-gray-500">{w.played}</span>
-                          <span className="text-right text-gray-500">{w.winPct}%</span>
+                          <span className="font-semibold text-text truncate">{w.name}</span>
+                          <span className="text-right font-bold text-accent">{w.wins}</span>
+                          <span className="text-right text-muted">{w.played}</span>
+                          <span className="text-right text-muted">{w.winPct}%</span>
                         </span>
                       ))}
                     </div>
                   </div>
 
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 px-2">By win %</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-faint mb-1.5 px-2">By win %</p>
                     <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 gap-y-1.5 px-2 py-1 text-xs">
-                      <div className="font-bold text-gray-400 uppercase tracking-wider">Player</div>
-                      <div className="font-bold text-gray-400 uppercase tracking-wider text-right">%</div>
-                      <div className="font-bold text-gray-400 uppercase tracking-wider text-right">W</div>
-                      <div className="font-bold text-gray-400 uppercase tracking-wider text-right">Played</div>
+                      <div className="font-bold text-faint uppercase tracking-wider">Player</div>
+                      <div className="font-bold text-faint uppercase tracking-wider text-right">%</div>
+                      <div className="font-bold text-faint uppercase tracking-wider text-right">W</div>
+                      <div className="font-bold text-faint uppercase tracking-wider text-right">Played</div>
                       {byPct.map((w) => (
                         <span key={`pp-${w.id}`} className="contents">
-                          <span className="font-semibold text-gray-700 truncate">{w.name}</span>
-                          <span className="text-right font-bold text-indigo-600">{w.winPct}%</span>
-                          <span className="text-right text-gray-500">{w.wins}</span>
-                          <span className="text-right text-gray-500">{w.played}</span>
+                          <span className="font-semibold text-text truncate">{w.name}</span>
+                          <span className="text-right font-bold text-accent-2">{w.winPct}%</span>
+                          <span className="text-right text-muted">{w.wins}</span>
+                          <span className="text-right text-muted">{w.played}</span>
                         </span>
                       ))}
                     </div>
                   </div>
-                </div>
+                </Card>
               );
             })()}
           </>

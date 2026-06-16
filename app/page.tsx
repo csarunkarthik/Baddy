@@ -2,8 +2,16 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { CalendarDays, Lock, MapPin, Shirt, Users } from "lucide-react";
 import { isSessionLocked } from "@/lib/locking";
+import { apiGet, apiSend } from "@/lib/api";
 import HistoryList from "./components/HistoryList";
+import Card from "./components/ui/Card";
+import Button from "./components/ui/Button";
+import Skeleton from "./components/ui/Skeleton";
+import EmptyState from "./components/ui/EmptyState";
+import Chip from "./components/ui/Chip";
+import { useToast } from "./components/ui/ToastProvider";
 
 type Player = { id: number; name: string };
 type Sport = "BADMINTON" | "PICKLEBALL";
@@ -23,6 +31,7 @@ function formatDisplay(dateStr: string) {
 }
 
 export default function Home() {
+  const { showToast } = useToast();
   const todayStr = toDateInput(new Date());
 
   const [players, setPlayers] = useState<Player[]>([]);
@@ -33,6 +42,7 @@ export default function Home() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [historyOpen, setHistoryOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [bootError, setBootError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -49,8 +59,12 @@ export default function Home() {
     setVenue("");
     setSelectedIds(new Set());
     setSaved(false);
-    const res = await fetch(`/api/sessions?date=${date}&sport=${sportArg}`);
-    const s: Session | null = await res.json();
+    const { data: s, error: err } = await apiGet<Session | null>(`/api/sessions?date=${date}&sport=${sportArg}`);
+    if (err) {
+      showToast("Couldn't load that session", "danger");
+      setLoading(false);
+      return;
+    }
     if (s) {
       setVenue(s.venue);
       setSelectedIds(new Set(s.attendance.map((a) => a.player.id)));
@@ -60,14 +74,21 @@ export default function Home() {
   }
 
   useEffect(() => {
-    Promise.all([
-      fetch("/api/players").then((r) => r.json()),
-      fetch("/api/venues").then((r) => r.json()),
-    ]).then(([p, v]) => {
-      setPlayers(p);
-      setVenueSuggestions(v);
-    });
-    loadSession(todayStr, "BADMINTON");
+    (async () => {
+      const [p, v] = await Promise.all([
+        apiGet<Player[]>("/api/players"),
+        apiGet<VenueSuggestion[]>("/api/venues"),
+      ]);
+      if (!p.data) {
+        setBootError(true);
+        setLoading(false);
+        return;
+      }
+      setPlayers(p.data);
+      setVenueSuggestions(v.data ?? []);
+      await loadSession(todayStr, "BADMINTON");
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function handleDateChange(date: string) {
@@ -94,17 +115,19 @@ export default function Home() {
     if (!venue.trim()) return;
     if (locked) return;
     setSaving(true);
-    await fetch("/api/sessions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        venue: venue.trim(),
-        date: selectedDate,
-        sport,
-        playerIds: [...selectedIds],
-      }),
+    const { error: err } = await apiSend("/api/sessions", "POST", {
+      venue: venue.trim(),
+      date: selectedDate,
+      sport,
+      playerIds: [...selectedIds],
     });
-    fetch("/api/venues").then((r) => r.json()).then(setVenueSuggestions);
+    if (err) {
+      showToast(err, "danger");
+      setSaving(false);
+      return;
+    }
+    const venuesRes = await apiGet<VenueSuggestion[]>("/api/venues");
+    if (venuesRes.data) setVenueSuggestions(venuesRes.data);
     setSaving(false);
     setSaved(true);
   }
@@ -118,7 +141,7 @@ export default function Home() {
           <p className="app-header-subtle mt-1 text-sm font-medium">{formatDisplay(selectedDate)}</p>
           {saved && venue && (
             <div className="mt-3 inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-semibold">
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-300 animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-accent-2 animate-pulse" />
               {venue} · {selectedIds.size} present
             </div>
           )}
@@ -127,189 +150,202 @@ export default function Home() {
 
       <div className="px-4 py-5 max-w-lg mx-auto space-y-4">
 
-        {/* Date */}
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">📅</span>
-              <h2 className="font-bold text-gray-800">Date</h2>
-            </div>
-            {!isToday && (
-              <button
-                onClick={() => handleDateChange(todayStr)}
-                className="text-xs text-emerald-600 font-semibold bg-emerald-50 px-3 py-1 rounded-full hover:bg-emerald-100 transition-colors"
-              >
-                Back to today
-              </button>
-            )}
-          </div>
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => handleDateChange(e.target.value)}
-            className="w-full bg-gray-50 border-2 border-transparent focus:border-indigo-400 rounded-2xl px-4 py-3 text-sm font-medium text-gray-900 focus:outline-none transition-colors"
-          />
-          {!isToday && !locked && <p className="text-xs text-orange-500 font-medium">Editing a past or future date</p>}
-          {locked && (
-            <p className="text-xs text-amber-700 font-semibold bg-amber-50 border border-amber-200 px-3 py-2 rounded-xl">
-              🔒 This date is locked — entries can only be made or edited within 2 days of the session.
-            </p>
-          )}
-        </div>
+        {bootError ? (
+          <Card>
+            <EmptyState icon={<span>🏸</span>} title="Couldn't load Home" subtitle="Something went wrong. Try refreshing." />
+          </Card>
+        ) : (
+          <>
+            {/* Date */}
+            <Card className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CalendarDays size={16} className="text-accent" />
+                  <h2 className="font-bold text-text">Date</h2>
+                </div>
+                {!isToday && (
+                  <button
+                    onClick={() => handleDateChange(todayStr)}
+                    className="text-xs text-accent font-semibold bg-accent/10 px-3 py-1 rounded-full hover:bg-accent/20 transition-colors"
+                  >
+                    Back to today
+                  </button>
+                )}
+              </div>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => handleDateChange(e.target.value)}
+                className="w-full bg-surface-hover border-2 border-transparent focus:border-accent rounded-2xl px-4 py-3 text-sm font-medium text-text focus:outline-none transition-colors"
+              />
+              {!isToday && !locked && <p className="text-xs text-warn font-medium">Editing a past or future date</p>}
+              {locked && (
+                <p className="text-xs text-amber-400 font-semibold bg-warn/10 border border-warn/30 px-3 py-2 rounded-xl flex items-center gap-1.5">
+                  <Lock size={12} /> This date is locked — entries can only be made or edited within 2 days of the session.
+                </p>
+              )}
+            </Card>
 
-        {/* Sport */}
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 space-y-3">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">🎽</span>
-            <h2 className="font-bold text-gray-800">Sport</h2>
-          </div>
-          <div className="flex gap-2">
-            {([
-              { v: "BADMINTON" as Sport, label: "🏸 Badminton" },
-              { v: "PICKLEBALL" as Sport, label: "🥒 Pickleball" },
-            ]).map((opt) => {
-              const on = sport === opt.v;
-              return (
-                <button
-                  key={opt.v}
-                  onClick={() => handleSportChange(opt.v)}
-                  disabled={locked}
-                  className={`flex-1 py-2.5 rounded-2xl text-sm font-bold transition-colors active:scale-[0.98] disabled:opacity-60 ${
-                    on
-                      ? "bg-indigo-500 text-white shadow-md shadow-indigo-200"
-                      : "bg-gray-50 text-gray-600 hover:bg-gray-100"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Venue */}
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 space-y-3">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">📍</span>
-            <h2 className="font-bold text-gray-800">Venue</h2>
-          </div>
-          <input
-            type="text"
-            placeholder="Where are you playing?"
-            value={venue}
-            onChange={(e) => { setVenue(e.target.value); setSaved(false); }}
-            disabled={locked}
-            className="w-full bg-gray-50 border-2 border-transparent focus:border-indigo-400 rounded-2xl px-4 py-3 text-sm font-medium text-gray-900 placeholder-gray-400 focus:outline-none transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-          />
-          {filteredSuggestions.length > 0 && !locked && (
-            <div className="flex flex-wrap gap-2">
-              {filteredSuggestions.map((s) => (
-                <button
-                  key={s.venue}
-                  onClick={() => { setVenue(s.venue); setSaved(false); }}
-                  className="px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-indigo-100 hover:text-indigo-700 transition-colors"
-                >
-                  {s.venue} <span className="text-slate-400">{s.count}×</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Player selection — appears once venue is typed */}
-        {loading ? (
-          <div className="flex justify-center py-8">
-            <div className="w-8 h-8 rounded-full border-4 border-emerald-200 border-t-emerald-500 animate-spin" />
-          </div>
-        ) : venueReady ? (
-          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 space-y-4">
-            <div className="flex items-center justify-between">
+            {/* Sport */}
+            <Card className="space-y-3">
               <div className="flex items-center gap-2">
-                <span className="text-lg">👥</span>
-                <h2 className="font-bold text-gray-800">Who played?</h2>
+                <Shirt size={16} className="text-accent" />
+                <h2 className="font-bold text-text">Sport</h2>
               </div>
-              <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full">
-                <span className="font-bold text-sm">{selectedIds.size}</span>
-                <span className="text-xs text-emerald-500">/ {players.length}</span>
+              <div className="flex gap-2">
+                {([
+                  { v: "BADMINTON" as Sport, label: "🏸 Badminton" },
+                  { v: "PICKLEBALL" as Sport, label: "🥒 Pickleball" },
+                ]).map((opt) => {
+                  const on = sport === opt.v;
+                  return (
+                    <button
+                      key={opt.v}
+                      onClick={() => handleSportChange(opt.v)}
+                      disabled={locked}
+                      className={`flex-1 py-2.5 rounded-2xl text-sm font-bold transition-colors active:scale-[0.98] disabled:opacity-60 ${
+                        on
+                          ? "bg-gradient-to-br from-accent to-accent-2 text-white shadow-md"
+                          : "bg-surface-hover text-muted hover:bg-surface-raised"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
               </div>
-            </div>
+            </Card>
 
-            {players.length === 0 ? (
-              <div className="text-center py-6 text-gray-400">
-                <div className="text-3xl mb-2">👤</div>
-                <p className="text-sm">No players yet</p>
-                <Link href="/players" className="text-emerald-500 font-semibold text-sm mt-1 inline-block">Add players →</Link>
+            {/* Venue */}
+            <Card className="space-y-3">
+              <div className="flex items-center gap-2">
+                <MapPin size={16} className="text-accent" />
+                <h2 className="font-bold text-text">Venue</h2>
               </div>
-            ) : (
-              <>
-                <div className="space-y-1">
-                  {players.map((player) => {
-                    const selected = selectedIds.has(player.id);
-                    return (
-                      <button
-                        key={player.id}
-                        onClick={() => !locked && togglePlayer(player.id)}
-                        disabled={locked}
-                        className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all active:scale-[0.98] ${
-                          selected
-                            ? "bg-emerald-50 border-2 border-emerald-200"
-                            : "bg-gray-50 border-2 border-transparent hover:border-gray-200"
-                        } ${locked ? "cursor-default opacity-90" : ""}`}
-                      >
-                        <span className={`text-sm font-semibold ${selected ? "text-emerald-800" : "text-gray-500"}`}>
-                          {player.name}
-                        </span>
-                        <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${
-                          selected ? "bg-emerald-500 shadow-md shadow-emerald-200" : "bg-white border-2 border-gray-200"
-                        }`}>
-                          {selected && <span className="text-white text-xs font-bold">✓</span>}
-                        </div>
-                      </button>
-                    );
-                  })}
+              <input
+                type="text"
+                placeholder="Where are you playing?"
+                value={venue}
+                onChange={(e) => { setVenue(e.target.value); setSaved(false); }}
+                disabled={locked}
+                className="w-full bg-surface-hover border-2 border-transparent focus:border-accent rounded-2xl px-4 py-3 text-sm font-medium text-text placeholder-faint focus:outline-none transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              />
+              {filteredSuggestions.length > 0 && !locked && (
+                <div className="flex flex-wrap gap-2">
+                  {filteredSuggestions.map((s) => (
+                    <button
+                      key={s.venue}
+                      onClick={() => { setVenue(s.venue); setSaved(false); }}
+                      className="px-3 py-1.5 rounded-full text-xs font-semibold bg-surface-hover text-muted hover:bg-accent/15 hover:text-accent transition-colors"
+                    >
+                      {s.venue} <span className="text-faint">{s.count}×</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            {/* Player selection — appears once venue is typed */}
+            {loading ? (
+              <Card>
+                <div className="space-y-2">
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                </div>
+              </Card>
+            ) : venueReady ? (
+              <Card className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Users size={16} className="text-accent" />
+                    <h2 className="font-bold text-text">Who played?</h2>
+                  </div>
+                  <Chip tone="accent">{selectedIds.size} / {players.length}</Chip>
                 </div>
 
-                <button
-                  onClick={makeEntry}
-                  disabled={saving || locked}
-                  className={`w-full py-4 rounded-2xl font-bold text-sm transition-all active:scale-[0.98] ${
-                    locked
-                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                      : saved
-                      ? "bg-emerald-50 text-emerald-600 border-2 border-emerald-200"
-                      : "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-200 hover:from-emerald-600 hover:to-teal-600"
-                  } disabled:opacity-50`}
-                >
-                  {locked ? "🔒 Date locked" : saving ? "Saving..." : saved ? `✓ Saved · ${selectedIds.size} players` : `Make Entry →`}
-                </button>
-              </>
-            )}
-          </div>
-        ) : (
-          <div className="bg-white/60 rounded-3xl border-2 border-dashed border-gray-200 p-8 text-center text-gray-400">
-            <div className="text-3xl mb-2">🏸</div>
-            <p className="text-sm font-medium">Enter a venue to select players</p>
-          </div>
-        )}
+                {players.length === 0 ? (
+                  <EmptyState
+                    icon={<Users size={36} />}
+                    title="No players yet"
+                    subtitle="Add your roster to start tracking sessions."
+                    action={<Link href="/players" className="text-accent font-semibold text-sm">Add players →</Link>}
+                  />
+                ) : (
+                  <>
+                    <div className="space-y-1">
+                      {players.map((player) => {
+                        const selected = selectedIds.has(player.id);
+                        return (
+                          <button
+                            key={player.id}
+                            onClick={() => !locked && togglePlayer(player.id)}
+                            disabled={locked}
+                            className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all active:scale-[0.98] ${
+                              selected
+                                ? "bg-accent/15 border-2 border-accent/40"
+                                : "bg-surface-hover border-2 border-transparent hover:border-border"
+                            } ${locked ? "cursor-default opacity-90" : ""}`}
+                          >
+                            <span className={`text-sm font-semibold ${selected ? "text-text" : "text-muted"}`}>
+                              {player.name}
+                            </span>
+                            <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${
+                              selected ? "bg-accent shadow-md" : "bg-surface border-2 border-border"
+                            }`}>
+                              {selected && <span className="text-white text-xs font-bold">✓</span>}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
 
-        {/* Past sessions — collapsed by default, expands to inline history editor */}
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100">
-          <button
-            onClick={() => setHistoryOpen((v) => !v)}
-            className="w-full flex items-center justify-between px-5 py-4 text-left"
-          >
-            <div className="flex items-center gap-2">
-              <span className="text-lg">📜</span>
-              <h2 className="font-bold text-gray-800">Past sessions</h2>
-            </div>
-            <span className={`text-gray-300 text-xs transition-transform duration-200 ${historyOpen ? "rotate-180" : ""}`}>▼</span>
-          </button>
-          {historyOpen && (
-            <div className="px-3 pb-5 border-t border-gray-50 pt-4">
-              <HistoryList />
-            </div>
-          )}
-        </div>
+                    <Button
+                      onClick={makeEntry}
+                      disabled={locked}
+                      loading={saving}
+                      variant={locked ? "secondary" : saved ? "secondary" : "primary"}
+                      className="w-full"
+                    >
+                      {locked ? (
+                        <><Lock size={14} /> Date locked</>
+                      ) : saving ? (
+                        "Saving..."
+                      ) : saved ? (
+                        `✓ Saved · ${selectedIds.size} players`
+                      ) : (
+                        "Make Entry →"
+                      )}
+                    </Button>
+                  </>
+                )}
+              </Card>
+            ) : (
+              <Card className="border-2 border-dashed border-border bg-transparent shadow-none">
+                <EmptyState icon={<span>🏸</span>} title="Enter a venue to select players" />
+              </Card>
+            )}
+
+            {/* Past sessions — collapsed by default, expands to inline history editor */}
+            <Card padding="none">
+              <button
+                onClick={() => setHistoryOpen((v) => !v)}
+                className="w-full flex items-center justify-between px-5 py-4 text-left"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">📜</span>
+                  <h2 className="font-bold text-text">Past sessions</h2>
+                </div>
+                <span className={`text-faint text-xs transition-transform duration-200 ${historyOpen ? "rotate-180" : ""}`}>▼</span>
+              </button>
+              {historyOpen && (
+                <div className="px-3 pb-5 border-t border-border pt-4">
+                  <HistoryList />
+                </div>
+              )}
+            </Card>
+          </>
+        )}
 
       </div>
     </div>
