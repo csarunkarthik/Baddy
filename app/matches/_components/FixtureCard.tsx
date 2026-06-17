@@ -142,9 +142,9 @@ export default function FixtureCard({
                 </button>
               );
             })}
-            {/* Horizontal VS — compact, no fill */}
+            {/* Horizontal V/S — compact, no fill */}
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none select-none">
-              <span className="text-sm font-black italic text-faint">VS</span>
+              <span className="text-sm font-black italic text-faint">V/S</span>
             </div>
           </div>
           {!locked && !matchCompleted(m) && !isEditing && (

@@ -7,7 +7,6 @@ import ScoreRow from "./ScoreRow";
 import FixtureControls from "./FixtureControls";
 import FixtureEditForm from "./FixtureEditForm";
 import FixtureWarnings from "./FixtureWarnings";
-import Shuttlecock from "./Shuttlecock";
 import { matchCompleted, type Match, type Player, type MatchProb, type EditDraft } from "./types";
 
 export default function LiveFixtureCard({
@@ -151,30 +150,6 @@ export default function LiveFixtureCard({
           />
         ) : (
           <>
-            {/* Shuttlecock rally lane — arcs above the names, never over them */}
-            {!reduce && (
-              <div className="relative h-14 overflow-hidden pointer-events-none">
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <motion.div
-                    animate={{
-                      x: [-120, 0, 120, 0, -120],
-                      y: [14, -16, 14, -16, 14],
-                      rotate: [14, 0, -14, 0, 14],
-                      scaleX: [1, 1, -1, -1, 1],
-                    }}
-                    transition={{
-                      x:      { duration: 2.6, repeat: Infinity, ease: "easeInOut", times: [0, 0.25, 0.5, 0.75, 1] },
-                      y:      { duration: 2.6, repeat: Infinity, ease: "easeInOut", times: [0, 0.25, 0.5, 0.75, 1] },
-                      rotate: { duration: 2.6, repeat: Infinity, ease: "easeInOut", times: [0, 0.25, 0.5, 0.75, 1] },
-                      scaleX: { duration: 2.6, repeat: Infinity, ease: "easeInOut", times: [0, 0.49, 0.5, 0.99, 1] },
-                    }}
-                  >
-                    <Shuttlecock className="w-8 h-5" />
-                  </motion.div>
-                </div>
-              </div>
-            )}
-
             <div className="relative grid grid-cols-2">
               {(["A", "B"] as const).map((team) => {
                 const players = team === "A" ? m.teamA : m.teamB;
@@ -217,10 +192,10 @@ export default function LiveFixtureCard({
                 );
               })}
 
-              {/* Horizontal VS — Mortal-Kombat style, no fill */}
+              {/* Horizontal V/S — Mortal-Kombat style, no fill */}
               <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none select-none">
                 <span className="text-2xl font-black italic text-transparent bg-clip-text bg-gradient-to-br from-accent via-accent-2 to-accent drop-shadow-[0_1px_3px_rgba(99,102,241,0.6)]">
-                  VS
+                  V/S
                 </span>
               </div>
             </div>
