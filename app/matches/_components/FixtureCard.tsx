@@ -63,7 +63,7 @@ export default function FixtureCard({
         </p>
       )}
       <div
-        className={`rounded-2xl overflow-hidden transition-all ${
+        className={`relative rounded-2xl overflow-hidden transition-all ${
           isActive
             ? "border-2 border-accent shadow-lg shadow-accent/20 bg-accent/5"
             : m.winner
@@ -71,6 +71,9 @@ export default function FixtureCard({
             : "border border-border bg-surface-hover"
         }`}
       >
+        {isActive && !matchCompleted(m) && (
+          <span className="absolute inset-0 rounded-2xl border-2 border-accent animate-pulse pointer-events-none" />
+        )}
       <div className={`flex items-center justify-between px-4 py-2 ${isActive ? "bg-accent/10" : "bg-surface-raised"} border-b border-border`}>
         <span className="text-xs font-bold text-muted flex items-center gap-2 flex-wrap">
           Match #{m.matchNumber}
@@ -146,7 +149,7 @@ export default function FixtureCard({
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-2 divide-x divide-border">
+        <div className="relative grid grid-cols-2 divide-x divide-border">
           {(["A", "B"] as const).map((team) => {
             const players = team === "A" ? m.teamA : m.teamB;
             const isWinner = m.winner === team && matchCompleted(m);
@@ -156,31 +159,44 @@ export default function FixtureCard({
                 key={team}
                 onClick={() => !locked && onSetWinner(team)}
                 disabled={locked}
-                className={`px-3 py-3 text-left transition-colors ${
+                className={`px-3 py-5 text-left transition-colors ${
                   isWinner
-                    ? "bg-accent/15"
+                    ? "bg-accent/20"
                     : isLoser
                     ? "bg-surface-raised opacity-60"
                     : locked
                     ? "cursor-default"
-                    : "hover:bg-surface-raised"
+                    : "hover:bg-surface-raised active:bg-accent/10"
                 }`}
               >
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className={`text-[10px] font-bold uppercase tracking-wider ${isWinner ? "text-accent-2" : "text-faint"}`}>
-                    Team {team}
-                  </span>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${isWinner ? "bg-accent text-white" : "bg-accent/20 text-accent"}`}>
+                      {team}
+                    </span>
+                    <span className={`text-xs font-bold uppercase tracking-wider ${isWinner ? "text-accent-2" : "text-faint"}`}>
+                      Team {team}
+                    </span>
+                  </div>
                   {isWinner && <Chip tone="accent">WON</Chip>}
                 </div>
                 {players.map((p) => (
-                  <div key={p.id} className={`text-sm font-semibold ${isWinner ? "text-text" : "text-muted"}`}>
+                  <div key={p.id} className={`text-base font-bold leading-snug ${isWinner ? "text-text" : "text-muted"}`}>
                     {p.avatar && <span className="mr-1">{p.avatar}</span>}{p.name}
                   </div>
                 ))}
               </button>
             );
           })}
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-surface-raised border border-border flex items-center justify-center text-[10px] font-black text-faint pointer-events-none">
+            VS
+          </div>
         </div>
+        {!locked && !matchCompleted(m) && !isEditing && (
+          <p className="text-center text-[10px] text-faint py-1.5 border-t border-border">
+            Tap a side to mark winner
+          </p>
+        )}
       )}
 
       {(() => {
@@ -205,7 +221,7 @@ export default function FixtureCard({
       })()}
 
       {!isEditing && !locked && (
-        <ScoreRow match={m} sport={sport} onSave={onSaveScores} />
+        <ScoreRow match={m} sport={sport} onSave={onSaveScores} isLive={isActive} />
       )}
       {!isEditing && locked && (m.teamAScore !== null && m.teamBScore !== null) && (
         <div className="px-4 py-1.5 text-[11px] font-semibold text-muted border-t border-border bg-surface-raised text-center">

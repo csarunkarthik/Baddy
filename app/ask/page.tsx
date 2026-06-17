@@ -103,14 +103,14 @@ export default function AskPage() {
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-5 max-w-lg w-full mx-auto space-y-3 pb-4">
         {messages.length === 0 && !sending && (
-          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 space-y-3">
-            <p className="text-sm text-gray-600">Try one of these:</p>
+          <div className="bg-surface-raised rounded-3xl border border-border p-5 space-y-3">
+            <p className="text-sm text-muted">Try one of these:</p>
             <div className="flex flex-col gap-2">
               {STARTER_QUESTIONS.map((q) => (
                 <button
                   key={q}
                   onClick={() => send(q)}
-                  className="text-left text-sm font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-2xl px-4 py-2.5 transition-colors active:scale-[0.98]"
+                  className="text-left text-sm font-medium text-accent bg-accent/10 hover:bg-accent/20 rounded-2xl px-4 py-2.5 transition-colors active:scale-[0.98]"
                 >
                   {q}
                 </button>
@@ -118,7 +118,7 @@ export default function AskPage() {
               {meName && (
                 <button
                   onClick={() => send("What's my best chemistry partner?")}
-                  className="text-left text-sm font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-2xl px-4 py-2.5 transition-colors active:scale-[0.98]"
+                  className="text-left text-sm font-medium text-accent bg-accent/10 hover:bg-accent/20 rounded-2xl px-4 py-2.5 transition-colors active:scale-[0.98]"
                 >
                   What&apos;s my best chemistry partner?
                 </button>
@@ -132,8 +132,8 @@ export default function AskPage() {
             <div
               className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap leading-relaxed ${
                 m.role === "user"
-                  ? "bg-indigo-500 text-white"
-                  : "bg-white text-gray-800 border border-gray-100 shadow-sm"
+                  ? "bg-accent text-white"
+                  : "bg-surface-raised text-text border border-border"
               }`}
             >
               {m.content}
@@ -143,24 +143,24 @@ export default function AskPage() {
 
         {sending && (
           <div className="flex justify-start">
-            <div className="max-w-[85%] rounded-2xl px-4 py-2.5 text-sm bg-white border border-gray-100 shadow-sm">
+            <div className="max-w-[85%] rounded-2xl px-4 py-2.5 text-sm bg-surface-raised border border-border">
               <span className="inline-flex gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: "0ms" }} />
-                <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: "120ms" }} />
-                <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: "240ms" }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-muted animate-bounce" style={{ animationDelay: "0ms" }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-muted animate-bounce" style={{ animationDelay: "120ms" }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-muted animate-bounce" style={{ animationDelay: "240ms" }} />
               </span>
             </div>
           </div>
         )}
 
         {error && (
-          <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold px-3 py-2 rounded-xl">
+          <div className="bg-danger/10 border border-danger/30 text-danger text-xs font-semibold px-3 py-2 rounded-xl">
             {error}
           </div>
         )}
       </div>
 
-      <div className="sticky bottom-0 bg-white/95 backdrop-blur border-t border-slate-200 px-3 py-2.5 pb-[calc(env(safe-area-inset-bottom)+0.625rem)]">
+      <div className="sticky bottom-0 bg-surface/90 backdrop-blur border-t border-border px-3 py-2.5 pb-[calc(env(safe-area-inset-bottom)+0.625rem)]">
         <form
           onSubmit={(e) => { e.preventDefault(); send(input); }}
           className="max-w-lg mx-auto flex items-center gap-2"
@@ -171,12 +171,12 @@ export default function AskPage() {
             onChange={(e) => setInput(e.target.value)}
             placeholder={meName ? `Ask as ${meName}…` : "Ask Baddy anything…"}
             disabled={sending}
-            className="flex-1 bg-gray-50 border-2 border-transparent focus:border-indigo-300 rounded-2xl px-4 py-2.5 text-sm font-medium text-gray-900 placeholder-gray-400 focus:outline-none transition-colors disabled:opacity-60"
+            className="flex-1 bg-surface-hover border-2 border-transparent focus:border-accent rounded-2xl px-4 py-2.5 text-sm font-medium text-text placeholder:text-faint focus:outline-none transition-colors disabled:opacity-60"
           />
           <button
             type="submit"
             disabled={sending || !input.trim()}
-            className="shrink-0 px-4 py-2.5 rounded-2xl bg-indigo-500 text-white text-sm font-bold hover:bg-indigo-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+            className="shrink-0 px-4 py-2.5 rounded-2xl bg-accent text-white text-sm font-bold hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
           >
             Send
           </button>

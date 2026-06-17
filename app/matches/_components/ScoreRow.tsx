@@ -7,7 +7,13 @@ import { type Match } from "./types";
 // team. Owns its own draft state; pushes changes up via onSave. The resync
 // useEffect keeps the draft aligned with optimistic updates flowing back through
 // `match`. Default score is sport-aware (11 pickleball / 21 badminton).
-export default function ScoreRow({ match, sport, onSave }: { match: Match; sport: "BADMINTON" | "PICKLEBALL"; onSave: (id: number, a: number | null, b: number | null) => void }) {
+// `isLive` scales up controls for fat-finger friendliness on the active match.
+export default function ScoreRow({ match, sport, onSave, isLive }: {
+  match: Match;
+  sport: "BADMINTON" | "PICKLEBALL";
+  onSave: (id: number, a: number | null, b: number | null) => void;
+  isLive?: boolean;
+}) {
   const [a, setA] = useState<number | null>(match.teamAScore);
   const [b, setB] = useState<number | null>(match.teamBScore);
   const [editingTeam, setEditingTeam] = useState<"A" | "B" | null>(null);
@@ -78,9 +84,19 @@ export default function ScoreRow({ match, sport, onSave }: { match: Match; sport
   const aMuted = a === null;
   const bMuted = b === null;
 
+  // Live card: steppers 48 px / score 56 px 2xl. Normal: 36 px / sm.
+  const stepperCls = isLive
+    ? "w-12 h-12 text-2xl flex items-center justify-center text-muted hover:bg-surface active:scale-95 font-bold"
+    : "w-9 h-9 text-base flex items-center justify-center text-muted hover:bg-surface active:scale-95 font-bold";
+  const scoreCls = isLive ? "w-14 text-2xl" : "w-9 text-sm";
+  const labelCls = isLive
+    ? "text-xs font-extrabold uppercase tracking-widest text-faint"
+    : "text-[10px] font-bold uppercase tracking-wider text-faint";
+  const rowCls = isLive ? "px-5 py-4" : "px-3 py-2";
+
   function scoreDisplay(team: "A" | "B") {
     const display = team === "A" ? aDisplay : bDisplay;
-    const muted = team === "A" ? aMuted : bMuted;
+    const muted   = team === "A" ? aMuted   : bMuted;
     if (editingTeam === team) {
       return (
         <input
@@ -91,14 +107,14 @@ export default function ScoreRow({ match, sport, onSave }: { match: Match; sport
           onChange={(e) => setEditVal(e.target.value)}
           onBlur={commitEdit}
           onKeyDown={(e) => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") setEditingTeam(null); }}
-          className="w-9 text-center text-sm font-bold tabular-nums bg-surface border border-accent rounded outline-none text-text"
+          className={`${scoreCls} text-center font-bold tabular-nums bg-surface border border-accent rounded outline-none text-text`}
         />
       );
     }
     return (
       <button
         onClick={() => startEdit(team)}
-        className={`w-9 text-center text-sm font-bold tabular-nums rounded hover:bg-surface-hover active:scale-95 ${muted ? "text-faint" : "text-text"}`}
+        className={`${scoreCls} text-center font-bold tabular-nums rounded hover:bg-surface-hover active:scale-95 ${muted ? "text-faint" : "text-text"}`}
         aria-label={`Edit team ${team} score`}
       >
         {display}
@@ -107,13 +123,13 @@ export default function ScoreRow({ match, sport, onSave }: { match: Match; sport
   }
 
   return (
-    <div className="border-t border-border bg-surface-raised px-3 py-2 flex items-center justify-center gap-3">
-      <span className="text-[10px] font-bold uppercase tracking-wider text-faint">A</span>
+    <div className={`border-t border-border bg-surface-raised ${rowCls} flex items-center justify-center gap-3`}>
+      <span className={labelCls}>A</span>
       <div className="flex items-center bg-surface-hover rounded-full">
         <button
           onClick={() => bumpFromDefault("A", -1)}
           aria-label="Decrease team A score"
-          className="w-8 h-8 flex items-center justify-center text-muted hover:bg-surface active:scale-95 font-bold text-base rounded-l-full"
+          className={`${stepperCls} rounded-l-full`}
         >
           −
         </button>
@@ -121,7 +137,7 @@ export default function ScoreRow({ match, sport, onSave }: { match: Match; sport
         <button
           onClick={() => bumpFromDefault("A", 1)}
           aria-label="Increase team A score"
-          className="w-8 h-8 flex items-center justify-center text-muted hover:bg-surface active:scale-95 font-bold text-base rounded-r-full"
+          className={`${stepperCls} rounded-r-full`}
         >
           +
         </button>
@@ -131,7 +147,7 @@ export default function ScoreRow({ match, sport, onSave }: { match: Match; sport
         <button
           onClick={() => bumpFromDefault("B", -1)}
           aria-label="Decrease team B score"
-          className="w-8 h-8 flex items-center justify-center text-muted hover:bg-surface active:scale-95 font-bold text-base rounded-l-full"
+          className={`${stepperCls} rounded-l-full`}
         >
           −
         </button>
@@ -139,12 +155,12 @@ export default function ScoreRow({ match, sport, onSave }: { match: Match; sport
         <button
           onClick={() => bumpFromDefault("B", 1)}
           aria-label="Increase team B score"
-          className="w-8 h-8 flex items-center justify-center text-muted hover:bg-surface active:scale-95 font-bold text-base rounded-r-full"
+          className={`${stepperCls} rounded-r-full`}
         >
           +
         </button>
       </div>
-      <span className="text-[10px] font-bold uppercase tracking-wider text-faint">B</span>
+      <span className={labelCls}>B</span>
     </div>
   );
 }

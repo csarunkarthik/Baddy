@@ -16,7 +16,7 @@ export default function BottomNav() {
   const pathname = usePathname() || "/";
   return (
     <nav
-      className="fixed bottom-0 inset-x-0 z-50 bg-white/95 backdrop-blur border-t border-slate-200 pb-[env(safe-area-inset-bottom)]"
+      className="fixed bottom-0 inset-x-0 z-50 bg-surface/90 backdrop-blur border-t border-border pb-[env(safe-area-inset-bottom)]"
       aria-label="Primary"
     >
       <div className="max-w-lg mx-auto grid grid-cols-6">
@@ -29,13 +29,13 @@ export default function BottomNav() {
               aria-current={active ? "page" : undefined}
               className={`flex flex-col items-center justify-center py-2 gap-0.5 transition-colors ${
                 active
-                  ? "text-indigo-600"
-                  : "text-slate-500 hover:text-slate-800"
+                  ? "text-accent"
+                  : "text-faint hover:text-muted"
               }`}
             >
               <span className="text-lg leading-none">{t.emoji}</span>
               <span className="text-[10px] font-bold tracking-wide">{t.label}</span>
-              {active && <span className="block w-6 h-0.5 rounded-full bg-indigo-600 mt-0.5" />}
+              {active && <span className="block w-6 h-0.5 rounded-full bg-accent mt-0.5" />}
             </Link>
           );
         })}
