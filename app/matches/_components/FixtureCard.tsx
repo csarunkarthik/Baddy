@@ -3,6 +3,8 @@ import Chip from "../../components/ui/Chip";
 import FixtureControls from "./FixtureControls";
 import FixtureEditForm from "./FixtureEditForm";
 import FixtureWarnings from "./FixtureWarnings";
+import MatchDivider from "./MatchDivider";
+import VictoryRays from "./VictoryRays";
 import { matchCompleted, type Match, type Player, type MatchProb, type EditDraft } from "./types";
 
 // A single fixture row: header (match #, pre-match odds, mic/edit/delete),
@@ -119,9 +121,9 @@ export default function FixtureCard({
                   key={team}
                   onClick={() => !locked && onSetWinner(team)}
                   disabled={locked}
-                  className={`${padCls} py-4 text-left transition-colors ${
+                  className={`relative overflow-hidden ${padCls} py-4 text-left transition-colors ${
                     isWinner
-                      ? "bg-accent/20"
+                      ? "bg-accent/8"
                       : isLoser
                       ? "bg-surface-raised opacity-60"
                       : locked
@@ -130,18 +132,24 @@ export default function FixtureCard({
                   }`}
                 >
                   {isWinner && (
-                    <div className="flex justify-end mb-1.5">
+                    <VictoryRays color={team === "A" ? "rgba(139,92,246,0.20)" : "rgba(34,211,238,0.20)"} />
+                  )}
+                  {isWinner && (
+                    <div className="relative flex justify-end mb-1.5">
                       <Chip tone="accent">WON</Chip>
                     </div>
                   )}
                   {players.map((p) => (
-                    <div key={p.id} className={`text-sm font-bold leading-snug ${isWinner ? "text-text" : "text-muted"}`}>
+                    <div key={p.id} className={`relative text-sm font-bold leading-snug ${isWinner ? "text-text" : "text-muted"}`}>
                       {p.avatar && <span className="mr-1">{p.avatar}</span>}{p.name}
                     </div>
                   ))}
                 </button>
               );
             })}
+            {/* Lightning-bolt divider down the center */}
+            <MatchDivider className="text-faint/70 z-[5]" />
+
             {/* Horizontal V/S — compact, no fill */}
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none select-none">
               <span className="text-xs font-black italic text-faint">V/S</span>

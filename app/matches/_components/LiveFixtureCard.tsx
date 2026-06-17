@@ -7,6 +7,8 @@ import ScoreRow from "./ScoreRow";
 import FixtureControls from "./FixtureControls";
 import FixtureEditForm from "./FixtureEditForm";
 import FixtureWarnings from "./FixtureWarnings";
+import MatchDivider from "./MatchDivider";
+import VictoryRays from "./VictoryRays";
 import { matchCompleted, type Match, type Player, type MatchProb, type EditDraft } from "./types";
 
 export default function LiveFixtureCard({
@@ -161,9 +163,9 @@ export default function LiveFixtureCard({
                     key={team}
                     onClick={() => !locked && onSetWinner(team)}
                     disabled={locked}
-                    className={`${padCls} py-5 text-left transition-colors ${
+                    className={`relative overflow-hidden ${padCls} py-5 text-left transition-colors ${
                       isWinner
-                        ? "bg-accent/25"
+                        ? "bg-accent/8"
                         : isLoser
                         ? "bg-surface-raised opacity-60"
                         : locked
@@ -172,12 +174,15 @@ export default function LiveFixtureCard({
                     }`}
                   >
                     {isWinner && (
-                      <div className="flex justify-end mb-2">
+                      <VictoryRays color={team === "A" ? "rgba(139,92,246,0.20)" : "rgba(34,211,238,0.20)"} />
+                    )}
+                    {isWinner && (
+                      <div className="relative flex justify-end mb-2">
                         <Chip tone="accent">WON</Chip>
                       </div>
                     )}
                     {players.map((p) => (
-                      <div key={p.id} className="flex items-center gap-2 mb-1.5 last:mb-0">
+                      <div key={p.id} className="relative flex items-center gap-2 mb-1.5 last:mb-0">
                         <Avatar name={p.name} avatar={p.avatar} size="sm" />
                         <span
                           className={`text-sm font-bold tracking-tight leading-tight ${
@@ -191,6 +196,9 @@ export default function LiveFixtureCard({
                   </button>
                 );
               })}
+
+              {/* Lightning-bolt divider down the center */}
+              <MatchDivider className="text-accent-2 z-[5] drop-shadow-[0_0_3px_rgba(139,92,246,0.7)]" />
 
               {/* Horizontal V/S — Mortal-Kombat style, no fill */}
               <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none select-none">
