@@ -138,13 +138,15 @@ export default function Home() {
       {/* Header */}
       <div className="relative overflow-hidden app-header px-5 pt-12 pb-8">
         <AppHeaderBg />
-        <div className="relative">
-          <h1 className="text-4xl font-extrabold tracking-tight">Baddy</h1>
-          <p className="app-header-subtle mt-1 text-sm font-medium">{formatDisplay(selectedDate)}</p>
+        <div className="relative flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-4xl font-extrabold tracking-tight">Baddy</h1>
+            <p className="app-header-subtle mt-1 text-sm font-medium">{formatDisplay(selectedDate)}</p>
+          </div>
           {saved && venue && (
-            <div className="mt-3 inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-semibold">
-              <span className="w-1.5 h-1.5 rounded-full bg-accent-2 animate-pulse" />
-              {venue} · {selectedIds.size} present
+            <div className="mt-1 shrink-0 flex items-center gap-1.5 bg-white/15 px-2.5 py-1 rounded-xl text-xs font-semibold">
+              <span className="w-1.5 h-1.5 rounded-full bg-accent-2 animate-pulse shrink-0" />
+              <span className="truncate max-w-[96px]">{venue} · {selectedIds.size}</span>
             </div>
           )}
         </div>
