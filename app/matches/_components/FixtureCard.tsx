@@ -4,6 +4,7 @@ import FixtureEditForm from "./FixtureEditForm";
 import FixtureWarnings from "./FixtureWarnings";
 import MatchDivider from "./MatchDivider";
 import WinnerBackdrop from "./WinnerBackdrop";
+import WinnerNameGlow from "./WinnerNameGlow";
 import { matchCompleted, type Match, type Player, type MatchProb, type EditDraft } from "./types";
 
 // A single fixture row: header (match #, pre-match odds, mic/edit/delete),
@@ -131,14 +132,16 @@ export default function FixtureCard({
                   }`}
                 >
                   {isWinner && (
-                    <WinnerBackdrop
-                      color={team === "A" ? "rgba(139,92,246,0.30)" : "rgba(34,211,238,0.28)"}
-                      textColor={team === "A" ? "rgba(167,139,250,0.55)" : "rgba(34,211,238,0.5)"}
-                    />
+                    <WinnerBackdrop color={team === "A" ? "rgba(139,92,246,0.30)" : "rgba(34,211,238,0.28)"} />
                   )}
                   {players.map((p) => (
                     <div key={p.id} className={`relative text-sm font-bold leading-snug ${isWinner ? "text-text" : "text-muted"}`}>
-                      {p.avatar && <span className="mr-1">{p.avatar}</span>}{p.name}
+                      {p.avatar && <span className="mr-1">{p.avatar}</span>}
+                      {isWinner ? (
+                        <WinnerNameGlow glowColor={team === "A" ? "rgba(167,139,250,0.9)" : "rgba(34,211,238,0.9)"}>
+                          {p.name}
+                        </WinnerNameGlow>
+                      ) : p.name}
                     </div>
                   ))}
                 </button>

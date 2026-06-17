@@ -8,6 +8,7 @@ import FixtureEditForm from "./FixtureEditForm";
 import FixtureWarnings from "./FixtureWarnings";
 import MatchDivider from "./MatchDivider";
 import WinnerBackdrop from "./WinnerBackdrop";
+import WinnerNameGlow from "./WinnerNameGlow";
 import { matchCompleted, type Match, type Player, type MatchProb, type EditDraft } from "./types";
 
 export default function LiveFixtureCard({
@@ -173,21 +174,18 @@ export default function LiveFixtureCard({
                     }`}
                   >
                     {isWinner && (
-                      <WinnerBackdrop
-                        color={team === "A" ? "rgba(139,92,246,0.30)" : "rgba(34,211,238,0.28)"}
-                        textColor={team === "A" ? "rgba(167,139,250,0.55)" : "rgba(34,211,238,0.5)"}
-                      />
+                      <WinnerBackdrop color={team === "A" ? "rgba(139,92,246,0.30)" : "rgba(34,211,238,0.28)"} />
                     )}
                     {players.map((p) => (
                       <div key={p.id} className="relative flex items-center gap-2 mb-1.5 last:mb-0">
                         <Avatar name={p.name} avatar={p.avatar} size="sm" />
-                        <span
-                          className={`text-sm font-bold tracking-tight leading-tight ${
-                            isWinner ? "text-text" : "text-muted"
-                          }`}
-                        >
-                          {p.name}
-                        </span>
+                        {isWinner ? (
+                          <WinnerNameGlow glowColor={team === "A" ? "rgba(167,139,250,0.9)" : "rgba(34,211,238,0.9)"}>
+                            <span className="text-sm font-bold tracking-tight leading-tight text-text">{p.name}</span>
+                          </WinnerNameGlow>
+                        ) : (
+                          <span className="text-sm font-bold tracking-tight leading-tight text-muted">{p.name}</span>
+                        )}
                       </div>
                     ))}
                   </button>

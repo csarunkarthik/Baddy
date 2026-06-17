@@ -99,12 +99,20 @@ body {
 .live-glow { animation: live-glow 2.2s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .live-glow { animation: none; } }
 
-@keyframes marquee-x {
-  0%   { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
+@property --winner-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
 }
-.marquee-winner { animation: marquee-x 5s linear infinite; }
-@media (prefers-reduced-motion: reduce) { .marquee-winner { animation: none; } }
+@keyframes winner-border-rotate { to { --winner-angle: 360deg; } }
+.winner-border-spin { animation: winner-border-rotate 2s linear infinite; }
+.winner-border-mask {
+  mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: destination-out;
+}
+@media (prefers-reduced-motion: reduce) { .winner-border-spin { animation: none; } }
 
 /* Hide the scrollbar on horizontally-scrolling chip rows (e.g. venues). */
 .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
