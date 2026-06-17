@@ -106,8 +106,8 @@ export default function LiveFixtureCard({
         {probs && !matchCompleted(m) && (
           <div className="px-4 pt-2 pb-2.5 bg-gradient-to-r from-accent/10 to-transparent border-b border-border">
             <div className="flex justify-between text-[10px] font-bold mb-1">
-              <span className="text-accent-2">Team A {Math.round(probs.probA * 100)}%</span>
-              <span className="text-faint">Team B {Math.round(probs.probB * 100)}%</span>
+              <span className="text-accent-2">{Math.round(probs.probA * 100)}% win odds</span>
+              <span className="text-faint">{Math.round(probs.probB * 100)}% win odds</span>
             </div>
             <div className="h-2 rounded-full bg-surface overflow-hidden flex">
               {reduce ? (
@@ -151,18 +151,42 @@ export default function LiveFixtureCard({
           />
         ) : (
           <>
-            <div className="relative grid grid-cols-2 divide-x divide-border">
+            {/* Shuttlecock rally lane — arcs above the names, never over them */}
+            {!reduce && (
+              <div className="relative h-14 overflow-hidden pointer-events-none">
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <motion.div
+                    animate={{
+                      x: [-120, 0, 120, 0, -120],
+                      y: [14, -16, 14, -16, 14],
+                      rotate: [14, 0, -14, 0, 14],
+                      scaleX: [1, 1, -1, -1, 1],
+                    }}
+                    transition={{
+                      x:      { duration: 2.6, repeat: Infinity, ease: "easeInOut", times: [0, 0.25, 0.5, 0.75, 1] },
+                      y:      { duration: 2.6, repeat: Infinity, ease: "easeInOut", times: [0, 0.25, 0.5, 0.75, 1] },
+                      rotate: { duration: 2.6, repeat: Infinity, ease: "easeInOut", times: [0, 0.25, 0.5, 0.75, 1] },
+                      scaleX: { duration: 2.6, repeat: Infinity, ease: "easeInOut", times: [0, 0.49, 0.5, 0.99, 1] },
+                    }}
+                  >
+                    <Shuttlecock className="w-8 h-5" />
+                  </motion.div>
+                </div>
+              </div>
+            )}
+
+            <div className="relative grid grid-cols-2">
               {(["A", "B"] as const).map((team) => {
                 const players = team === "A" ? m.teamA : m.teamB;
                 const isWinner = m.winner === team && matchCompleted(m);
                 const isLoser = matchCompleted(m) && m.winner !== team;
-                const padCls = team === "A" ? "pl-4 pr-11" : "pl-11 pr-4";
+                const padCls = team === "A" ? "pl-4 pr-9" : "pl-9 pr-4";
                 return (
                   <button
                     key={team}
                     onClick={() => !locked && onSetWinner(team)}
                     disabled={locked}
-                    className={`${padCls} py-6 text-left transition-colors ${
+                    className={`${padCls} py-5 text-left transition-colors ${
                       isWinner
                         ? "bg-accent/25"
                         : isLoser
@@ -172,22 +196,13 @@ export default function LiveFixtureCard({
                         : "hover:bg-surface-raised active:bg-accent/10"
                     }`}
                   >
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm font-black shadow-md ${
-                          isWinner ? "bg-gradient-to-br from-accent to-accent-2 text-white shadow-accent/40 ring-2 ring-accent/30"
-                                   : "bg-gradient-to-br from-accent/80 to-accent-2/70 text-white shadow-accent/20"
-                        }`}>
-                          {team}
-                        </span>
-                        <span className={`text-sm font-extrabold uppercase tracking-[0.18em] ${isWinner ? "text-accent-2" : "text-text"}`}>
-                          Team {team}
-                        </span>
+                    {isWinner && (
+                      <div className="flex justify-end mb-2">
+                        <Chip tone="accent">WON</Chip>
                       </div>
-                      {isWinner && <Chip tone="accent">WON</Chip>}
-                    </div>
+                    )}
                     {players.map((p) => (
-                      <div key={p.id} className="flex items-center gap-2 mb-1.5 last:mb-0">
+                      <div key={p.id} className="flex items-center gap-2 mb-2 last:mb-0">
                         <Avatar name={p.name} avatar={p.avatar} size="md" />
                         <span
                           className={`text-xl font-black tracking-tight leading-tight ${
@@ -202,30 +217,12 @@ export default function LiveFixtureCard({
                 );
               })}
 
-              {/* Vertical V/S — Mortal-Kombat style, no fill */}
-              <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center justify-center leading-[0.8] pointer-events-none select-none">
-                {["V", "/", "S"].map((ch) => (
-                  <span key={ch} className="text-2xl font-black italic text-transparent bg-clip-text bg-gradient-to-b from-accent via-accent-2 to-accent drop-shadow-[0_1px_3px_rgba(99,102,241,0.6)]">
-                    {ch}
-                  </span>
-                ))}
+              {/* Horizontal VS — Mortal-Kombat style, no fill */}
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none select-none">
+                <span className="text-2xl font-black italic text-transparent bg-clip-text bg-gradient-to-br from-accent via-accent-2 to-accent drop-shadow-[0_1px_3px_rgba(99,102,241,0.6)]">
+                  VS
+                </span>
               </div>
-
-              {/* Shuttlecock rally animation */}
-              {!reduce && (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20 overflow-hidden">
-                  <motion.div
-                    animate={{ x: [-66, 66, -66], y: [0, -14, 0, -14, 0], scaleX: [1, 1, -1, -1, 1] }}
-                    transition={{
-                      x:      { duration: 1.8, repeat: Infinity, ease: "easeInOut" },
-                      y:      { duration: 1.8, repeat: Infinity, ease: "easeInOut" },
-                      scaleX: { duration: 1.8, repeat: Infinity, ease: "easeInOut", times: [0, 0.49, 0.5, 0.99, 1] },
-                    }}
-                  >
-                    <Shuttlecock className="w-6 h-4" />
-                  </motion.div>
-                </div>
-              )}
             </div>
 
             {/* "Tap a side" hint */}

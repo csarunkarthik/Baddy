@@ -16,16 +16,20 @@ export default function FixtureEditForm({
   return (
     <div className="p-3 space-y-3 bg-surface-raised">
       {(["a1", "a2", "b1", "b2"] as const).map((slot, idx) => (
-        <div key={slot} className="flex items-center gap-2">
-          <span className="text-xs font-bold text-muted w-14">
-            {idx < 2 ? "Team A" : "Team B"}
-          </span>
+        <div key={slot}>
+          {idx === 2 && (
+            <div className="flex items-center gap-2 my-1">
+              <span className="flex-1 h-px bg-border" />
+              <span className="text-xs font-black italic text-faint">VS</span>
+              <span className="flex-1 h-px bg-border" />
+            </div>
+          )}
           <select
             value={editDraft[slot]}
             onChange={(e) =>
               onEditDraftChange({ ...editDraft, [slot]: parseInt(e.target.value) })
             }
-            className="flex-1 bg-surface-hover border-2 border-transparent focus:border-accent rounded-xl px-3 py-2 text-sm font-medium text-text focus:outline-none"
+            className="w-full bg-surface-hover border-2 border-transparent focus:border-accent rounded-xl px-3 py-2 text-sm font-medium text-text focus:outline-none"
           >
             <option value={0}>—</option>
             {attending.map((p) => (

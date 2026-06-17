@@ -108,18 +108,18 @@ export default function FixtureCard({
           />
         ) : (
           <>
-          <div className="relative grid grid-cols-2 divide-x divide-border">
+          <div className="relative grid grid-cols-2">
             {(["A", "B"] as const).map((team) => {
               const players = team === "A" ? m.teamA : m.teamB;
               const isWinner = m.winner === team && matchCompleted(m);
               const isLoser = matchCompleted(m) && m.winner !== team;
-              const padCls = team === "A" ? "pl-3 pr-9" : "pl-9 pr-3";
+              const padCls = team === "A" ? "pl-3 pr-8" : "pl-8 pr-3";
               return (
                 <button
                   key={team}
                   onClick={() => !locked && onSetWinner(team)}
                   disabled={locked}
-                  className={`${padCls} py-5 text-left transition-colors ${
+                  className={`${padCls} py-4 text-left transition-colors ${
                     isWinner
                       ? "bg-accent/20"
                       : isLoser
@@ -129,17 +129,11 @@ export default function FixtureCard({
                       : "hover:bg-surface-raised active:bg-accent/10"
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${isWinner ? "bg-accent text-white" : "bg-accent/20 text-accent"}`}>
-                        {team}
-                      </span>
-                      <span className={`text-xs font-bold uppercase tracking-wider ${isWinner ? "text-accent-2" : "text-faint"}`}>
-                        Team {team}
-                      </span>
+                  {isWinner && (
+                    <div className="flex justify-end mb-1.5">
+                      <Chip tone="accent">WON</Chip>
                     </div>
-                    {isWinner && <Chip tone="accent">WON</Chip>}
-                  </div>
+                  )}
                   {players.map((p) => (
                     <div key={p.id} className={`text-base font-bold leading-snug ${isWinner ? "text-text" : "text-muted"}`}>
                       {p.avatar && <span className="mr-1">{p.avatar}</span>}{p.name}
@@ -148,13 +142,9 @@ export default function FixtureCard({
                 </button>
               );
             })}
-            {/* Vertical V/S — compact, no fill */}
-            <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center justify-center leading-[0.8] pointer-events-none select-none">
-              {["V", "/", "S"].map((ch) => (
-                <span key={ch} className="text-sm font-black italic text-faint leading-[0.8]">
-                  {ch}
-                </span>
-              ))}
+            {/* Horizontal VS — compact, no fill */}
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none select-none">
+              <span className="text-sm font-black italic text-faint">VS</span>
             </div>
           </div>
           {!locked && !matchCompleted(m) && !isEditing && (
