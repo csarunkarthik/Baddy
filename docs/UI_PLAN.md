@@ -32,13 +32,14 @@ The Spotify feel collapses if a fetch hangs or a throw white-screens. Do this fi
 ## Phase 1 — Design system & tokens (the look foundation)
 - **Token layer** in `app/globals.css` via CSS vars + Tailwind v4 `@theme` / `@custom-variant dark`:
   - Surfaces: `--surface` (#0e0f13-ish), `--surface-raised`, `--surface-hover`; text `--text`, `--text-muted`, `--text-faint`; `--border`; radii + elevation + spacing scale.
-  - **Palette — NO GREEN anywhere** (decided). Single cool accent does the heavy lifting:
-    - **Accent / interactive / positive / WIN**: indigo → violet ramp (`--accent`). Replaces ALL current emerald/teal/lime usage (winner cards, wins column, "Make Entry", selected players, success toasts).
+  - **Palette** — indigo/violet remains the **primary** accent for interactive, branding, and WIN states. Single cool accent does the heavy lifting:
+    - **Accent / interactive / WIN**: indigo → violet ramp (`--accent`). Replaces ALL current emerald/teal/lime usage (winner cards, wins column, "Make Entry", selected players, success toasts).
+    - **Success / positive semantic states**: green is permitted via the single `--success` token (`#22c55e`) for genuinely semantic spots (e.g. a "connected" indicator, a positive confirmation state). Do NOT use it as a second general-purpose accent or let it spread into branding. Do NOT re-introduce emerald/teal/lime token sprawl — only `--success`.
     - **MVP / celebration**: amber→gold gradient (keep — it's a distinct trophy context, not "success green").
     - **Warning / locked**: amber (small badges).
     - **Negative / error / loss**: rose/red.
     - **Neutral**: zinc/slate scale.
-    - Migration note: grep-and-remap every `emerald-*`, `teal-*`, `lime-*`, `green-*` to the accent/zinc tokens during Phase 2.
+    - Migration note: grep-and-remap every `emerald-*`, `teal-*`, `lime-*`, `green-*` to the accent/zinc tokens during Phase 2 (except intentional `text-success`/`bg-success` uses).
   - **Dark-only** (decided) — like Spotify; a light theme can be added later via the same token layer with no component rewrites.
 - **Typography**: bold display scale for titles + hero numbers; muted secondary. Keep Geist (or add one display weight).
 - **Primitives** in `app/components/ui/`: `Card`, `Button` (primary/secondary/ghost/danger), `Chip`, `Skeleton`, `Spinner`, `SectionHeader`, `Sheet`/`Modal`, `Toast`/`ToastProvider`, `Avatar` (gradient-generated), `Stat` (hero number + label), `EmptyState`. These replace the ~20 ad-hoc `bg-white rounded-3xl …` cards and the 6 different spinner colors.

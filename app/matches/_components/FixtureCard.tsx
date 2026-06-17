@@ -113,12 +113,13 @@ export default function FixtureCard({
               const players = team === "A" ? m.teamA : m.teamB;
               const isWinner = m.winner === team && matchCompleted(m);
               const isLoser = matchCompleted(m) && m.winner !== team;
+              const padCls = team === "A" ? "pl-3 pr-9" : "pl-9 pr-3";
               return (
                 <button
                   key={team}
                   onClick={() => !locked && onSetWinner(team)}
                   disabled={locked}
-                  className={`px-3 py-5 text-left transition-colors ${
+                  className={`${padCls} py-5 text-left transition-colors ${
                     isWinner
                       ? "bg-accent/20"
                       : isLoser
@@ -147,8 +148,13 @@ export default function FixtureCard({
                 </button>
               );
             })}
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-surface-raised border border-border flex items-center justify-center text-[10px] font-black text-faint pointer-events-none">
-              VS
+            {/* Vertical V/S — compact, no fill */}
+            <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center justify-center leading-[0.8] pointer-events-none select-none">
+              {["V", "/", "S"].map((ch) => (
+                <span key={ch} className="text-sm font-black italic text-faint leading-[0.8]">
+                  {ch}
+                </span>
+              ))}
             </div>
           </div>
           {!locked && !matchCompleted(m) && !isEditing && (

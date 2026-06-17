@@ -18,6 +18,7 @@
   --warn: #f59e0b;
   --danger: #f43f5e;
   --gold: #f59e0b;
+  --success: #22c55e;
 }
 
 @theme inline {
@@ -38,6 +39,7 @@
   --color-warn: var(--warn);
   --color-danger: var(--danger);
   --color-gold: var(--gold);
+  --color-success: var(--success);
 }
 
 body {

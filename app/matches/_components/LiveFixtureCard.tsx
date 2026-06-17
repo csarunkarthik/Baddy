@@ -7,6 +7,7 @@ import ScoreRow from "./ScoreRow";
 import FixtureControls from "./FixtureControls";
 import FixtureEditForm from "./FixtureEditForm";
 import FixtureWarnings from "./FixtureWarnings";
+import Shuttlecock from "./Shuttlecock";
 import { matchCompleted, type Match, type Player, type MatchProb, type EditDraft } from "./types";
 
 export default function LiveFixtureCard({
@@ -155,12 +156,13 @@ export default function LiveFixtureCard({
                 const players = team === "A" ? m.teamA : m.teamB;
                 const isWinner = m.winner === team && matchCompleted(m);
                 const isLoser = matchCompleted(m) && m.winner !== team;
+                const padCls = team === "A" ? "pl-4 pr-11" : "pl-11 pr-4";
                 return (
                   <button
                     key={team}
                     onClick={() => !locked && onSetWinner(team)}
                     disabled={locked}
-                    className={`px-4 py-6 text-left transition-colors ${
+                    className={`${padCls} py-6 text-left transition-colors ${
                       isWinner
                         ? "bg-accent/25"
                         : isLoser
@@ -171,19 +173,14 @@ export default function LiveFixtureCard({
                     }`}
                   >
                     <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black ${
-                            isWinner ? "bg-accent text-white" : "bg-accent/20 text-accent"
-                          }`}
-                        >
+                      <div className="flex items-center gap-2">
+                        <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm font-black shadow-md ${
+                          isWinner ? "bg-gradient-to-br from-accent to-accent-2 text-white shadow-accent/40 ring-2 ring-accent/30"
+                                   : "bg-gradient-to-br from-accent/80 to-accent-2/70 text-white shadow-accent/20"
+                        }`}>
                           {team}
                         </span>
-                        <span
-                          className={`text-xs font-bold uppercase tracking-wider ${
-                            isWinner ? "text-accent-2" : "text-faint"
-                          }`}
-                        >
+                        <span className={`text-sm font-extrabold uppercase tracking-[0.18em] ${isWinner ? "text-accent-2" : "text-text"}`}>
                           Team {team}
                         </span>
                       </div>
@@ -205,20 +202,30 @@ export default function LiveFixtureCard({
                 );
               })}
 
-              {/* Glowing animated VS badge */}
-              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none">
-                <motion.div
-                  className="w-9 h-9 rounded-full bg-gradient-to-br from-accent to-accent-2 ring-2 ring-accent/40 flex items-center justify-center text-[11px] font-black text-white shadow-lg shadow-accent/30"
-                  {...(reduce
-                    ? {}
-                    : {
-                        animate: { scale: [1, 1.08, 1] },
-                        transition: { repeat: Infinity, duration: 2 },
-                      })}
-                >
-                  VS
-                </motion.div>
+              {/* Vertical V/S — Mortal-Kombat style, no fill */}
+              <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center justify-center leading-[0.8] pointer-events-none select-none">
+                {["V", "/", "S"].map((ch) => (
+                  <span key={ch} className="text-2xl font-black italic text-transparent bg-clip-text bg-gradient-to-b from-accent via-accent-2 to-accent drop-shadow-[0_1px_3px_rgba(99,102,241,0.6)]">
+                    {ch}
+                  </span>
+                ))}
               </div>
+
+              {/* Shuttlecock rally animation */}
+              {!reduce && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20 overflow-hidden">
+                  <motion.div
+                    animate={{ x: [-66, 66, -66], y: [0, -14, 0, -14, 0], scaleX: [1, 1, -1, -1, 1] }}
+                    transition={{
+                      x:      { duration: 1.8, repeat: Infinity, ease: "easeInOut" },
+                      y:      { duration: 1.8, repeat: Infinity, ease: "easeInOut" },
+                      scaleX: { duration: 1.8, repeat: Infinity, ease: "easeInOut", times: [0, 0.49, 0.5, 0.99, 1] },
+                    }}
+                  >
+                    <Shuttlecock className="w-6 h-4" />
+                  </motion.div>
+                </div>
+              )}
             </div>
 
             {/* "Tap a side" hint */}
