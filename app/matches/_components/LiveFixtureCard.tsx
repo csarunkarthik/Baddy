@@ -173,7 +173,10 @@ export default function LiveFixtureCard({
                     }`}
                   >
                     {isWinner && (
-                      <WinnerBackdrop color={team === "A" ? "rgba(139,92,246,0.30)" : "rgba(34,211,238,0.28)"} />
+                      <WinnerBackdrop
+                        color={team === "A" ? "rgba(139,92,246,0.30)" : "rgba(34,211,238,0.28)"}
+                        textColor={team === "A" ? "rgba(167,139,250,0.55)" : "rgba(34,211,238,0.5)"}
+                      />
                     )}
                     {players.map((p) => (
                       <div key={p.id} className="relative flex items-center gap-2 mb-1.5 last:mb-0">
