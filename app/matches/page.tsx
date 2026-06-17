@@ -15,6 +15,7 @@ import {
 } from "./_components/types";
 import SetupCard from "./_components/SetupCard";
 import FixtureCard from "./_components/FixtureCard";
+import LiveFixtureCard from "./_components/LiveFixtureCard";
 import MvpCard from "./_components/MvpCard";
 import DragonSlayerCard from "./_components/DragonSlayerCard";
 import MostImprovedCard from "./_components/MostImprovedCard";
@@ -732,8 +733,9 @@ export default function MatchesPage() {
                     (p) => !data.session.attending.find((a) => a.id === p.id)
                   );
 
+                  const Card = isActive && !m.winner ? LiveFixtureCard : FixtureCard;
                   return (
-                    <FixtureCard
+                    <Card
                       key={m.id}
                       match={m}
                       isActive={isActive}
