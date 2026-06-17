@@ -31,6 +31,7 @@ import Button from "../components/ui/Button";
 import Skeleton from "../components/ui/Skeleton";
 import EmptyState from "../components/ui/EmptyState";
 import { useToast } from "../components/ui/ToastProvider";
+import AppHeaderBg from "../components/AppHeaderBg";
 
 const IST = "Asia/Kolkata";
 
@@ -550,6 +551,7 @@ export default function MatchesPage() {
     <div className="app-bg">
       <PullIndicator distance={pull.distance} refreshing={pull.refreshing} threshold={pull.threshold} />
       <div className="relative overflow-hidden app-header px-5 pt-12 pb-8">
+        <AppHeaderBg />
         <div className="relative flex items-start gap-3">
           <Link href="/" aria-label="Back" className="mt-1 w-9 h-9 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors">
             <ArrowLeft size={18} strokeWidth={2.5} />

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import HistoryList from "../components/HistoryList";
+import AppHeaderBg from "../components/AppHeaderBg";
 
 // Standalone /history page kept for deep-links / bookmarks. The bottom-nav
 // History tab was removed; the same list is embedded on Home in a
@@ -11,6 +12,7 @@ export default function HistoryPage() {
   return (
     <div className="app-bg">
       <div className="relative overflow-hidden app-header px-5 pt-12 pb-8">
+        <AppHeaderBg />
         <div className="relative flex items-start gap-3">
           <Link href="/" aria-label="Back" className="mt-1 w-9 h-9 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors">
             <ArrowLeft size={18} strokeWidth={2.5} />

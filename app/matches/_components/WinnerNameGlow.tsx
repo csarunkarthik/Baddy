@@ -40,7 +40,7 @@ export default function WinnerNameGlow({
             fill="none"
             stroke={glowColor}
             strokeWidth="0.8"
-            strokeDasharray="10 600"
+            strokeDasharray="8 20"
             className="winner-name-dot"
             style={{ filter: `drop-shadow(0 0 3px ${glowColor})` }}
           >

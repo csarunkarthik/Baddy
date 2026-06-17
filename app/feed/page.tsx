@@ -10,6 +10,7 @@ import Skeleton from "../components/ui/Skeleton";
 import EmptyState from "../components/ui/EmptyState";
 import Avatar from "../components/ui/Avatar";
 import { useToast } from "../components/ui/ToastProvider";
+import AppHeaderBg from "../components/AppHeaderBg";
 
 type Comment = { id: number; content: string; author: string; createdAt: string };
 type Post = { id: number; content: string; author: string; createdAt: string; comments: Comment[] };
@@ -113,6 +114,7 @@ export default function FeedPage() {
     <div className="app-bg">
       {/* Header */}
       <div className="relative overflow-hidden app-header px-5 pt-12 pb-8">
+        <AppHeaderBg />
         <div className="relative flex items-start gap-3">
           <Link href="/" aria-label="Back" className="mt-1 w-9 h-9 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors">
             <ArrowLeft size={18} strokeWidth={2.5} />

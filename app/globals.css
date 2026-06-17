@@ -65,29 +65,15 @@ body {
   color: var(--text);
 }
 .app-header {
-  /* Shared badminton photo, layered under a black transparent wash so the
-     white title text stays readable. On laptops the image fits via `cover`
-     and 60% x / 25% y keeps the player's head in the visible slice. The
-     dark background-color fills any area the photo doesn't reach (e.g. when
-     the stats filter section expands the header past the photo's height
-     under the mobile `auto` sizing). */
+  /* Photo + gradient overlay moved to AppHeaderBg component so CSS filter
+     can target only the image without affecting page text. */
   background-color: #0c1a2a;
-  background-image:
-    linear-gradient(135deg, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.42)),
-    url("/header-home.jpg");
-  background-size: cover, cover;
-  background-position: center, 60% 25%;
-  background-repeat: no-repeat, no-repeat;
   color: white;
 }
-/* On phones the image fits container width exactly under `cover`, so the
-   player (at ~60% x in the photo) lands just right of center. Zoom in to
-   150% width and pin to the left edge so the player slides to the right. */
+/* object-position matches the original background-position values */
+.header-bg-img { object-position: 60% 25%; }
 @media (max-width: 767px) {
-  .app-header {
-    background-size: cover, 150% auto;
-    background-position: center, 10% 25%;
-  }
+  .header-bg-img { object-position: 10% 25%; }
 }
 .app-header-subtle { color: rgba(255, 255, 255, 0.88); }
 
@@ -99,12 +85,21 @@ body {
 .live-glow { animation: live-glow 2.2s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .live-glow { animation: none; } }
 
+/* Winner name: many close dots → continuous flowing glow */
 @keyframes winner-name-dot {
-  0%   { stroke-dashoffset: 610; }
+  0%   { stroke-dashoffset: 28; }
   100% { stroke-dashoffset: 0; }
 }
-.winner-name-dot { animation: winner-name-dot 3.5s linear infinite; }
+.winner-name-dot { animation: winner-name-dot 0.6s linear infinite; }
 @media (prefers-reduced-motion: reduce) { .winner-name-dot { animation: none; } }
+
+/* Header player silhouette: single dot every 3.5 s */
+@keyframes header-player-dot {
+  0%   { stroke-dashoffset: 604; }
+  100% { stroke-dashoffset: 0; }
+}
+.header-player-dot { animation: header-player-dot 3.5s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .header-player-dot { animation: none; } }
 
 /* Hide the scrollbar on horizontally-scrolling chip rows (e.g. venues). */
 .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }

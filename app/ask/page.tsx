@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import AppHeaderBg from "../components/AppHeaderBg";
 
 type Player = { id: number; name: string };
 type Msg = { role: "user" | "assistant"; content: string };
@@ -71,6 +72,7 @@ export default function AskPage() {
   return (
     <div className="app-bg flex flex-col" style={{ minHeight: "100dvh" }}>
       <div className="relative overflow-hidden app-header px-5 pt-12 pb-6">
+        <AppHeaderBg />
         <div className="relative flex items-start gap-3">
           <Link href="/" className="mt-1 w-9 h-9 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors font-bold">←</Link>
           <div className="flex-1">

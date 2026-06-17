@@ -8,6 +8,7 @@ import Card from "../components/ui/Card";
 import SectionHeader from "../components/ui/SectionHeader";
 import Skeleton from "../components/ui/Skeleton";
 import EmptyState from "../components/ui/EmptyState";
+import AppHeaderBg from "../components/AppHeaderBg";
 
 type PlayerStat = { id: number; name: string; sessions: number; percentage: number; rank: number };
 type VenueStat = { venue: string; count: number };
@@ -133,6 +134,7 @@ export default function StatsPage() {
   return (
     <div className="app-bg">
       <div className="relative overflow-hidden app-header px-5 pt-12 pb-8">
+        <AppHeaderBg />
         <div className="relative flex items-start gap-3">
           <Link href="/" aria-label="Back" className="mt-1 w-9 h-9 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors">
             <ArrowLeft size={18} strokeWidth={2.5} />

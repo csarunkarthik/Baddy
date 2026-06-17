@@ -6,6 +6,7 @@ import { ArrowLeft, Flame, Moon, Pencil, Trash2, User, X } from "lucide-react";
 import { AVATARS } from "@/lib/avatars";
 import { apiGet, apiSend } from "@/lib/api";
 import Card from "../components/ui/Card";
+import AppHeaderBg from "../components/AppHeaderBg";
 import Button from "../components/ui/Button";
 import Skeleton from "../components/ui/Skeleton";
 import EmptyState from "../components/ui/EmptyState";
@@ -111,6 +112,7 @@ export default function PlayersPage() {
   return (
     <div className="app-bg">
       <div className="relative overflow-hidden app-header px-5 pt-12 pb-8">
+        <AppHeaderBg />
         <div className="relative flex items-start gap-3">
           <Link href="/" aria-label="Back" className="mt-1 w-9 h-9 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors">
             <ArrowLeft size={18} strokeWidth={2.5} />

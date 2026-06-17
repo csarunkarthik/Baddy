@@ -6,6 +6,7 @@ import { CalendarDays, Lock, MapPin, Shirt, Users } from "lucide-react";
 import { isSessionLocked } from "@/lib/locking";
 import { apiGet, apiSend } from "@/lib/api";
 import HistoryList from "./components/HistoryList";
+import AppHeaderBg from "./components/AppHeaderBg";
 import Card from "./components/ui/Card";
 import Button from "./components/ui/Button";
 import Skeleton from "./components/ui/Skeleton";
@@ -136,6 +137,7 @@ export default function Home() {
     <div className="app-bg">
       {/* Header */}
       <div className="relative overflow-hidden app-header px-5 pt-12 pb-8">
+        <AppHeaderBg />
         <div className="relative">
           <h1 className="text-4xl font-extrabold tracking-tight">Baddy</h1>
           <p className="app-header-subtle mt-1 text-sm font-medium">{formatDisplay(selectedDate)}</p>
