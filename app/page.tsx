@@ -146,7 +146,10 @@ export default function Home() {
           {saved && venue && (
             <div className="mt-1 shrink-0 flex items-center gap-1.5 bg-white/15 px-2.5 py-1 rounded-xl text-xs font-semibold">
               <span className="w-1.5 h-1.5 rounded-full bg-accent-2 animate-pulse shrink-0" />
-              <span className="truncate max-w-[110px]">{venue} · {selectedIds.size} players</span>
+              <span className="flex flex-col items-start leading-tight">
+                <span className="truncate max-w-[90px]">{venue}</span>
+                <span className="text-white/70 font-medium">{selectedIds.size} players</span>
+              </span>
             </div>
           )}
         </div>
