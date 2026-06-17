@@ -149,6 +149,7 @@ export default function FixtureCard({
           </button>
         </div>
       ) : (
+        <>
         <div className="relative grid grid-cols-2 divide-x divide-border">
           {(["A", "B"] as const).map((team) => {
             const players = team === "A" ? m.teamA : m.teamB;
@@ -197,6 +198,7 @@ export default function FixtureCard({
             Tap a side to mark winner
           </p>
         )}
+        </>
       )}
 
       {(() => {
