@@ -65,25 +65,11 @@ body {
   color: var(--text);
 }
 .app-header {
-  /* Photo lives in .header-photo-layer inside AppHeaderBg so the sketch
-     filter targets only the image, not the page text. */
-  background-color: #0c1a2a;
+  background: linear-gradient(135deg, #6d28d9 0%, #4f46e5 28%, #312e81 55%, #0e0f13 92%);
   color: white;
+  border-bottom: 1px solid rgba(99, 102, 241, 0.25);
 }
-/* Exact same background values as the original CSS — position unchanged */
-.header-photo-layer {
-  background-image: url("/header-home.jpg");
-  background-size: cover;
-  background-position: 60% 25%;
-  background-repeat: no-repeat;
-}
-@media (max-width: 767px) {
-  .header-photo-layer {
-    background-size: 150% auto;
-    background-position: 10% 25%;
-  }
-}
-.app-header-subtle { color: rgba(255, 255, 255, 0.88); }
+.app-header-subtle { color: rgba(255, 255, 255, 0.75); }
 
 /* Live-glow animation for the active match hero card */
 @keyframes live-glow {
@@ -93,32 +79,13 @@ body {
 .live-glow { animation: live-glow 2.2s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .live-glow { animation: none; } }
 
-/* Winner name: thicker stroke, fewer dots (cycle=102) */
+/* Winner name: slow traveling dot — one pass every 3.5 s */
 @keyframes winner-name-dot {
   0%   { stroke-dashoffset: 102; }
   100% { stroke-dashoffset: 0; }
 }
-.winner-name-dot { animation: winner-name-dot 2s linear infinite; }
+.winner-name-dot { animation: winner-name-dot 3.5s linear infinite; }
 @media (prefers-reduced-motion: reduce) { .winner-name-dot { animation: none; } }
-
-/* Header player silhouette: dual-color dots, offset by half-cycle */
-@keyframes header-player-dot {
-  0%   { stroke-dashoffset: 604; }
-  100% { stroke-dashoffset: 0; }
-}
-.header-player-dot-a { animation: header-player-dot 3.5s linear infinite; }
-.header-player-dot-b { animation: header-player-dot 3.5s linear infinite -1.75s; }
-@media (prefers-reduced-motion: reduce) {
-  .header-player-dot-a, .header-player-dot-b { animation: none; }
-}
-
-/* Gradient text on all page headings inside the header */
-.app-header h1 {
-  background: linear-gradient(90deg, #c4b5fd 10%, #a78bfa 45%, #67e8f9 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
 
 /* Hide the scrollbar on horizontally-scrolling chip rows (e.g. venues). */
 .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
