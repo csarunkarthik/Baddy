@@ -8,7 +8,7 @@ import FixtureControls from "./FixtureControls";
 import FixtureEditForm from "./FixtureEditForm";
 import FixtureWarnings from "./FixtureWarnings";
 import MatchDivider from "./MatchDivider";
-import VictoryRays from "./VictoryRays";
+import WinnerGlow from "./WinnerGlow";
 import { matchCompleted, type Match, type Player, type MatchProb, type EditDraft } from "./types";
 
 export default function LiveFixtureCard({
@@ -174,7 +174,7 @@ export default function LiveFixtureCard({
                     }`}
                   >
                     {isWinner && (
-                      <VictoryRays color={team === "A" ? "rgba(139,92,246,0.20)" : "rgba(34,211,238,0.20)"} />
+                      <WinnerGlow color={team === "A" ? "rgba(139,92,246,0.30)" : "rgba(34,211,238,0.28)"} />
                     )}
                     {isWinner && (
                       <div className="relative flex justify-end mb-2">
@@ -198,7 +198,7 @@ export default function LiveFixtureCard({
               })}
 
               {/* Lightning-bolt divider down the center */}
-              <MatchDivider className="text-accent-2 z-[5] drop-shadow-[0_0_3px_rgba(139,92,246,0.7)]" />
+              <MatchDivider className="top-5 bottom-5 text-accent-2 z-[5] drop-shadow-[0_0_3px_rgba(139,92,246,0.7)]" />
 
               {/* Horizontal V/S — Mortal-Kombat style, no fill */}
               <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none select-none">

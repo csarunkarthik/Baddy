@@ -4,7 +4,7 @@ import FixtureControls from "./FixtureControls";
 import FixtureEditForm from "./FixtureEditForm";
 import FixtureWarnings from "./FixtureWarnings";
 import MatchDivider from "./MatchDivider";
-import VictoryRays from "./VictoryRays";
+import WinnerGlow from "./WinnerGlow";
 import { matchCompleted, type Match, type Player, type MatchProb, type EditDraft } from "./types";
 
 // A single fixture row: header (match #, pre-match odds, mic/edit/delete),
@@ -132,7 +132,7 @@ export default function FixtureCard({
                   }`}
                 >
                   {isWinner && (
-                    <VictoryRays color={team === "A" ? "rgba(139,92,246,0.20)" : "rgba(34,211,238,0.20)"} />
+                    <WinnerGlow color={team === "A" ? "rgba(139,92,246,0.30)" : "rgba(34,211,238,0.28)"} />
                   )}
                   {isWinner && (
                     <div className="relative flex justify-end mb-1.5">
@@ -148,7 +148,7 @@ export default function FixtureCard({
               );
             })}
             {/* Lightning-bolt divider down the center */}
-            <MatchDivider className="text-faint/70 z-[5]" />
+            <MatchDivider className="top-4 bottom-4 text-faint/70 z-[5]" />
 
             {/* Horizontal V/S — compact, no fill */}
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none select-none">
