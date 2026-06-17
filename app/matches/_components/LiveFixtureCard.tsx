@@ -2,13 +2,12 @@
 
 import { motion, useReducedMotion } from "motion/react";
 import Avatar from "../../components/ui/Avatar";
-import Chip from "../../components/ui/Chip";
 import ScoreRow from "./ScoreRow";
 import FixtureControls from "./FixtureControls";
 import FixtureEditForm from "./FixtureEditForm";
 import FixtureWarnings from "./FixtureWarnings";
 import MatchDivider from "./MatchDivider";
-import WinnerGlow from "./WinnerGlow";
+import WinnerBackdrop from "./WinnerBackdrop";
 import { matchCompleted, type Match, type Player, type MatchProb, type EditDraft } from "./types";
 
 export default function LiveFixtureCard({
@@ -163,7 +162,7 @@ export default function LiveFixtureCard({
                     key={team}
                     onClick={() => !locked && onSetWinner(team)}
                     disabled={locked}
-                    className={`relative overflow-hidden ${padCls} py-5 text-left transition-colors ${
+                    className={`relative overflow-hidden flex flex-col justify-center ${padCls} py-5 text-left transition-colors ${
                       isWinner
                         ? "bg-accent/8"
                         : isLoser
@@ -174,12 +173,7 @@ export default function LiveFixtureCard({
                     }`}
                   >
                     {isWinner && (
-                      <WinnerGlow color={team === "A" ? "rgba(139,92,246,0.30)" : "rgba(34,211,238,0.28)"} />
-                    )}
-                    {isWinner && (
-                      <div className="relative flex justify-end mb-2">
-                        <Chip tone="accent">WON</Chip>
-                      </div>
+                      <WinnerBackdrop color={team === "A" ? "rgba(139,92,246,0.30)" : "rgba(34,211,238,0.28)"} />
                     )}
                     {players.map((p) => (
                       <div key={p.id} className="relative flex items-center gap-2 mb-1.5 last:mb-0">
@@ -202,7 +196,7 @@ export default function LiveFixtureCard({
 
               {/* Horizontal V/S — Mortal-Kombat style, no fill */}
               <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none select-none">
-                <span className="text-lg font-black italic text-transparent bg-clip-text bg-gradient-to-br from-accent via-accent-2 to-accent drop-shadow-[0_1px_3px_rgba(99,102,241,0.6)]">
+                <span className="text-lg font-black italic text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
                   V/S
                 </span>
               </div>

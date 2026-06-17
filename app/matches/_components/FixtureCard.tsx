@@ -1,10 +1,9 @@
 import ScoreRow from "./ScoreRow";
-import Chip from "../../components/ui/Chip";
 import FixtureControls from "./FixtureControls";
 import FixtureEditForm from "./FixtureEditForm";
 import FixtureWarnings from "./FixtureWarnings";
 import MatchDivider from "./MatchDivider";
-import WinnerGlow from "./WinnerGlow";
+import WinnerBackdrop from "./WinnerBackdrop";
 import { matchCompleted, type Match, type Player, type MatchProb, type EditDraft } from "./types";
 
 // A single fixture row: header (match #, pre-match odds, mic/edit/delete),
@@ -121,7 +120,7 @@ export default function FixtureCard({
                   key={team}
                   onClick={() => !locked && onSetWinner(team)}
                   disabled={locked}
-                  className={`relative overflow-hidden ${padCls} py-4 text-left transition-colors ${
+                  className={`relative overflow-hidden flex flex-col justify-center ${padCls} py-4 text-left transition-colors ${
                     isWinner
                       ? "bg-accent/8"
                       : isLoser
@@ -132,12 +131,7 @@ export default function FixtureCard({
                   }`}
                 >
                   {isWinner && (
-                    <WinnerGlow color={team === "A" ? "rgba(139,92,246,0.30)" : "rgba(34,211,238,0.28)"} />
-                  )}
-                  {isWinner && (
-                    <div className="relative flex justify-end mb-1.5">
-                      <Chip tone="accent">WON</Chip>
-                    </div>
+                    <WinnerBackdrop color={team === "A" ? "rgba(139,92,246,0.30)" : "rgba(34,211,238,0.28)"} />
                   )}
                   {players.map((p) => (
                     <div key={p.id} className={`relative text-sm font-bold leading-snug ${isWinner ? "text-text" : "text-muted"}`}>
@@ -152,7 +146,7 @@ export default function FixtureCard({
 
             {/* Horizontal V/S — compact, no fill */}
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none select-none">
-              <span className="text-xs font-black italic text-faint">V/S</span>
+              <span className="text-xs font-black italic text-text drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]">V/S</span>
             </div>
           </div>
           {!locked && !matchCompleted(m) && !isEditing && (
