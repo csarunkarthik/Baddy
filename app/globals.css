@@ -65,15 +65,23 @@ body {
   color: var(--text);
 }
 .app-header {
-  /* Photo + gradient overlay moved to AppHeaderBg component so CSS filter
-     can target only the image without affecting page text. */
+  /* Photo lives in .header-photo-layer inside AppHeaderBg so the sketch
+     filter targets only the image, not the page text. */
   background-color: #0c1a2a;
   color: white;
 }
-/* object-position matches the original background-position values */
-.header-bg-img { object-position: 60% 25%; }
+/* Exact same background values as the original CSS — position unchanged */
+.header-photo-layer {
+  background-image: url("/header-home.jpg");
+  background-size: cover;
+  background-position: 60% 25%;
+  background-repeat: no-repeat;
+}
 @media (max-width: 767px) {
-  .header-bg-img { object-position: 10% 25%; }
+  .header-photo-layer {
+    background-size: 150% auto;
+    background-position: 10% 25%;
+  }
 }
 .app-header-subtle { color: rgba(255, 255, 255, 0.88); }
 
@@ -85,12 +93,12 @@ body {
 .live-glow { animation: live-glow 2.2s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .live-glow { animation: none; } }
 
-/* Winner name: many close dots → continuous flowing glow */
+/* Winner name: spaced dots → continuous but not crowded */
 @keyframes winner-name-dot {
-  0%   { stroke-dashoffset: 28; }
+  0%   { stroke-dashoffset: 56; }
   100% { stroke-dashoffset: 0; }
 }
-.winner-name-dot { animation: winner-name-dot 0.6s linear infinite; }
+.winner-name-dot { animation: winner-name-dot 1s linear infinite; }
 @media (prefers-reduced-motion: reduce) { .winner-name-dot { animation: none; } }
 
 /* Header player silhouette: single dot every 3.5 s */

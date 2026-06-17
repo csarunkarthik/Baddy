@@ -1,14 +1,13 @@
 export default function AppHeaderBg() {
   return (
     <div aria-hidden className="absolute inset-0 pointer-events-none overflow-hidden">
-      {/* Photo with sketch/drawing filter — filter applied only to img, not page text */}
-      <img
-        src="/header-home.jpg"
-        alt=""
-        className="absolute inset-0 w-full h-full object-cover header-bg-img"
-        style={{ filter: "grayscale(0.65) contrast(1.3) brightness(0.75)" }}
+      {/* Photo with sketch/drawing filter — CSS background values identical to
+          original so position is unchanged; filter only affects this div */}
+      <div
+        className="absolute inset-0 header-photo-layer"
+        style={{ filter: "grayscale(1) contrast(2.5) brightness(0.75)" }}
       />
-      {/* Gradient overlay */}
+      {/* Gradient overlay (unfiltered) */}
       <div
         className="absolute inset-0"
         style={{ background: "linear-gradient(135deg, rgba(0,0,0,0.62), rgba(0,0,0,0.42))" }}
@@ -26,11 +25,11 @@ export default function AppHeaderBg() {
              C 76,82 77,78 78,74 C 80,68 82,63 82,58 C 83,53 83,48 84,43
              C 85,38 86,34 87,30 C 89,26 90,23 92,21 C 93,20 94,19 95,18 Z"
           fill="none"
-          stroke="rgba(139,92,246,0.85)"
-          strokeWidth="0.5"
+          stroke="rgba(139,92,246,0.9)"
+          strokeWidth="1.0"
           strokeDasharray="4 600"
           className="header-player-dot"
-          style={{ filter: "drop-shadow(0 0 2px rgba(139,92,246,0.9))" }}
+          style={{ filter: "drop-shadow(0 0 3px rgba(139,92,246,0.9))" }}
         />
       </svg>
     </div>
