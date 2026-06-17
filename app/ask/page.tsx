@@ -80,30 +80,32 @@ export default function AskPage() {
             <p className="app-header-subtle text-sm mt-0.5">Ask anything about the group&apos;s stats</p>
           </div>
         </div>
-        <div className="relative mt-4 flex items-center gap-2">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-white/70">I&apos;m</span>
-          <select
-            value={asPlayerId ?? ""}
-            onChange={(e) => persistPlayer(e.target.value ? parseInt(e.target.value) : null)}
-            className="bg-white/20 text-white text-xs font-bold px-3 py-1.5 rounded-full focus:outline-none cursor-pointer"
-          >
-            <option value="">— (nobody)</option>
-            {players.map((p) => (
-              <option key={p.id} value={p.id} className="text-gray-800">{p.name}</option>
-            ))}
-          </select>
-          {messages.length > 0 && (
-            <button
-              onClick={() => { setMessages([]); setError(null); }}
-              className="text-xs text-white/80 hover:text-white underline px-1 ml-auto"
-            >
-              Clear chat
-            </button>
-          )}
-        </div>
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-5 max-w-lg w-full mx-auto space-y-3 pb-4">
+      {/* Player context + clear — moved out of header */}
+      <div className="px-4 pt-3 pb-0 max-w-lg w-full mx-auto flex items-center gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-faint">I&apos;m</span>
+        <select
+          value={asPlayerId ?? ""}
+          onChange={(e) => persistPlayer(e.target.value ? parseInt(e.target.value) : null)}
+          className="bg-surface-raised border border-border text-text text-xs font-bold px-3 py-1.5 rounded-full focus:outline-none cursor-pointer"
+        >
+          <option value="">— (nobody)</option>
+          {players.map((p) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+        {messages.length > 0 && (
+          <button
+            onClick={() => { setMessages([]); setError(null); }}
+            className="text-xs text-muted hover:text-text underline px-1 ml-auto"
+          >
+            Clear chat
+          </button>
+        )}
+      </div>
+
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 max-w-lg w-full mx-auto space-y-3 pb-4">
         {messages.length === 0 && !sending && (
           <div className="bg-surface-raised rounded-3xl border border-border p-5 space-y-3">
             <p className="text-sm text-muted">Try one of these:</p>

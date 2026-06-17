@@ -144,32 +144,32 @@ export default function StatsPage() {
             <p className="app-header-subtle text-sm mt-0.5">{sliceLabel} · {totalDays} {totalDays === 1 ? "day" : "days"} · {stats.length} players</p>
           </div>
         </div>
-        {/* Filter toggle */}
-        <div className="relative mt-4 flex items-center gap-2">
+      </div>
+
+      <div className="px-4 py-5 max-w-lg mx-auto space-y-4">
+        {/* Filter bar — moved out of header to keep it compact */}
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setFilterOpen((v) => !v)}
-            className="bg-white/20 hover:bg-white/30 text-white text-xs font-bold px-3 py-1.5 rounded-full transition-colors"
+            className="bg-surface-raised border border-border text-text text-xs font-bold px-3 py-1.5 rounded-full transition-colors hover:bg-surface-hover"
           >
             {filterOpen ? "Hide filters" : "Filters"}
-            {hasActiveFilter && !filterOpen && <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-white text-indigo-600 text-[10px]">
+            {hasActiveFilter && !filterOpen && <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-accent text-white text-[10px]">
               {years.length + months.length + venuesSel.length + (lastN ? 1 : 0)}
             </span>}
           </button>
           {hasActiveFilter && (
-            <button
-              onClick={clearFilters}
-              className="text-xs text-white/80 hover:text-white underline px-1"
-            >
+            <button onClick={clearFilters} className="text-xs text-muted hover:text-text underline px-1">
               Clear all
             </button>
           )}
         </div>
         {filterOpen && (() => {
           const chip = (on: boolean) =>
-            `text-[11px] font-semibold px-2 py-0.5 rounded-full transition-colors ${on ? "bg-white text-indigo-700" : "bg-white/20 text-white hover:bg-white/30"}`;
-          const label = "text-[10px] font-bold uppercase tracking-wider text-white/70 w-14 shrink-0 pt-1";
+            `text-[11px] font-semibold px-2 py-0.5 rounded-full transition-colors ${on ? "bg-accent text-white" : "bg-surface-raised border border-border text-muted hover:bg-surface-hover"}`;
+          const label = "text-[10px] font-bold uppercase tracking-wider text-faint w-14 shrink-0 pt-1";
           return (
-            <div className="relative mt-3 space-y-1.5">
+            <div className="bg-surface-raised border border-border rounded-2xl px-4 py-3 space-y-1.5 -mt-2">
               <div className="flex items-start gap-2">
                 <span className={label}>Year</span>
                 <div className="flex flex-wrap gap-1 flex-1 min-w-0">
@@ -212,9 +212,6 @@ export default function StatsPage() {
             </div>
           );
         })()}
-      </div>
-
-      <div className="px-4 py-5 max-w-lg mx-auto space-y-4">
         {loading ? (
           <div className="space-y-4">
             <Card>
