@@ -93,21 +93,32 @@ body {
 .live-glow { animation: live-glow 2.2s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .live-glow { animation: none; } }
 
-/* Winner name: spaced dots → continuous but not crowded */
+/* Winner name: thicker stroke, fewer dots (cycle=102) */
 @keyframes winner-name-dot {
-  0%   { stroke-dashoffset: 56; }
+  0%   { stroke-dashoffset: 102; }
   100% { stroke-dashoffset: 0; }
 }
-.winner-name-dot { animation: winner-name-dot 1s linear infinite; }
+.winner-name-dot { animation: winner-name-dot 2s linear infinite; }
 @media (prefers-reduced-motion: reduce) { .winner-name-dot { animation: none; } }
 
-/* Header player silhouette: single dot every 3.5 s */
+/* Header player silhouette: dual-color dots, offset by half-cycle */
 @keyframes header-player-dot {
   0%   { stroke-dashoffset: 604; }
   100% { stroke-dashoffset: 0; }
 }
-.header-player-dot { animation: header-player-dot 3.5s linear infinite; }
-@media (prefers-reduced-motion: reduce) { .header-player-dot { animation: none; } }
+.header-player-dot-a { animation: header-player-dot 3.5s linear infinite; }
+.header-player-dot-b { animation: header-player-dot 3.5s linear infinite -1.75s; }
+@media (prefers-reduced-motion: reduce) {
+  .header-player-dot-a, .header-player-dot-b { animation: none; }
+}
+
+/* Gradient text on all page headings inside the header */
+.app-header h1 {
+  background: linear-gradient(90deg, #c4b5fd 10%, #a78bfa 45%, #67e8f9 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
 
 /* Hide the scrollbar on horizontally-scrolling chip rows (e.g. venues). */
 .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }

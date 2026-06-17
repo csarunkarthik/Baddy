@@ -39,8 +39,8 @@ export default function WinnerNameGlow({
             letterSpacing="-0.01em"
             fill="none"
             stroke={glowColor}
-            strokeWidth="1.2"
-            strokeDasharray="8 48"
+            strokeWidth="2"
+            strokeDasharray="12 90"
             className="winner-name-dot"
             style={{ filter: `drop-shadow(0 0 3px ${glowColor})` }}
           >

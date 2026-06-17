@@ -12,24 +12,54 @@ export default function AppHeaderBg() {
         className="absolute inset-0"
         style={{ background: "linear-gradient(135deg, rgba(0,0,0,0.62), rgba(0,0,0,0.42))" }}
       />
-      {/* Silhouette glow — dot traces the jumping-smash player's body outline */}
+      {/* Silhouette glow — two dots trace the jumping-smash player's body outline.
+          xMidYMin aligns the SVG top with background-position 25% (top-of-player visible).
+          Path derived from image pixels: player centre x≈700/1200→87.5, y=80-660/800. */}
       <svg
         className="absolute inset-0 w-full h-full"
         viewBox="0 0 150 100"
-        preserveAspectRatio="xMidYMid slice"
+        preserveAspectRatio="xMidYMin slice"
       >
+        {/* shared path definition — outer body + raised-arm outline */}
         <path
-          d="M 95,18 C 92,22 89,25 87,27 C 88,24 87,20 85,17 C 84,14 82,12 80,14
-             C 78,15 76,17 75,20 C 73,22 71,26 70,31 C 68,36 67,42 68,48
-             C 68,53 69,57 68,63 C 67,68 68,73 70,76 C 71,80 73,83 75,84
-             C 76,82 77,78 78,74 C 80,68 82,63 82,58 C 83,53 83,48 84,43
-             C 85,38 86,34 87,30 C 89,26 90,23 92,21 C 93,20 94,19 95,18 Z"
+          d="M 107,10
+             C 103,16 98,22 94,28
+             C 92,31 91,27 90,23
+             C 88,19 86,18 84,20
+             C 82,23 80,28 79,33
+             C 77,38 76,44 76,52
+             C 76,59 76,64 78,67
+             C 81,68 84,68 87,67
+             C 90,66 92,62 92,55
+             C 93,47 93,39 93,34
+             C 95,28 99,22 103,16
+             C 104,14 106,12 107,10 Z"
           fill="none"
-          stroke="rgba(139,92,246,0.9)"
+          stroke="rgba(167,139,250,0.9)"
           strokeWidth="1.0"
           strokeDasharray="4 600"
-          className="header-player-dot"
-          style={{ filter: "drop-shadow(0 0 3px rgba(139,92,246,0.9))" }}
+          className="header-player-dot-a"
+          style={{ filter: "drop-shadow(0 0 3px rgba(167,139,250,0.9))" }}
+        />
+        <path
+          d="M 107,10
+             C 103,16 98,22 94,28
+             C 92,31 91,27 90,23
+             C 88,19 86,18 84,20
+             C 82,23 80,28 79,33
+             C 77,38 76,44 76,52
+             C 76,59 76,64 78,67
+             C 81,68 84,68 87,67
+             C 90,66 92,62 92,55
+             C 93,47 93,39 93,34
+             C 95,28 99,22 103,16
+             C 104,14 106,12 107,10 Z"
+          fill="none"
+          stroke="rgba(34,211,238,0.9)"
+          strokeWidth="1.0"
+          strokeDasharray="4 600"
+          className="header-player-dot-b"
+          style={{ filter: "drop-shadow(0 0 3px rgba(34,211,238,0.9))" }}
         />
       </svg>
     </div>
