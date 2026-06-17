@@ -198,7 +198,7 @@ export default function LiveFixtureCard({
               })}
 
               {/* Lightning-bolt divider down the center */}
-              <MatchDivider className="top-5 bottom-5 text-accent-2 z-[5] drop-shadow-[0_0_3px_rgba(139,92,246,0.7)]" />
+              <MatchDivider className="top-1/2 -translate-y-1/2 h-12 text-accent-2 z-[5] drop-shadow-[0_0_3px_rgba(139,92,246,0.7)]" />
 
               {/* Horizontal V/S — Mortal-Kombat style, no fill */}
               <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none select-none">

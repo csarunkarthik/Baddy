@@ -148,7 +148,7 @@ export default function FixtureCard({
               );
             })}
             {/* Lightning-bolt divider down the center */}
-            <MatchDivider className="top-4 bottom-4 text-faint/70 z-[5]" />
+            <MatchDivider className="top-1/2 -translate-y-1/2 h-10 text-faint/70 z-[5]" />
 
             {/* Horizontal V/S — compact, no fill */}
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none select-none">
