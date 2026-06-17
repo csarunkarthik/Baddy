@@ -138,9 +138,11 @@ export default function FixtureCard({
                     <div key={p.id} className={`relative text-sm font-bold leading-snug ${isWinner ? "text-text" : "text-muted"}`}>
                       {p.avatar && <span className="mr-1">{p.avatar}</span>}
                       {isWinner ? (
-                        <WinnerNameGlow glowColor={team === "A" ? "rgba(167,139,250,0.9)" : "rgba(34,211,238,0.9)"}>
-                          {p.name}
-                        </WinnerNameGlow>
+                        <WinnerNameGlow
+                          name={p.name}
+                          glowColor={team === "A" ? "rgba(167,139,250,0.9)" : "rgba(34,211,238,0.9)"}
+                          className="text-sm font-bold leading-snug text-text"
+                        />
                       ) : p.name}
                     </div>
                   ))}
