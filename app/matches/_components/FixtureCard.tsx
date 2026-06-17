@@ -135,7 +135,7 @@ export default function FixtureCard({
                     </div>
                   )}
                   {players.map((p) => (
-                    <div key={p.id} className={`text-base font-bold leading-snug ${isWinner ? "text-text" : "text-muted"}`}>
+                    <div key={p.id} className={`text-sm font-bold leading-snug ${isWinner ? "text-text" : "text-muted"}`}>
                       {p.avatar && <span className="mr-1">{p.avatar}</span>}{p.name}
                     </div>
                   ))}
@@ -144,7 +144,7 @@ export default function FixtureCard({
             })}
             {/* Horizontal V/S — compact, no fill */}
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none select-none">
-              <span className="text-sm font-black italic text-faint">V/S</span>
+              <span className="text-xs font-black italic text-faint">V/S</span>
             </div>
           </div>
           {!locked && !matchCompleted(m) && !isEditing && (

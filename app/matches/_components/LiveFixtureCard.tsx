@@ -81,11 +81,11 @@ export default function LiveFixtureCard({
             {/* "🔴 LIVE NOW" pill */}
             <span className="flex items-center gap-1.5 bg-accent/20 border border-accent/40 px-2.5 py-0.5 rounded-full">
               <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-              <span className="text-[11px] font-extrabold text-white uppercase tracking-wider">
+              <span className="text-[10px] font-extrabold text-white uppercase tracking-wider">
                 LIVE NOW
               </span>
             </span>
-            <span className="text-sm font-black text-text">
+            <span className="text-xs font-black text-text">
               Match #{m.matchNumber}
             </span>
           </span>
@@ -106,7 +106,7 @@ export default function LiveFixtureCard({
           <div className="px-4 pt-2 pb-2.5 bg-gradient-to-r from-accent/10 to-transparent border-b border-border">
             <div className="flex justify-between text-[10px] font-bold mb-1">
               <span className="text-accent-2">{Math.round(probs.probA * 100)}% win odds</span>
-              <span className="text-faint">{Math.round(probs.probB * 100)}% win odds</span>
+              <span className="text-cyan-400">{Math.round(probs.probB * 100)}% win odds</span>
             </div>
             <div className="h-2 rounded-full bg-surface overflow-hidden flex">
               {reduce ? (
@@ -115,7 +115,7 @@ export default function LiveFixtureCard({
                     className="bg-gradient-to-r from-accent to-accent-2 h-full"
                     style={{ width: `${probs.probA * 100}%` }}
                   />
-                  <div className="flex-1 bg-surface-hover" />
+                  <div className="flex-1 bg-gradient-to-r from-cyan-500 to-cyan-400" />
                 </>
               ) : (
                 <>
@@ -125,7 +125,7 @@ export default function LiveFixtureCard({
                     animate={{ width: `${probs.probA * 100}%` }}
                     transition={{ duration: 0.5, ease: "easeOut" }}
                   />
-                  <div className="flex-1 bg-surface-hover" />
+                  <div className="flex-1 bg-gradient-to-r from-cyan-500 to-cyan-400" />
                 </>
               )}
             </div>
@@ -177,10 +177,10 @@ export default function LiveFixtureCard({
                       </div>
                     )}
                     {players.map((p) => (
-                      <div key={p.id} className="flex items-center gap-2 mb-2 last:mb-0">
-                        <Avatar name={p.name} avatar={p.avatar} size="md" />
+                      <div key={p.id} className="flex items-center gap-2 mb-1.5 last:mb-0">
+                        <Avatar name={p.name} avatar={p.avatar} size="sm" />
                         <span
-                          className={`text-xl font-black tracking-tight leading-tight ${
+                          className={`text-sm font-bold tracking-tight leading-tight ${
                             isWinner ? "text-text" : "text-muted"
                           }`}
                         >
@@ -194,7 +194,7 @@ export default function LiveFixtureCard({
 
               {/* Horizontal V/S — Mortal-Kombat style, no fill */}
               <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none select-none">
-                <span className="text-2xl font-black italic text-transparent bg-clip-text bg-gradient-to-br from-accent via-accent-2 to-accent drop-shadow-[0_1px_3px_rgba(99,102,241,0.6)]">
+                <span className="text-lg font-black italic text-transparent bg-clip-text bg-gradient-to-br from-accent via-accent-2 to-accent drop-shadow-[0_1px_3px_rgba(99,102,241,0.6)]">
                   V/S
                 </span>
               </div>
@@ -202,7 +202,7 @@ export default function LiveFixtureCard({
 
             {/* "Tap a side" hint */}
             {!locked && !matchCompleted(m) && !isEditing && (
-              <p className="text-center text-[11px] font-semibold text-accent-2 py-2 border-t border-border">
+              <p className="text-center text-[10px] font-semibold text-accent-2 py-2 border-t border-border">
                 Tap a side to mark winner
               </p>
             )}
