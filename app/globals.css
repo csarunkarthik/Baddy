@@ -65,6 +65,9 @@ body {
   position: sticky;
   top: 0;
   z-index: 50;
+  /* overflow-hidden was only needed for the AppHeaderBg absolute layer (now null).
+     Keeping it breaks sticky + backdrop-filter rendering in Safari/Chrome. */
+  overflow: visible;
   /* Unlayered — overrides Tailwind's pt-12 pb-8 from @layer utilities */
   padding-top: 1.75rem;
   padding-bottom: 0.75rem;
