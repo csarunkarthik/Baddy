@@ -54,23 +54,24 @@ body {
   background-color: var(--surface);
   background-image:
     url("/court-pattern.svg"),
-    /* Vivid blobs fixed behind the header — the glass blurs these */
-    radial-gradient(ellipse 65% 40% at 18% 10%, rgba(99,102,241,0.45) 0%, transparent 100%),
-    radial-gradient(ellipse 50% 32% at 80% 9%,  rgba(139,92,246,0.32) 0%, transparent 100%),
     linear-gradient(to bottom right, var(--surface), var(--surface-raised), var(--surface));
-  background-size: 320px 320px, cover, cover, cover;
-  background-repeat: repeat, no-repeat, no-repeat, no-repeat;
-  background-attachment: fixed, fixed, fixed, fixed;
+  background-size: 320px 320px, cover;
+  background-repeat: repeat, no-repeat;
+  background-attachment: fixed, fixed;
   min-height: 100vh;
   color: var(--text);
 }
 .app-header {
-  /* Pure glass — no gradient, just dark tint + blur over the vivid bg blobs */
-  background: rgba(10, 11, 15, 0.32);
-  backdrop-filter: blur(40px) saturate(200%);
-  -webkit-backdrop-filter: blur(40px) saturate(200%);
-  /* The inset top shadow is the detail that makes iOS glass look real */
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 1px 0 rgba(0,0,0,0.24);
+  /* Sticky like the bottom bar — content scrolls beneath it */
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  /* Near-black with a cold indigo tint — glass blurs scrolling content under it */
+  background: rgba(6, 6, 18, 0.78);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  /* Top-edge shimmer — the detail that makes glass look real vs. flat */
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), 0 1px 0 rgba(0,0,0,0.40);
   color: white;
 }
 .app-header h1 {
