@@ -54,31 +54,30 @@ body {
   background-color: var(--surface);
   background-image:
     url("/court-pattern.svg"),
-    linear-gradient(to bottom right,
-      var(--surface),
-      var(--surface-raised),
-      var(--surface));
-  background-size: 320px 320px, cover;
-  background-repeat: repeat, no-repeat;
-  background-attachment: fixed, fixed;
+    /* Vivid blobs fixed behind the header — the glass blurs these */
+    radial-gradient(ellipse 65% 40% at 18% 10%, rgba(99,102,241,0.45) 0%, transparent 100%),
+    radial-gradient(ellipse 50% 32% at 80% 9%,  rgba(139,92,246,0.32) 0%, transparent 100%),
+    linear-gradient(to bottom right, var(--surface), var(--surface-raised), var(--surface));
+  background-size: 320px 320px, cover, cover, cover;
+  background-repeat: repeat, no-repeat, no-repeat, no-repeat;
+  background-attachment: fixed, fixed, fixed, fixed;
   min-height: 100vh;
   color: var(--text);
 }
 .app-header {
-  /* iOS-style dark glass: semi-transparent + blur lets the court pattern show through */
-  background:
-    linear-gradient(155deg,
-      rgba(99, 102, 241, 0.18) 0%,
-      rgba(109, 40, 217, 0.10) 45%,
-      transparent 80%
-    ),
-    rgba(10, 11, 16, 0.80);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  /* Pure glass — no gradient, just dark tint + blur over the vivid bg blobs */
+  background: rgba(10, 11, 15, 0.32);
+  backdrop-filter: blur(40px) saturate(200%);
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  /* The inset top shadow is the detail that makes iOS glass look real */
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 1px 0 rgba(0,0,0,0.24);
   color: white;
 }
-.app-header-subtle { color: rgba(255, 255, 255, 0.60); }
+.app-header h1 {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.app-header-subtle { color: rgba(255, 255, 255, 0.58); }
 
 /* Live-glow animation for the active match hero card */
 @keyframes live-glow {
