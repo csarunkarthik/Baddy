@@ -79,13 +79,6 @@ body {
 .live-glow { animation: live-glow 2.2s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .live-glow { animation: none; } }
 
-/* Winner name: slow traveling dot — one pass every 3.5 s */
-@keyframes winner-name-dot {
-  0%   { stroke-dashoffset: 102; }
-  100% { stroke-dashoffset: 0; }
-}
-.winner-name-dot { animation: winner-name-dot 3.5s linear infinite; }
-@media (prefers-reduced-motion: reduce) { .winner-name-dot { animation: none; } }
 
 /* Hide the scrollbar on horizontally-scrolling chip rows (e.g. venues). */
 .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }

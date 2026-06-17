@@ -8,7 +8,6 @@ import FixtureEditForm from "./FixtureEditForm";
 import FixtureWarnings from "./FixtureWarnings";
 import MatchDivider from "./MatchDivider";
 import WinnerBackdrop from "./WinnerBackdrop";
-import WinnerNameGlow from "./WinnerNameGlow";
 import { matchCompleted, type Match, type Player, type MatchProb, type EditDraft } from "./types";
 
 export default function LiveFixtureCard({
@@ -179,15 +178,7 @@ export default function LiveFixtureCard({
                     {players.map((p) => (
                       <div key={p.id} className="relative flex items-center gap-2 mb-1.5 last:mb-0">
                         <Avatar name={p.name} avatar={p.avatar} size="sm" />
-                        {isWinner ? (
-                          <WinnerNameGlow
-                            name={p.name}
-                            glowColor={team === "A" ? "rgba(167,139,250,0.9)" : "rgba(34,211,238,0.9)"}
-                            className="text-sm font-bold tracking-tight leading-tight text-text"
-                          />
-                        ) : (
-                          <span className="text-sm font-bold tracking-tight leading-tight text-muted">{p.name}</span>
-                        )}
+                        <span className={`text-sm font-bold tracking-tight leading-tight ${isWinner ? "text-text" : "text-muted"}`}>{p.name}</span>
                       </div>
                     ))}
                   </button>
