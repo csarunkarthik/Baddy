@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { ArrowLeft, MapPin, Target, Globe2, Handshake, Trophy } from "lucide-react";
+import { MapPin, Target, Globe2, Handshake, Trophy } from "lucide-react";
 import { apiGet } from "@/lib/api";
 import Card from "../components/ui/Card";
 import SectionHeader from "../components/ui/SectionHeader";
@@ -135,10 +134,7 @@ export default function StatsPage() {
     <div className="app-bg">
       <div className="relative overflow-hidden app-header px-5 pt-12 pb-8">
         <AppHeaderBg />
-        <div className="relative flex items-start gap-3">
-          <Link href="/" aria-label="Back" className="mt-1 w-9 h-9 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors">
-            <ArrowLeft size={18} strokeWidth={2.5} />
-          </Link>
+        <div className="relative">
           <div className="flex-1">
             <h1 className="text-3xl font-extrabold tracking-tight">Stats</h1>
             <p className="app-header-subtle text-sm mt-0.5">{sliceLabel} · {totalDays} {totalDays === 1 ? "day" : "days"} · {stats.length} players</p>

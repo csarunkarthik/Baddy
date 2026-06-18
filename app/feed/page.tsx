@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, History, Home as HomeIcon, MessageCircle, Swords, Target, Users } from "lucide-react";
+import { History, Home as HomeIcon, MessageCircle, Swords, Target, Users } from "lucide-react";
 import { apiGet, apiSend } from "@/lib/api";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
@@ -116,9 +116,6 @@ export default function FeedPage() {
       <div className="relative overflow-hidden app-header px-5 pt-12 pb-8">
         <AppHeaderBg />
         <div className="relative flex items-start gap-3">
-          <Link href="/" aria-label="Back" className="mt-1 w-9 h-9 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors">
-            <ArrowLeft size={18} strokeWidth={2.5} />
-          </Link>
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight">Feed</h1>
             <p className="app-header-subtle text-sm mt-0.5">Share your thoughts</p>

@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { ArrowLeft, Crosshair, ShieldAlert, Sparkles, Swords, Trophy, Users } from "lucide-react";
+import { Crosshair, ShieldAlert, Sparkles, Swords, Trophy, Users } from "lucide-react";
 import Card from "../components/ui/Card";
 import SectionHeader from "../components/ui/SectionHeader";
 import Chip from "../components/ui/Chip";
@@ -71,10 +70,7 @@ export default function AwardsPage() {
     <div className="app-bg">
       <div className="relative overflow-hidden app-header px-5 pt-12 pb-8">
         <AppHeaderBg />
-        <div className="relative flex items-start gap-3">
-          <Link href="/" className="mt-1 w-9 h-9 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors" aria-label="Back">
-            <ArrowLeft size={18} strokeWidth={2.5} />
-          </Link>
+        <div className="relative">
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight">Awards</h1>
             <p className="app-header-subtle text-sm mt-0.5">Trophies, milestones &amp; team honors</p>

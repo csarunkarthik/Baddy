@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import confetti from "canvas-confetti";
-import { ArrowLeft, Calendar, ChevronDown, ChevronUp, Play } from "lucide-react";
+import { Calendar, ChevronDown, ChevronUp, Play } from "lucide-react";
 import { usePullToRefresh } from "../hooks/usePullToRefresh";
 import PullIndicator from "../components/PullIndicator";
 import {
@@ -553,9 +553,6 @@ export default function MatchesPage() {
       <div className="relative overflow-hidden app-header px-5 pt-12 pb-8">
         <AppHeaderBg />
         <div className="relative flex items-start gap-3">
-          <Link href="/" aria-label="Back" className="mt-1 w-9 h-9 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors">
-            <ArrowLeft size={18} strokeWidth={2.5} />
-          </Link>
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight flex items-center gap-2">
               Matches
