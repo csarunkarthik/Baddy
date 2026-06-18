@@ -7,6 +7,7 @@ import { isSessionLocked } from "@/lib/locking";
 import { apiGet, apiSend } from "@/lib/api";
 import HistoryList from "./components/HistoryList";
 import AppHeaderBg from "./components/AppHeaderBg";
+import { BaddyMark } from "./components/Logo";
 import Card from "./components/ui/Card";
 import Button from "./components/ui/Button";
 import Skeleton from "./components/ui/Skeleton";
@@ -140,7 +141,10 @@ export default function Home() {
         <AppHeaderBg />
         <div className="relative flex items-start justify-between gap-3">
           <div>
-            <h1 className="text-4xl font-extrabold tracking-tight">Baddy</h1>
+            <div className="flex items-center gap-2.5">
+              <BaddyMark variant="primary" title="Baddy" className="w-8 h-8 shrink-0" />
+              <h1 className="text-4xl font-extrabold tracking-tight">baddy</h1>
+            </div>
             <p className="app-header-subtle mt-1 text-sm font-medium">{formatDisplay(selectedDate)}</p>
           </div>
           {saved && venue && (

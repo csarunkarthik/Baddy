@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Baddy 🏸",
+  title: "baddy",
   description: "Track your badminton sessions and attendance",
 };
 
