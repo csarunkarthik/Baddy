@@ -2,14 +2,24 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import {
+  HomeIcon,
+  MatchesIcon,
+  StatsIcon,
+  AskIcon,
+  AwardsIcon,
+  PlayersIcon,
+} from "./NavIcons";
 
-const TABS: { href: string; label: string; emoji: string; match: (p: string) => boolean }[] = [
-  { href: "/", label: "Home", emoji: "🏟️", match: (p) => p === "/" },
-  { href: "/matches", label: "Matches", emoji: "⚔️", match: (p) => p.startsWith("/matches") },
-  { href: "/stats", label: "Stats", emoji: "🎯", match: (p) => p.startsWith("/stats") },
-  { href: "/ask", label: "Ask", emoji: "🤖", match: (p) => p.startsWith("/ask") },
-  { href: "/awards", label: "Awards", emoji: "🏅", match: (p) => p.startsWith("/awards") },
-  { href: "/players", label: "Players", emoji: "🫂", match: (p) => p.startsWith("/players") },
+type TabIcon = (props: { className?: string }) => React.ReactElement;
+
+const TABS: { href: string; label: string; Icon: TabIcon; match: (p: string) => boolean }[] = [
+  { href: "/", label: "Home", Icon: HomeIcon, match: (p) => p === "/" },
+  { href: "/matches", label: "Matches", Icon: MatchesIcon, match: (p) => p.startsWith("/matches") },
+  { href: "/stats", label: "Stats", Icon: StatsIcon, match: (p) => p.startsWith("/stats") },
+  { href: "/ask", label: "Ask", Icon: AskIcon, match: (p) => p.startsWith("/ask") },
+  { href: "/awards", label: "Awards", Icon: AwardsIcon, match: (p) => p.startsWith("/awards") },
+  { href: "/players", label: "Players", Icon: PlayersIcon, match: (p) => p.startsWith("/players") },
 ];
 
 export default function BottomNav() {
@@ -33,7 +43,7 @@ export default function BottomNav() {
                   : "text-faint hover:text-muted"
               }`}
             >
-              <span className="text-lg leading-none">{t.emoji}</span>
+              <t.Icon className="w-[22px] h-[22px]" />
               <span className="text-[10px] font-bold tracking-wide">{t.label}</span>
               {active && <span className="block w-6 h-0.5 rounded-full bg-accent mt-0.5" />}
             </Link>
