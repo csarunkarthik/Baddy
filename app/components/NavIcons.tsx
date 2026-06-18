@@ -32,15 +32,18 @@ export function HomeIcon(p: IconProps) {
   );
 }
 
-// Matches — two crossed rackets
+// Matches — crossed swords (versus)
 export function MatchesIcon(p: IconProps) {
   return (
     <Base {...p}>
-      <circle cx="8" cy="8" r="3.2" />
-      <path d="M10.3 10.3 L14 15" />
-      <circle cx="16" cy="8" r="3.2" />
-      <path d="M13.7 10.3 L10 15" />
-      <path d="M12 15 V19" />
+      <polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5" />
+      <path d="M13 19 L19 13" />
+      <path d="M16 16 L20 20" />
+      <path d="M19 21 L21 19" />
+      <polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5" />
+      <path d="M5 14 L9 18" />
+      <path d="M7 17 L4 20" />
+      <path d="M3 19 L5 21" />
     </Base>
   );
 }
