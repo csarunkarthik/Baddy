@@ -7,6 +7,7 @@ import { isSessionLocked } from "@/lib/locking";
 import { apiGet, apiSend } from "@/lib/api";
 import HistoryList from "./components/HistoryList";
 import { BaddyMark } from "./components/Logo";
+import { BadmintonIcon, PickleballIcon } from "./components/SportIcons";
 import Card from "./components/ui/Card";
 import Button from "./components/ui/Button";
 import Skeleton from "./components/ui/Skeleton";
@@ -202,8 +203,8 @@ export default function Home() {
               </div>
               <div className="flex gap-2">
                 {([
-                  { v: "BADMINTON" as Sport, label: "🏸 Badminton" },
-                  { v: "PICKLEBALL" as Sport, label: "🥒 Pickleball" },
+                  { v: "BADMINTON" as Sport, label: "Badminton", Icon: BadmintonIcon },
+                  { v: "PICKLEBALL" as Sport, label: "Pickleball", Icon: PickleballIcon },
                 ]).map((opt) => {
                   const on = sport === opt.v;
                   return (
@@ -211,12 +212,13 @@ export default function Home() {
                       key={opt.v}
                       onClick={() => handleSportChange(opt.v)}
                       disabled={locked}
-                      className={`flex-1 py-2.5 rounded-2xl text-sm font-bold transition-colors active:scale-[0.98] disabled:opacity-60 ${
+                      className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-2xl text-sm font-bold transition-colors active:scale-[0.98] disabled:opacity-60 ${
                         on
                           ? "bg-gradient-to-br from-accent to-accent-2 text-white shadow-md"
                           : "bg-surface-hover text-muted hover:bg-surface-raised"
                       }`}
                     >
+                      <opt.Icon className="w-[18px] h-[18px] shrink-0" />
                       {opt.label}
                     </button>
                   );

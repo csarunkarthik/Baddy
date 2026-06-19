@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MapPin, Target, Globe2, Handshake, Trophy } from "lucide-react";
+import { Target, Globe2, Handshake, Trophy } from "lucide-react";
 import { apiGet } from "@/lib/api";
 import Card from "../components/ui/Card";
 import SectionHeader from "../components/ui/SectionHeader";
@@ -127,9 +127,6 @@ export default function StatsPage() {
   ].filter(Boolean).join(" · ");
   const hasActiveFilter = years.length > 0 || months.length > 0 || venuesSel.length > 0 || lastN !== null;
 
-  const max = stats[0]?.sessions ?? 1;
-  const maxVenue = venues[0]?.count ?? 1;
-
   return (
     <div className="app-bg">
       <div className="relative overflow-hidden app-header px-5 pt-12 pb-8">
@@ -239,35 +236,41 @@ export default function StatsPage() {
                 <EmptyState icon={<span>🏸</span>} title="No sessions match this filter" />
               </Card>
             ) : (
-              <Card padding="sm" className="space-y-2">
+              <Card padding="sm" className="space-y-3">
                 <SectionHeader className="px-2 pt-1">Players</SectionHeader>
-                {stats.map((p) => (
-                  <div key={p.id} className="flex items-center gap-3 p-2">
-                    <span className="w-8 text-center text-lg shrink-0">
-                      {MEDAL[p.rank] ?? <span className="text-xs text-faint font-bold">{p.rank}</span>}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-bold text-text truncate">{p.name}</span>
-                        <div className="flex items-center gap-2 ml-2 shrink-0">
-                          <span className="text-xs font-bold text-accent-2">{p.percentage}%</span>
-                          <span className="text-sm font-extrabold text-accent">{p.sessions}</span>
+                <div className="grid grid-cols-3 gap-x-1 gap-y-3">
+                  {stats.map((p) => {
+                    const circ = 2 * Math.PI * 18;
+                    const pct = Math.min(1, p.percentage / 100);
+                    const ringColor =
+                      p.rank === 1 ? "#f59e0b" :
+                      p.rank === 2 ? "#a1a1aa" :
+                      p.rank === 3 ? "#f97316" :
+                      "#8b5cf6";
+                    return (
+                      <div key={p.id} className="flex flex-col items-center gap-1.5 min-w-0">
+                        <div className="relative w-[52px] h-[52px]">
+                          <svg viewBox="0 0 44 44" className="w-full h-full -rotate-90">
+                            <circle cx="22" cy="22" r="18" fill="none" stroke="#1d1f27" strokeWidth="4" />
+                            <circle
+                              cx="22" cy="22" r="18" fill="none"
+                              stroke={ringColor} strokeWidth="4" strokeLinecap="round"
+                              strokeDasharray={circ} strokeDashoffset={circ * (1 - pct)}
+                            />
+                          </svg>
+                          <span className="absolute inset-0 flex items-center justify-center text-[13px] font-extrabold text-text">
+                            {p.percentage}%
+                          </span>
                         </div>
+                        <div className="flex items-center gap-1 max-w-full min-w-0">
+                          {MEDAL[p.rank] && <span className="text-xs shrink-0">{MEDAL[p.rank]}</span>}
+                          <span className="text-xs font-bold text-text truncate">{p.name}</span>
+                        </div>
+                        <span className="-mt-1 text-[10px] text-faint">{p.sessions}/{totalDays}</span>
                       </div>
-                      <div className="h-2.5 bg-surface-hover rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full ${
-                            p.rank === 1 ? "bg-gradient-to-r from-amber-400 to-amber-500" :
-                            p.rank === 2 ? "bg-gradient-to-r from-zinc-400 to-zinc-500" :
-                            p.rank === 3 ? "bg-gradient-to-r from-orange-400 to-orange-500" :
-                            "bg-gradient-to-r from-accent to-accent-2"
-                          }`}
-                          style={{ width: `${Math.max(4, (p.sessions / max) * 100)}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                    );
+                  })}
+                </div>
                 <p className="text-center text-xs text-faint pt-1">% = sessions attended out of {totalDays} total</p>
               </Card>
             )}
@@ -330,26 +333,34 @@ export default function StatsPage() {
 
             {/* Venues */}
             {venues.length > 0 && (
-              <Card padding="sm" className="space-y-2">
+              <Card padding="sm" className="space-y-3">
                 <SectionHeader className="px-2 pt-1">Venues</SectionHeader>
-                {venues.map((v) => (
-                  <div key={v.venue} className="flex items-center gap-3 p-2">
-                    <span className="shrink-0 text-faint"><MapPin size={18} /></span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-sm font-bold text-text truncate">{v.venue}</span>
-                        <div className="flex items-center gap-1.5 ml-2 shrink-0">
-                          <span className="text-sm font-extrabold text-accent">{v.count}</span>
-                          <span className="text-xs text-faint">{v.count === 1 ? "session" : "sessions"}</span>
+                <div className="grid grid-cols-3 gap-x-1 gap-y-3">
+                  {venues.map((v) => {
+                    const circ = 2 * Math.PI * 18;
+                    const pct = totalDays > 0 ? Math.min(1, v.count / totalDays) : 0;
+                    return (
+                      <div key={v.venue} className="flex flex-col items-center gap-1.5 min-w-0">
+                        <div className="relative w-[52px] h-[52px]">
+                          <svg viewBox="0 0 44 44" className="w-full h-full -rotate-90">
+                            <circle cx="22" cy="22" r="18" fill="none" stroke="#1d1f27" strokeWidth="4" />
+                            <circle
+                              cx="22" cy="22" r="18" fill="none"
+                              stroke="#8b5cf6" strokeWidth="4" strokeLinecap="round"
+                              strokeDasharray={circ} strokeDashoffset={circ * (1 - pct)}
+                            />
+                          </svg>
+                          <span className="absolute inset-0 flex items-center justify-center text-[13px] font-extrabold text-text">
+                            {Math.round(pct * 100)}%
+                          </span>
                         </div>
+                        <span className="max-w-full truncate px-0.5 text-xs font-bold text-text">{v.venue}</span>
+                        <span className="-mt-1 text-[10px] text-faint">{v.count} {v.count === 1 ? "session" : "sessions"}</span>
                       </div>
-                      <div className="h-2.5 bg-surface-hover rounded-full overflow-hidden">
-                        <div className="h-full rounded-full bg-gradient-to-r from-accent to-accent-2"
-                          style={{ width: `${Math.max(4, (v.count / maxVenue) * 100)}%` }} />
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                    );
+                  })}
+                </div>
+                <p className="text-center text-xs text-faint pt-1">% = share of {totalDays} total sessions</p>
               </Card>
             )}
             {/* Points scored */}
