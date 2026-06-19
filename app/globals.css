@@ -93,6 +93,32 @@ body {
 .live-glow { animation: live-glow 2.2s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .live-glow { animation: none; } }
 
+/* Header brand watermark — shuttlecock outline pinned top-right of every
+   .app-header, breathing 0 → 30% → 0 on a 5s loop. Hidden via .header-no-mark
+   (e.g. Home when the venue chip occupies the corner). */
+@keyframes logo-breathe {
+  0%, 100% { opacity: 0; }
+  50%      { opacity: 0.3; }
+}
+.app-header::after {
+  content: "";
+  position: absolute;
+  top: 0.5rem;
+  right: 0.75rem;
+  width: 56px;
+  height: 56px;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20140%20140'%20fill='none'%20stroke='%23ffffff'%20stroke-width='3'%20stroke-linejoin='round'%3E%3Cpath%20d='M70%2C85L42%2C57L51%2C33L60%2C53L70%2C31L80%2C53L89%2C33L98%2C57Z'/%3E%3Cellipse%20cx='70'%20cy='87'%20rx='9'%20ry='7'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  animation: logo-breathe 5s ease-in-out infinite;
+}
+.app-header.header-no-mark::after { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .app-header::after { animation: none; opacity: 0.15; }
+}
+
 
 /* Hide the scrollbar on horizontally-scrolling chip rows (e.g. venues). */
 .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }

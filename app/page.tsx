@@ -6,7 +6,6 @@ import { CalendarDays, Lock, MapPin, Shirt, Users } from "lucide-react";
 import { isSessionLocked } from "@/lib/locking";
 import { apiGet, apiSend } from "@/lib/api";
 import HistoryList from "./components/HistoryList";
-import AppHeaderBg from "./components/AppHeaderBg";
 import { BaddyMark } from "./components/Logo";
 import Card from "./components/ui/Card";
 import Button from "./components/ui/Button";
@@ -137,8 +136,7 @@ export default function Home() {
   return (
     <div className="app-bg">
       {/* Header */}
-      <div className="relative overflow-hidden app-header px-5 pt-12 pb-8">
-        <AppHeaderBg />
+      <div className={`relative overflow-hidden app-header px-5 pt-12 pb-8 ${saved && venue ? "header-no-mark" : ""}`}>
         <div className="relative flex items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2.5">
