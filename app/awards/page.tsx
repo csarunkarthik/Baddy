@@ -106,7 +106,7 @@ export default function AwardsPage() {
         ) : (
           <>
             {/* Trophy gallery — dense single-line rows */}
-            <Card>
+            <Card variant="glass">
               <SectionHeader right={`${awarded.length} awarded`}>
                 <Trophy size={16} className="text-gold" /> Trophies
               </SectionHeader>
@@ -138,7 +138,7 @@ export default function AwardsPage() {
 
             {/* Team awards — three angles that don't duplicate /stats */}
             {teamAwards && (teamAwards.chemistry.length + teamAwards.ironDuos.length + teamAwards.dragonSlayerDuos.length) > 0 && (
-              <Card className="space-y-4">
+              <Card variant="glass" className="space-y-4">
                 <SectionHeader>
                   <Users size={16} className="text-accent-2" /> Team awards
                 </SectionHeader>
@@ -212,7 +212,7 @@ export default function AwardsPage() {
             )}
 
             {/* Per-player overview */}
-            <Card>
+            <Card variant="glass">
               <SectionHeader className="mb-3">
                 <Users size={16} className="text-accent" /> By player
               </SectionHeader>
@@ -249,7 +249,7 @@ export default function AwardsPage() {
                 .sort((a, b) => a[1].gap - b[1].gap);
               if (rows.length === 0) return null;
               return (
-                <Card>
+                <Card variant="glass">
                   <SectionHeader className="mb-3">
                     <Crosshair size={16} className="text-accent" /> Next Milestone
                   </SectionHeader>
@@ -283,7 +283,7 @@ export default function AwardsPage() {
               );
               if (rivalRows.length === 0) return null;
               return (
-                <Card>
+                <Card variant="glass">
                   <SectionHeader className="mb-3">
                     <ShieldAlert size={16} className="text-danger" /> Rivals
                   </SectionHeader>

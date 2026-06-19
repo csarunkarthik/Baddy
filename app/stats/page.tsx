@@ -236,7 +236,7 @@ export default function StatsPage() {
                 <EmptyState icon={<span>🏸</span>} title="No sessions match this filter" />
               </Card>
             ) : (
-              <Card padding="sm" className="space-y-3">
+              <Card padding="sm" variant="glass" className="space-y-3">
                 <SectionHeader className="px-2 pt-1">Players</SectionHeader>
                 <div className="grid grid-cols-3 gap-x-1 gap-y-3">
                   {stats.map((p) => {
@@ -277,7 +277,7 @@ export default function StatsPage() {
 
             {/* Partner Diversity */}
             {diversity.length > 0 && (
-              <Card>
+              <Card variant="glass">
                 <SectionHeader right="how evenly you spread partnerships" className="mb-3">
                   <Globe2 size={16} className="text-accent-2" /> Partner Diversity
                 </SectionHeader>
@@ -309,7 +309,7 @@ export default function StatsPage() {
                 .sort((a, b) => b.wins - a.wins || b.winPct - a.winPct || a.name.localeCompare(b.name));
               if (winsList.length === 0) return null;
               return (
-                <Card padding="sm" className="space-y-1">
+                <Card padding="sm" variant="glass" className="space-y-1">
                   <SectionHeader className="px-2 pt-1 pb-1">
                     <Trophy size={16} className="text-gold" /> Wins
                   </SectionHeader>
@@ -333,7 +333,7 @@ export default function StatsPage() {
 
             {/* Venues */}
             {venues.length > 0 && (
-              <Card padding="sm" className="space-y-3">
+              <Card padding="sm" variant="glass" className="space-y-3">
                 <SectionHeader className="px-2 pt-1">Venues</SectionHeader>
                 <div className="grid grid-cols-3 gap-x-1 gap-y-3">
                   {venues.map((v) => {
@@ -365,7 +365,7 @@ export default function StatsPage() {
             )}
             {/* Points scored */}
             {points.length > 0 && (
-              <Card>
+              <Card variant="glass">
                 <SectionHeader right="scored matches only" className="mb-3">
                   <Target size={16} className="text-accent" /> Points scored
                 </SectionHeader>
@@ -394,7 +394,7 @@ export default function StatsPage() {
 
             {/* Best Partners */}
             {(partners.topDuos.length > 0 || partners.perPlayer.length > 0) && (
-              <Card className="space-y-5">
+              <Card variant="glass" className="space-y-5">
                 <SectionHeader right="min 2 together">
                   <Handshake size={16} className="text-accent-2" /> Best partnerships
                 </SectionHeader>
@@ -451,7 +451,7 @@ export default function StatsPage() {
               const list = pickleWins.filter((w) => w.played > 0);
               const byPct = [...list].sort((a, b) => b.winPct - a.winPct || b.wins - a.wins || a.name.localeCompare(b.name));
               return (
-                <Card padding="sm" className="space-y-4 mt-2">
+                <Card padding="sm" variant="glass" className="space-y-4 mt-2">
                   <SectionHeader right="wins · win %" className="px-2 pt-1 pb-1">
                     <span>🥒</span> Pickleball
                   </SectionHeader>
