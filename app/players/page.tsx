@@ -146,7 +146,7 @@ export default function PlayersPage() {
             {/* Most / Least Active */}
             {top3.length > 0 && (
               <div className="grid grid-cols-2 gap-3">
-                <Card>
+                <Card variant="glass">
                   <div className="flex items-center gap-1.5 mb-3">
                     <Flame size={14} className="text-gold" />
                     <span className="text-xs font-bold text-muted uppercase tracking-wide">Most Active</span>
@@ -160,7 +160,7 @@ export default function PlayersPage() {
                     ))}
                   </div>
                 </Card>
-                <Card>
+                <Card variant="glass">
                   <div className="flex items-center gap-1.5 mb-3">
                     <Moon size={14} className="text-faint" />
                     <span className="text-xs font-bold text-muted uppercase tracking-wide">Least Active</span>
@@ -178,7 +178,7 @@ export default function PlayersPage() {
             )}
 
             {/* Add player */}
-            <Card className="space-y-3">
+            <Card variant="glass" className="space-y-3">
               <h2 className="font-bold text-text">Add Player</h2>
               <div className="flex gap-2">
                 <input
@@ -196,7 +196,7 @@ export default function PlayersPage() {
             </Card>
 
             {/* Full player list */}
-            <Card>
+            <Card variant="glass">
               <h2 className="font-bold text-text mb-4">All Players</h2>
               {players.length === 0 ? (
                 <EmptyState icon={<User size={36} />} title="No players yet" subtitle="Add one above to get started." />
