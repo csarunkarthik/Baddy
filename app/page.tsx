@@ -186,7 +186,7 @@ export default function Home() {
             )}
 
             {/* Sport */}
-            <Card className="space-y-3">
+            <Card variant="glass" className="space-y-3">
               <div className="flex items-center gap-2">
                 <Shirt size={16} className="text-accent" />
                 <h2 className="font-bold text-text">Sport</h2>
@@ -217,7 +217,7 @@ export default function Home() {
             </Card>
 
             {/* Venue */}
-            <Card className="space-y-3">
+            <Card variant="glass" className="space-y-3">
               <div className="flex items-center gap-2">
                 <MapPin size={16} className="text-accent" />
                 <h2 className="font-bold text-text">Venue</h2>
@@ -255,7 +255,7 @@ export default function Home() {
                 </div>
               </Card>
             ) : venueReady ? (
-              <Card className="space-y-4">
+              <Card variant="glass" className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Users size={16} className="text-accent" />
@@ -322,7 +322,7 @@ export default function Home() {
             )}
 
             {/* Past sessions — collapsed by default, expands to inline history editor */}
-            <Card padding="none">
+            <Card variant="glass" padding="none">
               <button
                 onClick={() => setHistoryOpen((v) => !v)}
                 className="w-full flex items-center justify-between px-5 py-4 text-left"

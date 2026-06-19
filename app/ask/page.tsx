@@ -105,7 +105,8 @@ export default function AskPage() {
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 max-w-lg w-full mx-auto space-y-3 pb-4">
         {messages.length === 0 && !sending && (
-          <div className="bg-surface-raised rounded-3xl border border-border p-5 space-y-3">
+          <div className="relative overflow-hidden bg-surface-raised/60 backdrop-blur-md rounded-3xl border border-white/10 p-5 space-y-3">
+            <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-accent/40 via-accent-2/30 to-transparent pointer-events-none" />
             <p className="text-sm text-muted">Try one of these:</p>
             <div className="flex flex-col gap-2">
               {STARTER_QUESTIONS.map((q) => (

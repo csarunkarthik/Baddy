@@ -591,7 +591,7 @@ export default function MatchesPage() {
         />
 
         {/* Sport — compact segmented control */}
-        <Card padding="sm" className="flex gap-1">
+        <Card variant="glass" padding="sm" className="flex gap-1">
           {([
             { v: "BADMINTON" as const, label: "Badminton", Icon: BadmintonIcon },
             { v: "PICKLEBALL" as const, label: "Pickleball", Icon: PickleballIcon },
@@ -635,7 +635,7 @@ export default function MatchesPage() {
             </Card>
           </div>
         ) : noSession ? (
-          <Card padding="lg">
+          <Card variant="glass" padding="lg">
             <EmptyState
               icon={<span>📝</span>}
               title="No entry for this date yet"
@@ -686,7 +686,7 @@ export default function MatchesPage() {
             <div className={sessionFinished ? "order-2" : "order-1"}>
             {/* Matches list */}
             {data.matches.length > 0 && (
-              <Card className="space-y-3">
+              <Card variant="glass" className="space-y-3">
                 <div className="flex items-center justify-between px-1">
                   <h2 className="font-bold text-text text-sm flex items-center gap-1.5">
                     {data.session.sport === "PICKLEBALL"
