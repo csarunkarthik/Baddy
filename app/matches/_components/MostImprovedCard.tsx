@@ -1,11 +1,12 @@
 import { type ImprovedRow } from "./types";
+import { TrendUpIcon } from "../../components/AwardIcons";
 
 // "Most Improved today" — top improver headline + secondary list. Returns null when empty.
 export default function MostImprovedCard({ mostImproved }: { mostImproved: ImprovedRow[] }) {
   if (mostImproved.length === 0) return null;
   return (
     <div className="relative overflow-hidden rounded-3xl shadow-md shadow-sky-900/30 p-5 bg-gradient-to-br from-sky-500 via-cyan-600 to-accent text-white">
-      <div className="absolute -top-3 -right-2 text-6xl opacity-15 select-none">📈</div>
+      <TrendUpIcon className="absolute -top-3 -right-3 w-24 h-24 text-white opacity-15 select-none" />
       <div className="relative">
         <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-50/90">Most Improved today</p>
         <p className="mt-1 text-2xl font-extrabold tracking-tight">{mostImproved[0].name}</p>

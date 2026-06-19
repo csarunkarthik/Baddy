@@ -1,4 +1,5 @@
 import { type MvpRow } from "./types";
+import { TrophyIcon } from "../../components/AwardIcons";
 
 // MVP / Co-MVP card for a finished session. Parent gates on `sessionFinished`;
 // this returns null when there are no MVPs.
@@ -7,7 +8,7 @@ export default function MvpCard({ mvps, useNewMvpFormula }: { mvps: MvpRow[]; us
   return (
     <div className="space-y-1.5">
       <div className="relative overflow-hidden rounded-3xl shadow-lg shadow-amber-200 p-5 bg-gradient-to-br from-yellow-400 via-amber-500 to-orange-500 text-white">
-        <div className="absolute -top-4 -right-2 text-7xl opacity-15 select-none">🏆</div>
+        <TrophyIcon className="absolute -top-5 -right-3 w-28 h-28 text-white opacity-15 select-none" />
         <div className="relative">
           <p className="text-[10px] font-bold uppercase tracking-widest text-yellow-50/90">
             {mvps.length > 1 ? "Co-MVPs of the day" : "MVP of the day"}
