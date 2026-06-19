@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CalendarDays, Lock, MapPin, Shirt, Users } from "lucide-react";
+import { Lock, MapPin, Shirt, Users } from "lucide-react";
 import { isSessionLocked } from "@/lib/locking";
 import { apiGet, apiSend } from "@/lib/api";
 import HistoryList from "./components/HistoryList";
 import { BaddyMark } from "./components/Logo";
 import { BadmintonIcon, PickleballIcon } from "./components/SportIcons";
+import DateStrip from "./components/DateStrip";
 import Card from "./components/ui/Card";
 import Button from "./components/ui/Button";
 import Skeleton from "./components/ui/Skeleton";
@@ -38,6 +39,7 @@ export default function Home() {
 
   const [players, setPlayers] = useState<Player[]>([]);
   const [venueSuggestions, setVenueSuggestions] = useState<VenueSuggestion[]>([]);
+  const [sessionDates, setSessionDates] = useState<Set<string>>(new Set());
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [sport, setSport] = useState<Sport>("BADMINTON");
   const [venue, setVenue] = useState("");
@@ -77,9 +79,10 @@ export default function Home() {
 
   useEffect(() => {
     (async () => {
-      const [p, v] = await Promise.all([
+      const [p, v, h] = await Promise.all([
         apiGet<Player[]>("/api/players"),
         apiGet<VenueSuggestion[]>("/api/venues"),
+        apiGet<{ date: string }[]>("/api/history"),
       ]);
       if (!p.data) {
         setBootError(true);
@@ -88,6 +91,9 @@ export default function Home() {
       }
       setPlayers(p.data);
       setVenueSuggestions(v.data ?? []);
+      if (h.data) {
+        setSessionDates(new Set(h.data.map((s) => s.date.slice(0, 10))));
+      }
       await loadSession(todayStr, "BADMINTON");
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -165,35 +171,19 @@ export default function Home() {
           </Card>
         ) : (
           <>
-            {/* Date */}
-            <Card className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <CalendarDays size={16} className="text-accent" />
-                  <h2 className="font-bold text-text">Date</h2>
-                </div>
-                {!isToday && (
-                  <button
-                    onClick={() => handleDateChange(todayStr)}
-                    className="text-xs text-accent font-semibold bg-accent/10 px-3 py-1 rounded-full hover:bg-accent/20 transition-colors"
-                  >
-                    Back to today
-                  </button>
-                )}
-              </div>
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => handleDateChange(e.target.value)}
-                className="w-full bg-surface-hover border-2 border-transparent focus:border-accent rounded-2xl px-4 py-3 text-sm font-medium text-text focus:outline-none transition-colors"
-              />
-              {!isToday && !locked && <p className="text-xs text-warn font-medium">Editing a past or future date</p>}
-              {locked && (
-                <p className="text-xs text-amber-400 font-semibold bg-warn/10 border border-warn/30 px-3 py-2 rounded-xl flex items-center gap-1.5">
-                  <Lock size={12} /> This date is locked — entries can only be made or edited within 2 days of the session.
-                </p>
-              )}
-            </Card>
+            {/* Date strip */}
+            <DateStrip
+              selectedDate={selectedDate}
+              onChange={handleDateChange}
+              todayStr={todayStr}
+              sessionDates={sessionDates}
+            />
+            {!isToday && !locked && <p className="text-xs text-warn font-medium">Editing a past or future date</p>}
+            {locked && (
+              <p className="text-xs text-amber-400 font-semibold bg-warn/10 border border-warn/30 px-3 py-2 rounded-xl flex items-center gap-1.5">
+                <Lock size={12} /> This date is locked — entries can only be made or edited within 2 days of the session.
+              </p>
+            )}
 
             {/* Sport */}
             <Card className="space-y-3">
