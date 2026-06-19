@@ -273,7 +273,7 @@ export default function Home() {
                   />
                 ) : (
                   <>
-                    <div className="space-y-1">
+                    <div className="grid grid-cols-2 gap-2">
                       {players.map((player) => {
                         const selected = selectedIds.has(player.id);
                         return (
@@ -281,20 +281,15 @@ export default function Home() {
                             key={player.id}
                             onClick={() => !locked && togglePlayer(player.id)}
                             disabled={locked}
-                            className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all active:scale-[0.98] ${
+                            className={`flex items-center justify-center text-center px-3 py-4 rounded-2xl border backdrop-blur-md transition-all active:scale-[0.97] ${
                               selected
-                                ? "bg-accent/15 border-2 border-accent/40"
-                                : "bg-surface-hover border-2 border-transparent hover:border-border"
+                                ? "bg-accent/25 border-accent/60 shadow-[0_0_0_1px_rgba(99,102,241,0.35)]"
+                                : "bg-surface-raised/50 border-white/10 hover:border-border"
                             } ${locked ? "cursor-default opacity-90" : ""}`}
                           >
-                            <span className={`text-sm font-semibold ${selected ? "text-text" : "text-muted"}`}>
+                            <span className={`text-sm font-semibold truncate ${selected ? "text-text" : "text-muted"}`}>
                               {player.name}
                             </span>
-                            <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${
-                              selected ? "bg-accent shadow-md" : "bg-surface border-2 border-border"
-                            }`}>
-                              {selected && <span className="text-white text-xs font-bold">✓</span>}
-                            </div>
                           </button>
                         );
                       })}

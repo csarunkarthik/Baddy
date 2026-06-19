@@ -193,35 +193,29 @@ export default function HistoryList() {
                 {players.length === 0 ? (
                   <p className="text-sm text-faint">No players registered yet</p>
                 ) : (
-                  players.map((player) => {
-                    const present = attendeeIds.has(player.id);
-                    const busy = toggling.has(`${s.id}-${player.id}`);
-                    return (
-                      <button
-                        key={player.id}
-                        onClick={() => !locked && toggleAttendance(s.id, player.id, !present)}
-                        disabled={busy || locked}
-                        className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl transition-all active:scale-[0.98] ${
-                          present
-                            ? "bg-accent/15 border-2 border-accent/40"
-                            : "bg-surface-hover border-2 border-transparent hover:border-border"
-                        } ${locked ? "cursor-default opacity-90" : ""}`}
-                      >
-                        <span className={`text-sm font-semibold ${present ? "text-text" : "text-faint"}`}>
-                          {player.name}
-                        </span>
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${
-                          present ? "bg-accent" : "bg-surface border-2 border-border"
-                        }`}>
-                          {busy ? (
-                            <Spinner size="sm" className="border-white/30 border-t-white w-3 h-3" />
-                          ) : present ? (
-                            <span className="text-white text-xs font-bold">✓</span>
-                          ) : null}
-                        </div>
-                      </button>
-                    );
-                  })
+                  <div className="grid grid-cols-2 gap-2">
+                    {players.map((player) => {
+                      const present = attendeeIds.has(player.id);
+                      const busy = toggling.has(`${s.id}-${player.id}`);
+                      return (
+                        <button
+                          key={player.id}
+                          onClick={() => !locked && toggleAttendance(s.id, player.id, !present)}
+                          disabled={busy || locked}
+                          className={`relative flex items-center justify-center text-center px-3 py-4 rounded-2xl border backdrop-blur-md transition-all active:scale-[0.97] ${
+                            present
+                              ? "bg-accent/25 border-accent/60 shadow-[0_0_0_1px_rgba(99,102,241,0.35)]"
+                              : "bg-surface-raised/50 border-white/10 hover:border-border"
+                          } ${locked ? "cursor-default opacity-90" : ""} ${busy ? "opacity-60" : ""}`}
+                        >
+                          <span className={`text-sm font-semibold truncate ${present ? "text-text" : "text-faint"}`}>
+                            {player.name}
+                          </span>
+                          {busy && <Spinner size="sm" className="absolute right-2 border-white/30 border-t-white w-3 h-3" />}
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             )}
