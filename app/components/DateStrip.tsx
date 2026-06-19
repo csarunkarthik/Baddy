@@ -56,10 +56,10 @@ export default function DateStrip({ selectedDate, onChange, todayStr, sessionDat
   function openCalendar() {
     const input = hiddenInputRef.current;
     if (!input) return;
-    input.value = selectedDate;
     try {
       input.showPicker();
     } catch {
+      input.focus();
       input.click();
     }
   }
@@ -92,19 +92,7 @@ export default function DateStrip({ selectedDate, onChange, todayStr, sessionDat
   }
 
   return (
-    <div className="relative">
-      {/* Hidden native date input for calendar fallback */}
-      <input
-        ref={hiddenInputRef}
-        type="date"
-        className="absolute opacity-0 pointer-events-none w-0 h-0 overflow-hidden"
-        tabIndex={-1}
-        onChange={(e) => {
-          if (e.target.value) onChange(e.target.value);
-        }}
-      />
-
-      <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1">
         {/* Scrollable chip strip */}
         <div
           ref={stripRef}
@@ -154,15 +142,26 @@ export default function DateStrip({ selectedDate, onChange, todayStr, sessionDat
           })}
         </div>
 
-        {/* Calendar icon — desktop fallback to open the hidden input */}
-        <button
-          onClick={openCalendar}
-          title="Jump to any date"
-          className="shrink-0 ml-1 w-9 h-9 flex items-center justify-center rounded-xl text-faint hover:bg-surface-raised hover:text-muted transition-colors border border-border"
-        >
-          <CalendarDays size={16} />
-        </button>
+        {/* Calendar — a transparent native date input overlays the icon, so
+            tapping it opens the OS picker reliably on mobile and desktop. */}
+        <div className="relative shrink-0 ml-1 w-9 h-9">
+          <div className="absolute inset-0 flex items-center justify-center rounded-xl text-faint border border-border">
+            <CalendarDays size={16} />
+          </div>
+          <input
+            ref={hiddenInputRef}
+            type="date"
+            value={selectedDate}
+            onChange={(e) => { if (e.target.value) onChange(e.target.value); }}
+            onClick={(e) => {
+              try {
+                (e.currentTarget as HTMLInputElement & { showPicker?: () => void }).showPicker?.();
+              } catch {}
+            }}
+            aria-label="Jump to any date"
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer [color-scheme:dark]"
+          />
+        </div>
       </div>
-    </div>
   );
 }
