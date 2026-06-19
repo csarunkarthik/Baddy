@@ -258,7 +258,7 @@ export default function StatsPage() {
                               strokeDasharray={circ} strokeDashoffset={circ * (1 - pct)}
                             />
                           </svg>
-                          <span className="absolute inset-0 flex items-center justify-center text-[13px] font-extrabold text-text">
+                          <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold leading-none tabular-nums text-text">
                             {p.percentage}%
                           </span>
                         </div>
@@ -350,7 +350,7 @@ export default function StatsPage() {
                               strokeDasharray={circ} strokeDashoffset={circ * (1 - pct)}
                             />
                           </svg>
-                          <span className="absolute inset-0 flex items-center justify-center text-[13px] font-extrabold text-text">
+                          <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold leading-none tabular-nums text-text">
                             {Math.round(pct * 100)}%
                           </span>
                         </div>
