@@ -35,16 +35,18 @@ export function TrophyIcon(p: IconProps) {
   );
 }
 
-// Dragon Slayer — an upright sword
+// Dragon Slayer — crossed swords
 export function SwordIcon(p: IconProps) {
   return (
     <Base {...p}>
-      <path d="M12 2.5 L10.7 4.5" />
-      <path d="M12 2.5 L13.3 4.5" />
-      <path d="M12 2.5 V14" />
-      <path d="M8.5 14 H15.5" />
-      <path d="M12 14 V18.5" />
-      <path d="M10.3 18.5 H13.7" />
+      <polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5" />
+      <path d="M13 19 L19 13" />
+      <path d="M16 16 L20 20" />
+      <path d="M19 21 L21 19" />
+      <polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5" />
+      <path d="M5 14 L9 18" />
+      <path d="M7 17 L4 20" />
+      <path d="M3 19 L5 21" />
     </Base>
   );
 }
