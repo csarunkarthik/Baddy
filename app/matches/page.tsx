@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import confetti from "canvas-confetti";
-import { Calendar, ChevronDown, ChevronUp, Play } from "lucide-react";
+import { ChevronDown, ChevronUp, Play } from "lucide-react";
 import { usePullToRefresh } from "../hooks/usePullToRefresh";
 import PullIndicator from "../components/PullIndicator";
+import { BadmintonIcon, PickleballIcon } from "../components/SportIcons";
 import {
   matchCompleted,
   type Match,
@@ -32,6 +33,7 @@ import Skeleton from "../components/ui/Skeleton";
 import EmptyState from "../components/ui/EmptyState";
 import { useToast } from "../components/ui/ToastProvider";
 import AppHeaderBg from "../components/AppHeaderBg";
+import DateStrip from "../components/DateStrip";
 
 const IST = "Asia/Kolkata";
 
@@ -55,6 +57,7 @@ export default function MatchesPage() {
 
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [selectedSport, setSelectedSport] = useState<"BADMINTON" | "PICKLEBALL">("BADMINTON");
+  const [sessionDates, setSessionDates] = useState<Set<string>>(new Set());
   const [data, setData] = useState<MatchesPayload | null>(null);
   const [winStats, setWinStats] = useState<WinStat[]>([]);
   const [noSession, setNoSession] = useState(false);
@@ -115,6 +118,16 @@ export default function MatchesPage() {
     load(selectedDate, selectedSport);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate, selectedSport]);
+
+  // Fetch session dates once for the DateStrip dots
+  useEffect(() => {
+    fetch("/api/history")
+      .then((r) => r.ok ? r.json() : [])
+      .then((rows: { date: string }[]) => {
+        setSessionDates(new Set(rows.map((r) => r.date.slice(0, 10))));
+      })
+      .catch(() => {});
+  }, []);
 
   const pull = usePullToRefresh(() => load(selectedDate));
 
@@ -557,7 +570,9 @@ export default function MatchesPage() {
             <h1 className="text-3xl font-extrabold tracking-tight flex items-center gap-2">
               Matches
               {data?.session.sport === "PICKLEBALL" && (
-                <span className="text-[11px] font-bold bg-white/20 text-white px-2 py-0.5 rounded-full">🥒 Pickleball</span>
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-white/20 text-white px-2 py-0.5 rounded-full">
+                  <PickleballIcon className="w-3.5 h-3.5" />Pickleball
+                </span>
               )}
             </h1>
             <p className="app-header-subtle text-sm mt-0.5">Win/loss tracker · {formatDisplay(selectedDate)}</p>
@@ -567,40 +582,30 @@ export default function MatchesPage() {
 
       <div className="px-4 py-5 max-w-lg mx-auto space-y-4">
 
-        {/* Date — compact one-row picker */}
-        <Card padding="sm" className="flex items-center gap-2">
-          <Calendar size={16} className="text-faint shrink-0" />
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="flex-1 min-w-0 bg-transparent text-sm font-semibold text-text focus:outline-none [color-scheme:dark]"
-          />
-          {selectedDate !== todayStr && (
-            <button
-              onClick={() => setSelectedDate(todayStr)}
-              className="shrink-0 text-xs text-accent-2 font-bold bg-accent/15 px-3 py-1 rounded-full hover:bg-accent/25 transition-colors"
-            >
-              Today
-            </button>
-          )}
-        </Card>
+        {/* Date strip */}
+        <DateStrip
+          selectedDate={selectedDate}
+          onChange={setSelectedDate}
+          todayStr={todayStr}
+          sessionDates={sessionDates}
+        />
 
         {/* Sport — compact segmented control */}
         <Card padding="sm" className="flex gap-1">
           {([
-            { v: "BADMINTON" as const, label: "🏸 Badminton" },
-            { v: "PICKLEBALL" as const, label: "🥒 Pickleball" },
+            { v: "BADMINTON" as const, label: "Badminton", Icon: BadmintonIcon },
+            { v: "PICKLEBALL" as const, label: "Pickleball", Icon: PickleballIcon },
           ]).map((opt) => {
             const on = selectedSport === opt.v;
             return (
               <button
                 key={opt.v}
                 onClick={() => setSelectedSport(opt.v)}
-                className={`flex-1 py-2 rounded-xl text-xs font-bold transition-colors ${
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-colors ${
                   on ? "bg-gradient-to-br from-accent to-accent-2 text-white" : "text-muted hover:bg-surface-hover"
                 }`}
               >
+                <opt.Icon className="w-4 h-4 shrink-0" />
                 {opt.label}
               </button>
             );
@@ -683,7 +688,12 @@ export default function MatchesPage() {
             {data.matches.length > 0 && (
               <Card className="space-y-3">
                 <div className="flex items-center justify-between px-1">
-                  <h2 className="font-bold text-text text-sm">🏸 Fixtures</h2>
+                  <h2 className="font-bold text-text text-sm flex items-center gap-1.5">
+                    {data.session.sport === "PICKLEBALL"
+                      ? <PickleballIcon className="w-4 h-4" />
+                      : <BadmintonIcon className="w-4 h-4" />}
+                    Fixtures
+                  </h2>
                   <span className="text-xs text-faint font-medium">
                     {data.matches.filter((m) => m.winner).length} / {data.matches.length} played
                   </span>
