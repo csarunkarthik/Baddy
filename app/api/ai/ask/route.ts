@@ -116,7 +116,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ reply: finalText });
   } catch (e) {
     const raw = e instanceof Error ? e.message : String(e);
-    let friendly = raw;
+    let friendly = "Something went wrong — try again.";
     if (raw.includes("rate_limit") || raw.includes("429")) {
       friendly = "Groq is rate-limiting us for the moment. Try again in a minute.";
     } else if (raw.toLowerCase().includes("invalid api key") || raw.includes("401")) {

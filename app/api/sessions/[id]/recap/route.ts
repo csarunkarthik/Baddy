@@ -152,7 +152,7 @@ export async function POST(
     return NextResponse.json({ recap });
   } catch (e) {
     const raw = e instanceof Error ? e.message : String(e);
-    let friendly = raw;
+    let friendly = "Something went wrong — try again.";
     if (raw.includes("rate_limit") || raw.includes("429")) {
       friendly = "Groq is rate-limiting us. Try again in a minute.";
     }

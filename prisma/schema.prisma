@@ -50,6 +50,7 @@ model Match {
 
   @@unique([sessionId, matchNumber])
   @@index([sessionId])
+  @@index([sessionId, winner])
 }
 
 model MatchPlayer {

@@ -188,7 +188,7 @@ export async function POST(
   } catch (e) {
     const raw = e instanceof Error ? e.message : String(e);
     console.error("[match-entry] groq error:", raw);
-    let friendly = raw;
+    let friendly = "Something went wrong — try again.";
     if (raw.includes("rate_limit") || raw.includes("429")) friendly = "Rate-limited by Groq. Try again in a minute.";
     return NextResponse.json({ error: friendly }, { status: 502 });
   }

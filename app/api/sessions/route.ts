@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isSessionLocked, LOCK_MESSAGE } from "@/lib/locking";
+import { parseIntParam } from "@/lib/params";
 
 function todayIST() {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
@@ -34,6 +35,15 @@ export async function POST(req: Request) {
   const date = parseDate(dateParam ?? todayIST());
   const sport = parseSport(sportRaw);
 
+  let validPlayerIds: number[] | null = null;
+  if (Array.isArray(playerIds)) {
+    const parsedIds = playerIds.map((p: unknown) => parseIntParam(p));
+    if (parsedIds.some((p) => p === null)) {
+      return NextResponse.json({ error: "playerIds must be an array of valid player ids" }, { status: 400 });
+    }
+    validPlayerIds = parsedIds as number[];
+  }
+
   if (isSessionLocked(date)) {
     return NextResponse.json({ error: LOCK_MESSAGE }, { status: 423 });
   }
@@ -45,11 +55,11 @@ export async function POST(req: Request) {
     select: { id: true, date: true, sport: true, venue: true },
   });
 
-  if (Array.isArray(playerIds)) {
+  if (validPlayerIds !== null) {
     await prisma.attendance.deleteMany({ where: { sessionId: session.id } });
-    if (playerIds.length > 0) {
+    if (validPlayerIds.length > 0) {
       await prisma.attendance.createMany({
-        data: playerIds.map((playerId: number) => ({ playerId, sessionId: session.id })),
+        data: validPlayerIds.map((playerId) => ({ playerId, sessionId: session.id })),
       });
     }
   }

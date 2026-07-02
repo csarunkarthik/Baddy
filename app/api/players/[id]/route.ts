@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { parseIntParam } from "@/lib/params";
 
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const playerId = parseIntParam(id);
+  if (playerId === null) {
+    return NextResponse.json({ error: "Invalid player id" }, { status: 400 });
+  }
   const body = await req.json();
   const data: { name?: string; avatar?: string | null } = {};
   if (Object.prototype.hasOwnProperty.call(body, "name")) {
@@ -21,7 +26,7 @@ export async function PATCH(
   }
 
   const player = await prisma.player.update({
-    where: { id: parseInt(id) },
+    where: { id: playerId },
     data,
   });
   return NextResponse.json(player);
@@ -32,7 +37,20 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  await prisma.attendance.deleteMany({ where: { playerId: parseInt(id) } });
-  await prisma.player.delete({ where: { id: parseInt(id) } });
+  const playerId = parseIntParam(id);
+  if (playerId === null) {
+    return NextResponse.json({ error: "Invalid player id" }, { status: 400 });
+  }
+
+  const matchHistoryCount = await prisma.matchPlayer.count({ where: { playerId } });
+  if (matchHistoryCount > 0) {
+    return NextResponse.json(
+      { error: "Player has match history and can't be deleted." },
+      { status: 409 }
+    );
+  }
+
+  await prisma.attendance.deleteMany({ where: { playerId } });
+  await prisma.player.delete({ where: { id: playerId } });
   return NextResponse.json({ ok: true });
 }
