@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Target, Globe2, Handshake, Trophy } from "lucide-react";
+import { Target, Globe2, Handshake, Trophy, CalendarCheck, TrendingUp, Flame } from "lucide-react";
 import { apiGet } from "@/lib/api";
 import Card from "../components/ui/Card";
 import SectionHeader from "../components/ui/SectionHeader";
@@ -25,7 +25,15 @@ type PointsStat = {
   totalPoints: number; matchesScored: number; bestSingleMatch: number;
   pointsConceded: number; avgPoints: number; avgConceded: number; pointDiff: number;
 };
-type StatsResponse = { players: Omit<PlayerStat, "rank">[]; totalDays: number; availableYears: number[] };
+type StatsResponse = { players: Omit<PlayerStat, "rank">[]; totalDays: number; availableYears: number[]; venues: VenueStat[] };
+type ThisMonthPlayer = { id: number; name: string; sessions: number };
+type MonthlyTrendPoint = { ym: string; label: string; sessions: number };
+type StreakStat = { id: number; name: string; streak: number };
+type AttendanceStatsResponse = {
+  thisMonth: { label: string; totalSessions: number; players: ThisMonthPlayer[] };
+  monthlyTrend: MonthlyTrendPoint[];
+  streaks: StreakStat[];
+};
 
 const MEDAL: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
 
@@ -40,11 +48,17 @@ export default function StatsPage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [stats, setStats] = useState<PlayerStat[]>([]);
   const [venues, setVenues] = useState<VenueStat[]>([]);
+  const [venueStats, setVenueStats] = useState<VenueStat[]>([]);
   const [wins, setWins] = useState<Record<number, WinStat>>({});
   const [partners, setPartners] = useState<BestPartnersData>({ perPlayer: [], topDuos: [] });
   const [points, setPoints] = useState<PointsStat[]>([]);
   const [diversity, setDiversity] = useState<DiversityStat[]>([]);
   const [pickleWins, setPickleWins] = useState<WinStat[]>([]);
+  const [attendanceStats, setAttendanceStats] = useState<AttendanceStatsResponse>({
+    thisMonth: { label: "", totalSessions: 0, players: [] },
+    monthlyTrend: [],
+    streaks: [],
+  });
   const [totalDays, setTotalDays] = useState(0);
   const [availableYears, setAvailableYears] = useState<number[]>([currentYear]);
   const [loading, setLoading] = useState(true);
@@ -64,7 +78,7 @@ export default function StatsPage() {
     setError(false);
     const qs = buildQuery(ys, ms, vs, n);
     const pickleQs = qs ? `${qs}&sport=PICKLEBALL` : "sport=PICKLEBALL";
-    const [statsRes, venuesRes, winsRes, partnersRes, pointsRes, diversityRes, pickleWinsRes] = await Promise.all([
+    const [statsRes, venuesRes, winsRes, partnersRes, pointsRes, diversityRes, pickleWinsRes, attendanceRes] = await Promise.all([
       apiGet<StatsResponse>(`/api/stats?${qs}`),
       apiGet<VenueStat[]>(`/api/venues`),
       apiGet<WinStat[]>(`/api/stats/wins?${qs}`),
@@ -72,6 +86,7 @@ export default function StatsPage() {
       apiGet<PointsStat[]>(`/api/stats/points?${qs}`),
       apiGet<DiversityStat[]>(`/api/stats/diversity?${qs}`),
       apiGet<WinStat[]>(`/api/stats/wins?${pickleQs}`),
+      apiGet<AttendanceStatsResponse>(`/api/stats/attendance`),
     ]);
 
     if (!statsRes.data) {
@@ -90,12 +105,14 @@ export default function StatsPage() {
     const yrs: number[] = statsData.availableYears.length ? statsData.availableYears : [currentYear];
     setAvailableYears(yrs);
     setVenues(venuesRes.data ?? []);
+    setVenueStats(statsData.venues ?? []);
     const winsArr: WinStat[] = winsRes.data ?? [];
     setWins(Object.fromEntries(winsArr.map((w) => [w.id, w])));
     setPartners(partnersRes.data ?? { perPlayer: [], topDuos: [] });
     setPoints(pointsRes.data ?? []);
     setDiversity(diversityRes.data ?? []);
     setPickleWins(pickleWinsRes.data ?? []);
+    setAttendanceStats(attendanceRes.data ?? { thisMonth: { label: "", totalSessions: 0, players: [] }, monthlyTrend: [], streaks: [] });
     setLoading(false);
   }
 
@@ -230,7 +247,33 @@ export default function StatsPage() {
           </Card>
         ) : (
           <>
-            {/* Player leaderboard */}
+            {/* This month at a glance */}
+            {attendanceStats.thisMonth.label && (
+              <Card padding="sm" variant="glass" className="space-y-3">
+                <SectionHeader
+                  right={`${attendanceStats.thisMonth.totalSessions} ${attendanceStats.thisMonth.totalSessions === 1 ? "session" : "sessions"}`}
+                  className="px-2 pt-1"
+                >
+                  <CalendarCheck size={16} className="text-accent" /> {attendanceStats.thisMonth.label}
+                </SectionHeader>
+                {attendanceStats.thisMonth.players.length === 0 ? (
+                  <p className="text-xs text-faint px-2 pb-1">No sessions yet this month.</p>
+                ) : (
+                  <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1.5 px-2 py-1 text-xs">
+                    <div className="font-bold text-faint uppercase tracking-wider">Player</div>
+                    <div className="font-bold text-faint uppercase tracking-wider text-right">Sessions</div>
+                    {attendanceStats.thisMonth.players.map((p) => (
+                      <span key={p.id} className="contents">
+                        <span className="font-semibold text-text truncate">{p.name}</span>
+                        <span className="text-right font-bold text-accent">{p.sessions}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            )}
+
+            {/* Player leaderboard — attendance % */}
             {stats.length === 0 ? (
               <Card>
                 <EmptyState icon={<span>🏸</span>} title="No sessions match this filter" />
@@ -272,6 +315,59 @@ export default function StatsPage() {
                   })}
                 </div>
                 <p className="text-center text-xs text-faint pt-1">% = sessions attended out of {totalDays} total</p>
+              </Card>
+            )}
+
+            {/* Monthly trend */}
+            {attendanceStats.monthlyTrend.length > 0 && (() => {
+              const maxSessions = Math.max(1, ...attendanceStats.monthlyTrend.map((m) => m.sessions));
+              return (
+                <Card padding="sm" variant="glass" className="space-y-1">
+                  <SectionHeader className="px-2 pt-1">
+                    <TrendingUp size={16} className="text-accent-2" /> Monthly trend
+                  </SectionHeader>
+                  <div className="flex items-end justify-between gap-2 px-2 pt-3 h-28">
+                    {attendanceStats.monthlyTrend.map((m) => {
+                      const barHeight = m.sessions === 0 ? 2 : Math.max(6, Math.round((m.sessions / maxSessions) * 72));
+                      return (
+                        <div key={m.ym} className="flex-1 flex flex-col items-center gap-1.5 min-w-0">
+                          <span className="text-[10px] font-bold text-text tabular-nums">{m.sessions}</span>
+                          <div
+                            className="w-full max-w-[24px] rounded-t-[4px] bg-accent-2"
+                            style={{ height: `${barHeight}px` }}
+                          />
+                          <span className="text-[10px] text-faint">{m.label}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="text-center text-xs text-faint pt-1">sessions held per month</p>
+                </Card>
+              );
+            })()}
+
+            {/* Attendance streaks */}
+            {attendanceStats.streaks.length > 0 && (
+              <Card padding="sm" variant="glass" className="space-y-3">
+                <SectionHeader right="consecutive sessions" className="px-2 pt-1">
+                  <Flame size={16} className="text-gold" /> Attendance streaks
+                </SectionHeader>
+                <div className="space-y-1.5 px-2 pb-1">
+                  {attendanceStats.streaks.map((s, i) => (
+                    <div
+                      key={s.id}
+                      className="flex items-center justify-between px-3 py-2 rounded-xl bg-surface-hover text-xs"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-[10px] font-bold text-faint w-5 shrink-0">{i + 1}.</span>
+                        <span className="font-semibold text-text truncate">{s.name}</span>
+                      </div>
+                      <span className="font-bold text-gold shrink-0 whitespace-nowrap flex items-center gap-1">
+                        <Flame size={12} /> {s.streak} {s.streak === 1 ? "session" : "sessions"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </Card>
             )}
 

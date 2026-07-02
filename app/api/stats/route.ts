@@ -8,7 +8,7 @@ export async function GET(req: Request) {
   const ids = await resolveSessionIds(scope);
   const sessionFilter = { id: { in: ids } };
 
-  const [players, totalDays, allDates] = await Promise.all([
+  const [players, totalDays, allDates, venueRows] = await Promise.all([
     prisma.player.findMany({
       select: {
         id: true,
@@ -27,9 +27,17 @@ export async function GET(req: Request) {
       orderBy: { date: "asc" },
       distinct: ["date"],
     }),
+    prisma.session.groupBy({
+      by: ["venue"],
+      where: { id: { in: ids }, venue: { not: "" } },
+      _count: { venue: true },
+      orderBy: { _count: { venue: "desc" } },
+    }),
   ]);
 
   const availableYears = [...new Set(allDates.map((s) => new Date(s.date).getUTCFullYear()))].sort((a, b) => b - a);
+
+  const venues = venueRows.map((r) => ({ venue: r.venue, count: r._count.venue }));
 
   const playerStats = players
     .map((p) => ({
@@ -40,5 +48,5 @@ export async function GET(req: Request) {
     }))
     .sort((a, b) => b.sessions - a.sessions);
 
-  return NextResponse.json({ totalDays, players: playerStats, availableYears, year: fallbackYear });
+  return NextResponse.json({ totalDays, players: playerStats, venues, availableYears, year: fallbackYear });
 }
