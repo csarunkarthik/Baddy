@@ -106,6 +106,17 @@ export async function GET(
     playerSessionGains[pid] = Math.round(gain);
   }
 
+  // Sessions before the explicit "Finish & crown MVP" button (shipped
+  // 2026-06-09, commit c844318) can never have finishedAt — the migration
+  // didn't backfill. For those, apply the rule in force at the time: the day
+  // was finished once every match had a winner. Keeps historical MVP /
+  // Dragon Slayer awards rendering exactly as they were given.
+  const EXPLICIT_FINISH_FROM = "2026-06-09";
+  const legacyFinished =
+    session.date.toISOString().slice(0, 10) < EXPLICIT_FINISH_FROM &&
+    session.matches.length > 0 &&
+    session.matches.every((m) => m.winner !== null);
+
   const matches = session.matches.map((m) => {
     const teamA = m.participants
       .filter((p) => p.team === "A")
@@ -136,7 +147,7 @@ export async function GET(
       bamHariKid: session.bamHariKid,
       arunDeepKid: session.arunDeepKid,
       avinashSharmiliKid: session.avinashSharmiliKid,
-      finished: !!session.finishedAt,
+      finished: !!session.finishedAt || legacyFinished,
       locked: isSessionLocked(session.date),
       attending: session.attendance
         .map((a) => ({ id: a.player.id, name: a.player.name, avatar: a.player.avatar }))
