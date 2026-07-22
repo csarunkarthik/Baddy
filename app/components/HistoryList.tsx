@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ChevronDown, Lock, Trash2 } from "lucide-react";
-import { isSessionLocked } from "@/lib/locking";
+import { isSessionLocked, LOCK_AFTER_DAYS } from "@/lib/locking";
 import { apiGet, apiSend } from "@/lib/api";
 import Card from "./ui/Card";
 import Skeleton from "./ui/Skeleton";
@@ -175,7 +175,7 @@ export default function HistoryList() {
               <div className="px-5 pb-5 border-t border-border pt-4 space-y-2">
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-xs text-faint font-medium">
-                    {locked ? "Read-only — locked 2 days after the session date." : "Tap to toggle attendance"}
+                    {locked ? `Read-only — locked ${LOCK_AFTER_DAYS} days after the session date.` : "Tap to toggle attendance"}
                   </p>
                   {!locked && (
                     <button

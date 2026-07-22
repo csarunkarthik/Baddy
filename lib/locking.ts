@@ -1,8 +1,8 @@
 const IST = "Asia/Kolkata";
 
-// A session is locked once we're 3+ calendar days past its date (IST).
-// In practice: today + the next 2 days are editable, day 3 onward is locked.
-export const LOCK_AFTER_DAYS = 2;
+// A session is locked once we're 8+ calendar days past its date (IST).
+// In practice: today + the next 7 days are editable, day 8 onward is locked.
+export const LOCK_AFTER_DAYS = 7;
 
 function toISTDate(dateLike: Date | string): string {
   const d = typeof dateLike === "string" && dateLike.length === 10 ? new Date(dateLike + "T00:00:00Z") : new Date(dateLike);

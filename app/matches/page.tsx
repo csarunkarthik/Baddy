@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import confetti from "canvas-confetti";
 import { ChevronDown, ChevronUp, Play } from "lucide-react";
+import { LOCK_AFTER_DAYS } from "@/lib/locking";
 import { usePullToRefresh } from "../hooks/usePullToRefresh";
 import PullIndicator from "../components/PullIndicator";
 import { BadmintonIcon, PickleballIcon } from "../components/SportIcons";
@@ -615,7 +616,7 @@ export default function MatchesPage() {
         {locked && (
           <div className="rounded-2xl border border-warn/30 bg-warn/10 text-amber-400 px-4 py-3 text-xs font-semibold flex items-start gap-2">
             <span className="text-base leading-tight">🔒</span>
-            <span>This session is locked — entries can only be edited within 2 days of the match date.</span>
+            <span>This session is locked — entries can only be edited within {LOCK_AFTER_DAYS} days of the match date.</span>
           </div>
         )}
 

@@ -37,7 +37,7 @@ lib/
                                           resolveCouples + activeForbiddenPairs helpers.
   fixtures.ts                           generateFixtures(): greedy + multi-attempt fairness with forbidden pairs.
                                           Splits each 4-set into 2v2 minimizing partner repeats.
-  locking.ts                            isSessionLocked(date) — true once 3+ days past in IST (LOCK_AFTER_DAYS=2).
+  locking.ts                            isSessionLocked(date) — true once 8+ days past in IST (LOCK_AFTER_DAYS=7).
 prisma/
   schema.prisma                         Schema source of truth
   migrations/                           Hand-written migrations (see Migrations)
@@ -65,7 +65,7 @@ Comment (postId → Post CASCADE, content, author, createdAt)
 - **Timezone**: All dates display + compute in IST (`Asia/Kolkata`). Use `toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })` for `YYYY-MM-DD` and `'en-GB'` for human format.
 - **Date storage**: Session.date is `@db.Date` (no time). Parse `YYYY-MM-DD` strings as `new Date(s + 'T00:00:00Z')` to avoid TZ shifts. Don't append `T00:00:00Z` to full ISO strings (regression fixed in `a95664c`).
 - **Couples**: Pinned by player ID in [lib/couples.ts](lib/couples.ts) — update only if a player is deleted + recreated.
-- **Locking**: Sessions older than `LOCK_AFTER_DAYS` (= 2) days in IST are locked. Enforce on API mutations + reflect in UI. Posts/comments are NOT session-locked.
+- **Locking**: Sessions older than `LOCK_AFTER_DAYS` (= 7) days in IST are locked. Enforce on API mutations + reflect in UI. Posts/comments are NOT session-locked.
 - **Net-new for experimental features**: When the user flags a feature as "about to test, don't touch existing tabs," keep blast radius to net-new files + a single nav-tile addition. Drop this restriction once the feature ships.
 - **Don't run migrations in build**: Build script is `prisma generate && next build`. See Migrations.
 

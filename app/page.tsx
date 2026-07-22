@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Lock, MapPin, Shirt, Users } from "lucide-react";
-import { isSessionLocked } from "@/lib/locking";
+import { isSessionLocked, LOCK_AFTER_DAYS } from "@/lib/locking";
 import { apiGet, apiSend } from "@/lib/api";
 import HistoryList from "./components/HistoryList";
 import { BaddyMark } from "./components/Logo";
@@ -181,7 +181,7 @@ export default function Home() {
             {!isToday && !locked && <p className="text-xs text-warn font-medium">Editing a past or future date</p>}
             {locked && (
               <p className="text-xs text-amber-400 font-semibold bg-warn/10 border border-warn/30 px-3 py-2 rounded-xl flex items-center gap-1.5">
-                <Lock size={12} /> This date is locked — entries can only be made or edited within 2 days of the session.
+                <Lock size={12} /> This date is locked — entries can only be made or edited within {LOCK_AFTER_DAYS} days of the session.
               </p>
             )}
 
