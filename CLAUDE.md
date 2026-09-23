@@ -31,8 +31,14 @@ app/                                    Next App Router
     venues                              Distinct venue suggestions
     stats                               Aggregate stats (attendance%, buddy score, MVP)
     stats/wins                          Win/played/% per player (all-time, only counts matches with a winner)
+    stats/consistency                   Streaks — current, all-time longest (top 3), missed-in-a-row
+    stats/reliability                   Last-5/last-10 form vs own baseline, MIA list
+    stats/turnout                       Avg turnout + trend, biggest/smallest, venue mix, co-attendance
 lib/
   prisma.ts                             Singleton PrismaClient with PrismaPg adapter
+  ist.ts                                IST date/time helpers (ymd vs instant, week bounds, formatting)
+  attendance-stats.ts                   Streaks / reliability / turnout computed from one session fetch
+  messages.ts                           WhatsApp share copy, used by the stats + booking share buttons
   couples.ts                            COUPLES pinned by player ID (not name — survives renames).
                                           resolveCouples + activeForbiddenPairs helpers.
   fixtures.ts                           generateFixtures(): greedy + multi-attempt fairness with forbidden pairs.

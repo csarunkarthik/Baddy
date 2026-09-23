@@ -1,13 +1,30 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Target, Globe2, Handshake, Trophy, CalendarCheck, TrendingUp, Flame } from "lucide-react";
+import { Target, Globe2, Handshake, Trophy, CalendarCheck, TrendingUp, Flame, Users, Ghost, Activity } from "lucide-react";
 import { apiGet } from "@/lib/api";
+import { formatDayShort } from "@/lib/ist";
 import Card from "../components/ui/Card";
 import SectionHeader from "../components/ui/SectionHeader";
 import Skeleton from "../components/ui/Skeleton";
 import EmptyState from "../components/ui/EmptyState";
 import AppHeaderBg from "../components/AppHeaderBg";
+import ShareButton from "../components/ShareButton";
+import Chip from "../components/ui/Chip";
+import {
+  shareAttendance,
+  shareConsistency,
+  shareCurrentStreaks,
+  shareEverything,
+  shareMonthlyTrend,
+  shareReliability,
+  shareThisMonth,
+  shareTurnout,
+  shareVenues,
+  type ConsistencyRow,
+  type ReliabilityRow,
+  type TurnoutData,
+} from "./_share";
 
 type PlayerStat = { id: number; name: string; sessions: number; percentage: number; rank: number };
 type VenueStat = { venue: string; count: number };
@@ -35,6 +52,9 @@ type AttendanceStatsResponse = {
   streaks: StreakStat[];
 };
 
+type ConsistencyResponse = { totalSessions: number; topLongest: ConsistencyRow[]; players: ConsistencyRow[] };
+type ReliabilityResponse = { totalSessions: number; last5: number; last10: number; players: ReliabilityRow[]; mia: ReliabilityRow[] };
+
 const MEDAL: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
 
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -59,6 +79,9 @@ export default function StatsPage() {
     monthlyTrend: [],
     streaks: [],
   });
+  const [consistencyData, setConsistencyData] = useState<ConsistencyResponse>({ totalSessions: 0, topLongest: [], players: [] });
+  const [reliabilityData, setReliabilityData] = useState<ReliabilityResponse>({ totalSessions: 0, last5: 0, last10: 0, players: [], mia: [] });
+  const [turnoutData, setTurnoutData] = useState<TurnoutData | null>(null);
   const [totalDays, setTotalDays] = useState(0);
   const [availableYears, setAvailableYears] = useState<number[]>([currentYear]);
   const [loading, setLoading] = useState(true);
@@ -78,7 +101,10 @@ export default function StatsPage() {
     setError(false);
     const qs = buildQuery(ys, ms, vs, n);
     const pickleQs = qs ? `${qs}&sport=PICKLEBALL` : "sport=PICKLEBALL";
-    const [statsRes, venuesRes, winsRes, partnersRes, pointsRes, diversityRes, pickleWinsRes, attendanceRes] = await Promise.all([
+    const [
+      statsRes, venuesRes, winsRes, partnersRes, pointsRes, diversityRes, pickleWinsRes, attendanceRes,
+      consistencyRes, reliabilityRes, turnoutRes,
+    ] = await Promise.all([
       apiGet<StatsResponse>(`/api/stats?${qs}`),
       apiGet<VenueStat[]>(`/api/venues`),
       apiGet<WinStat[]>(`/api/stats/wins?${qs}`),
@@ -87,6 +113,11 @@ export default function StatsPage() {
       apiGet<DiversityStat[]>(`/api/stats/diversity?${qs}`),
       apiGet<WinStat[]>(`/api/stats/wins?${pickleQs}`),
       apiGet<AttendanceStatsResponse>(`/api/stats/attendance`),
+      // Streaks / form / turnout are always "as of now" over the full history —
+      // see the comments in those routes for why they ignore the filter bar.
+      apiGet<ConsistencyResponse>(`/api/stats/consistency`),
+      apiGet<ReliabilityResponse>(`/api/stats/reliability`),
+      apiGet<TurnoutData>(`/api/stats/turnout`),
     ]);
 
     if (!statsRes.data) {
@@ -113,6 +144,9 @@ export default function StatsPage() {
     setDiversity(diversityRes.data ?? []);
     setPickleWins(pickleWinsRes.data ?? []);
     setAttendanceStats(attendanceRes.data ?? { thisMonth: { label: "", totalSessions: 0, players: [] }, monthlyTrend: [], streaks: [] });
+    if (consistencyRes.data) setConsistencyData(consistencyRes.data);
+    if (reliabilityRes.data) setReliabilityData(reliabilityRes.data);
+    if (turnoutRes.data) setTurnoutData(turnoutRes.data);
     setLoading(false);
   }
 
@@ -144,6 +178,29 @@ export default function StatsPage() {
   ].filter(Boolean).join(" · ");
   const hasActiveFilter = years.length > 0 || months.length > 0 || venuesSel.length > 0 || lastN !== null;
 
+  // Share text per card. Built on demand (ShareButton takes a thunk) so a
+  // render doesn't pay to format messages nobody asked for.
+  const shareBlocks = {
+    thisMonth: () => shareThisMonth(attendanceStats.thisMonth),
+    attendance: () => shareAttendance(stats, totalDays, sliceLabel),
+    trend: () => shareMonthlyTrend(attendanceStats.monthlyTrend),
+    streaks: () => shareCurrentStreaks(attendanceStats.streaks),
+    consistency: () => shareConsistency(consistencyData.players, consistencyData.topLongest),
+    reliability: () => shareReliability(reliabilityData.players, reliabilityData.mia),
+    turnout: () => (turnoutData ? shareTurnout(turnoutData) : ""),
+    venues: () => shareVenues(venues, totalDays),
+  };
+  const shareAll = () =>
+    shareEverything([
+      shareBlocks.thisMonth(),
+      shareBlocks.attendance(),
+      shareBlocks.consistency(),
+      shareBlocks.reliability(),
+      shareBlocks.turnout(),
+      shareBlocks.trend(),
+      shareBlocks.venues(),
+    ]);
+
   return (
     <div className="app-bg">
       <div className="relative overflow-hidden app-header px-5 pt-12 pb-8">
@@ -172,6 +229,12 @@ export default function StatsPage() {
             <button onClick={clearFilters} className="text-xs text-muted hover:text-text underline px-1">
               Clear all
             </button>
+          )}
+          {!loading && !error && (
+            <div className="ml-auto flex items-center gap-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-faint">Share all</span>
+              <ShareButton text={shareAll} label="Share all stats" />
+            </div>
           )}
         </div>
         {filterOpen && (() => {
@@ -251,7 +314,13 @@ export default function StatsPage() {
             {attendanceStats.thisMonth.label && (
               <Card padding="sm" variant="glass" className="space-y-3">
                 <SectionHeader
-                  right={`${attendanceStats.thisMonth.totalSessions} ${attendanceStats.thisMonth.totalSessions === 1 ? "session" : "sessions"}`}
+                  right={
+                    <span className="flex items-center gap-1">
+                      {attendanceStats.thisMonth.totalSessions}{" "}
+                      {attendanceStats.thisMonth.totalSessions === 1 ? "session" : "sessions"}
+                      <ShareButton text={shareBlocks.thisMonth} label="Share this month" />
+                    </span>
+                  }
                   className="px-2 pt-1"
                 >
                   <CalendarCheck size={16} className="text-accent" /> {attendanceStats.thisMonth.label}
@@ -280,7 +349,9 @@ export default function StatsPage() {
               </Card>
             ) : (
               <Card padding="sm" variant="glass" className="space-y-3">
-                <SectionHeader className="px-2 pt-1">Players</SectionHeader>
+                <SectionHeader className="px-2 pt-1" right={<ShareButton text={shareBlocks.attendance} label="Share attendance" />}>
+                  Players
+                </SectionHeader>
                 <div className="grid grid-cols-3 gap-x-1 gap-y-3">
                   {stats.map((p) => {
                     const circ = 2 * Math.PI * 18;
@@ -323,7 +394,7 @@ export default function StatsPage() {
               const maxSessions = Math.max(1, ...attendanceStats.monthlyTrend.map((m) => m.sessions));
               return (
                 <Card padding="sm" variant="glass" className="space-y-1">
-                  <SectionHeader className="px-2 pt-1">
+                  <SectionHeader className="px-2 pt-1" right={<ShareButton text={shareBlocks.trend} label="Share monthly trend" />}>
                     <TrendingUp size={16} className="text-accent-2" /> Monthly trend
                   </SectionHeader>
                   <div className="flex items-end justify-between gap-2 px-2 pt-3 h-28">
@@ -349,8 +420,16 @@ export default function StatsPage() {
             {/* Attendance streaks */}
             {attendanceStats.streaks.length > 0 && (
               <Card padding="sm" variant="glass" className="space-y-3">
-                <SectionHeader right="consecutive sessions" className="px-2 pt-1">
-                  <Flame size={16} className="text-gold" /> Attendance streaks
+                <SectionHeader
+                  right={
+                    <span className="flex items-center gap-1">
+                      consecutive
+                      <ShareButton text={shareBlocks.streaks} label="Share streaks" />
+                    </span>
+                  }
+                  className="px-2 pt-1"
+                >
+                  <Flame size={16} className="text-gold" /> Current streaks
                 </SectionHeader>
                 <div className="space-y-1.5 px-2 pb-1">
                   {attendanceStats.streaks.map((s, i) => (
@@ -368,6 +447,252 @@ export default function StatsPage() {
                     </div>
                   ))}
                 </div>
+              </Card>
+            )}
+
+            {/* Longest streaks — all time, plus the consistency table */}
+            {consistencyData.topLongest.length > 0 && (
+              <Card padding="sm" variant="glass" className="space-y-3">
+                <SectionHeader
+                  right={<ShareButton text={shareBlocks.consistency} label="Share longest streaks" />}
+                  className="px-2 pt-1"
+                >
+                  <Flame size={16} className="text-gold" /> Longest streaks
+                </SectionHeader>
+
+                {/* Podium — the top 3 all-time runs */}
+                <div className="space-y-1.5 px-2">
+                  {consistencyData.topLongest.map((r, i) => (
+                    <div
+                      key={r.id}
+                      className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl bg-surface-hover"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="text-base shrink-0">{MEDAL[i + 1] ?? `${i + 1}.`}</span>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-text truncate">{r.name}</p>
+                          {r.longestFrom && r.longestTo && (
+                            <p className="text-[10px] text-faint">
+                              {formatDayShort(r.longestFrom)} → {formatDayShort(r.longestTo)}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <span className="text-xs font-bold text-gold shrink-0 whitespace-nowrap flex items-center gap-1">
+                        <Flame size={12} /> {r.longestStreak}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Everyone's current vs best run */}
+                <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 gap-y-1.5 px-2 pb-1 text-[11px]">
+                  <div className="font-bold text-faint uppercase tracking-wider">Player</div>
+                  <div className="font-bold text-faint uppercase tracking-wider text-right">Now</div>
+                  <div className="font-bold text-faint uppercase tracking-wider text-right">Best</div>
+                  <div className="font-bold text-faint uppercase tracking-wider text-right">Missed</div>
+                  {consistencyData.players.map((r) => (
+                    <div key={r.id} className="contents">
+                      <div className="font-semibold text-text truncate">{r.name}</div>
+                      <div className={`text-right font-bold ${r.currentStreak > 0 ? "text-accent" : "text-faint"}`}>
+                        {r.currentStreak > 0 ? r.currentStreak : "—"}
+                      </div>
+                      <div className="text-right text-muted font-semibold">{r.longestStreak}</div>
+                      <div className={`text-right ${r.missedInARow >= 3 ? "text-danger font-semibold" : "text-faint"}`}>
+                        {r.missedInARow > 0 ? r.missedInARow : "—"}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-center text-[10px] text-faint pb-1">
+                  all {consistencyData.totalSessions} sessions · &quot;missed&quot; = sessions skipped in a row right now
+                </p>
+              </Card>
+            )}
+
+            {/* Recent form — last 10 vs each player's own baseline */}
+            {reliabilityData.players.length > 0 && (
+              <Card padding="sm" variant="glass" className="space-y-3">
+                <SectionHeader
+                  right={<ShareButton text={shareBlocks.reliability} label="Share recent form" />}
+                  className="px-2 pt-1"
+                >
+                  <Activity size={16} className="text-accent" /> Recent form
+                </SectionHeader>
+                <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 gap-y-1.5 px-2 text-[11px]">
+                  <div className="font-bold text-faint uppercase tracking-wider">Player</div>
+                  <div className="font-bold text-faint uppercase tracking-wider text-right">L5</div>
+                  <div className="font-bold text-faint uppercase tracking-wider text-right">L10</div>
+                  <div className="font-bold text-faint uppercase tracking-wider text-right">vs usual</div>
+                  {reliabilityData.players.map((r) => (
+                    <div key={r.id} className="contents">
+                      <div className="font-semibold text-text truncate">{r.name}</div>
+                      <div className="text-right text-muted">
+                        {r.last5}/{reliabilityData.last5}
+                      </div>
+                      <div className="text-right font-bold text-accent">{r.last10Pct}%</div>
+                      <div
+                        className={`text-right font-bold ${
+                          r.drift > 5 ? "text-accent-2" : r.drift < -5 ? "text-danger" : "text-faint"
+                        }`}
+                      >
+                        {r.drift > 0 ? "+" : ""}
+                        {r.drift}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[10px] text-faint px-2 leading-relaxed">
+                  &quot;vs usual&quot; compares the last 10 sessions against that player&apos;s all-time attendance —
+                  positive means they&apos;re showing up more than they normally do.
+                </p>
+
+                {reliabilityData.mia.length > 0 && (
+                  <div className="px-2 pb-1">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-faint mb-1.5 flex items-center gap-1">
+                      <Ghost size={12} /> Missing in action
+                    </p>
+                    <div className="space-y-1.5">
+                      {reliabilityData.mia.map((r) => (
+                        <div
+                          key={r.id}
+                          className="flex items-center justify-between px-3 py-2 rounded-xl bg-surface-hover text-xs"
+                        >
+                          <span className="font-semibold text-text truncate pr-2">{r.name}</span>
+                          <span className="text-faint shrink-0 whitespace-nowrap">
+                            {r.lastSeen ? formatDayShort(r.lastSeen) : "never"}
+                            <span className="text-danger font-semibold ml-1.5">{r.sessionsAgo} ago</span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </Card>
+            )}
+
+            {/* Turnout — how many actually show up, where, and with whom */}
+            {turnoutData && turnoutData.series.length > 0 && (
+              <Card padding="sm" variant="glass" className="space-y-4">
+                <SectionHeader
+                  right={<ShareButton text={shareBlocks.turnout} label="Share turnout" />}
+                  className="px-2 pt-1"
+                >
+                  <Users size={16} className="text-accent-2" /> Turnout
+                </SectionHeader>
+
+                <div className="flex items-center gap-4 px-2">
+                  <div>
+                    <p className="text-2xl font-extrabold text-text tabular-nums leading-none">
+                      {turnoutData.avgTurnout}
+                    </p>
+                    <p className="text-[10px] text-faint mt-1">avg players</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-extrabold text-accent tabular-nums leading-none">
+                      {turnoutData.recentAvg}
+                    </p>
+                    <p className="text-[10px] text-faint mt-1">last 5</p>
+                  </div>
+                  <Chip
+                    tone={
+                      turnoutData.recentAvg > turnoutData.avgTurnout + 0.5
+                        ? "accent"
+                        : turnoutData.recentAvg < turnoutData.avgTurnout - 0.5
+                          ? "danger"
+                          : "neutral"
+                    }
+                    className="ml-auto"
+                  >
+                    {turnoutData.recentAvg > turnoutData.avgTurnout + 0.5
+                      ? "↑ trending up"
+                      : turnoutData.recentAvg < turnoutData.avgTurnout - 0.5
+                        ? "↓ trending down"
+                        : "steady"}
+                  </Chip>
+                </div>
+
+                {/* Per-session bars, most recent on the right */}
+                {(() => {
+                  const max = Math.max(1, ...turnoutData.series.map((s) => s.count));
+                  return (
+                    <div className="flex items-end justify-between gap-1 px-2 h-24">
+                      {turnoutData.series.map((s) => (
+                        <div
+                          key={`${s.ymd}-${s.venue}`}
+                          className="flex-1 flex flex-col items-center gap-1 min-w-0"
+                          title={`${formatDayShort(s.ymd)} · ${s.venue} · ${s.count} players`}
+                        >
+                          <span className="text-[9px] font-bold text-text tabular-nums">{s.count}</span>
+                          <div
+                            className="w-full max-w-[16px] rounded-t-[3px] bg-accent-2"
+                            style={{ height: `${Math.max(4, Math.round((s.count / max) * 60))}px` }}
+                          />
+                          <span className="text-[8px] text-faint truncate w-full text-center">
+                            {formatDayShort(s.ymd).split(",")[1]?.trim() ?? ""}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+
+                <div className="grid grid-cols-2 gap-2 px-2 text-[11px]">
+                  {turnoutData.biggest && (
+                    <div className="rounded-xl bg-surface-hover px-3 py-2">
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-faint">Biggest</p>
+                      <p className="font-bold text-text">{turnoutData.biggest.count} players</p>
+                      <p className="text-faint truncate">{turnoutData.biggest.venue}</p>
+                    </div>
+                  )}
+                  {turnoutData.smallest && (
+                    <div className="rounded-xl bg-surface-hover px-3 py-2">
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-faint">Smallest</p>
+                      <p className="font-bold text-text">{turnoutData.smallest.count} players</p>
+                      <p className="text-faint truncate">{turnoutData.smallest.venue}</p>
+                    </div>
+                  )}
+                </div>
+
+                {turnoutData.venueMix.length > 0 && (
+                  <div className="px-2">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-faint mb-1.5">
+                      Courts · avg turnout
+                    </p>
+                    <div className="grid grid-cols-[1fr_auto_auto] gap-x-3 gap-y-1.5 text-[11px]">
+                      {turnoutData.venueMix.map((v) => (
+                        <div key={v.venue} className="contents">
+                          <div className="font-semibold text-text truncate">{v.venue}</div>
+                          <div className="text-right text-faint">{v.sessions}×</div>
+                          <div className="text-right font-bold text-accent-2">{v.avgTurnout}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {turnoutData.topPairs.length > 0 && (
+                  <div className="px-2 pb-1">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-faint mb-1.5">
+                      Always together
+                    </p>
+                    <div className="space-y-1.5">
+                      {turnoutData.topPairs.slice(0, 5).map((pair) => (
+                        <div
+                          key={`${pair.p1}-${pair.p2}`}
+                          className="flex items-center justify-between px-3 py-2 rounded-xl bg-surface-hover text-xs"
+                        >
+                          <span className="font-semibold text-text truncate pr-2">
+                            {pair.p1} <span className="text-faint">+</span> {pair.p2}
+                          </span>
+                          <span className="font-bold text-accent-2 shrink-0 whitespace-nowrap">
+                            {pair.together}× <span className="text-faint ml-1">{pair.pct}%</span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </Card>
             )}
 
@@ -430,7 +755,9 @@ export default function StatsPage() {
             {/* Venues */}
             {venues.length > 0 && (
               <Card padding="sm" variant="glass" className="space-y-3">
-                <SectionHeader className="px-2 pt-1">Venues</SectionHeader>
+                <SectionHeader className="px-2 pt-1" right={<ShareButton text={shareBlocks.venues} label="Share venues" />}>
+                  Venues
+                </SectionHeader>
                 <div className="grid grid-cols-3 gap-x-1 gap-y-3">
                   {venues.map((v) => {
                     const circ = 2 * Math.PI * 18;
