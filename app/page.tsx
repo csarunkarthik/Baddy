@@ -6,6 +6,7 @@ import { Lock, MapPin, Shirt, Users } from "lucide-react";
 import { isSessionLocked, LOCK_AFTER_DAYS } from "@/lib/locking";
 import { apiGet, apiSend } from "@/lib/api";
 import HistoryList from "./components/HistoryList";
+import NextSessionCard from "./components/NextSessionCard";
 import { BaddyMark } from "./components/Logo";
 import { BadmintonIcon, PickleballIcon } from "./components/SportIcons";
 import DateStrip from "./components/DateStrip";
@@ -171,6 +172,9 @@ export default function Home() {
           </Card>
         ) : (
           <>
+            {/* What's next — booked court, or a nudge to book one */}
+            <NextSessionCard />
+
             {/* Date strip */}
             <DateStrip
               selectedDate={selectedDate}

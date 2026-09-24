@@ -1,0 +1,17 @@
+{
+  "name": "baddy-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Reads the WhatsApp group and forwards candidate court bookings to Baddy.",
+  "scripts": {
+    "start": "node index.mjs",
+    "login": "node index.mjs --login",
+    "list-groups": "node list-groups.mjs",
+    "simulate": "node simulate.mjs"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "6.7.24",
+    "qrcode-terminal": "0.12.0"
+  }
+}

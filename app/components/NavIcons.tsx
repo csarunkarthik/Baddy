@@ -95,3 +95,16 @@ export function PlayersIcon(p: IconProps) {
     </Base>
   );
 }
+
+// Bookings — a calendar with a clock hand, for "when's the next court?"
+export function BookingsIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <rect x="3" y="5" width="18" height="16" rx="2.5" />
+      <path d="M3 10 H21" />
+      <path d="M8 3 V6" />
+      <path d="M16 3 V6" />
+      <path d="M12 13 V16 L14.5 17.5" />
+    </Base>
+  );
+}

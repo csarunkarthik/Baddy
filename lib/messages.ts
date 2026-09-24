@@ -37,6 +37,11 @@ function endTime(b: BookingLike): string | null {
   return formatTime12(`${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`);
 }
 
+/** "Wednesday, 23 September 2026" → "Wednesday, 23 September". */
+function formatDayShortish(ymd: string): string {
+  return formatDayLong(ymd).replace(/\s+\d{4}$/, "");
+}
+
 function slot(b: BookingLike): string {
   const end = endTime(b);
   return end ? `${formatTime12(b.startTime)} – ${end}` : formatTime12(b.startTime);
@@ -100,13 +105,33 @@ export function reminderMessage(b: BookingLike, hoursOut: number): string {
   ].join("\n");
 }
 
-/** Push-notification flavour of the same nudge: title + one-line body. */
-export function reminderPush(b: BookingLike, hoursOut: number): { title: string; body: string } {
-  const when = hoursOut <= 0 ? "starting now" : `in ${hoursOut}h`;
-  return {
-    title: `🏸 Game ${when} — ${b.venue}`,
-    body: `${formatTime12(b.startTime)} · ${relativeDayLabel(b.date)}${b.note ? ` · ${b.note}` : ""}`,
-  };
+/**
+ * Posted by the bot when it detects a booking from a group message.
+ *
+ * Doubles as a parse receipt: the group sees exactly what was understood, so a
+ * misread date or venue is caught the moment it happens rather than three
+ * hours before a game nobody is at.
+ */
+export function bookingConfirmation(b: BookingLike): string {
+  const lines = [
+    `${sportLine(b)} Got it — *${b.venue}*`,
+    `📅 ${formatDayLong(b.date)}`,
+    `⏰ ${slot(b)}`,
+  ];
+  if (b.courts && b.courts > 1) lines.push(`🎫 ${b.courts} courts`);
+  if (b.note) lines.push(`📝 ${b.note}`);
+  lines.push("", "I'll remind everyone 3 hours before.");
+  return lines.join("\n");
+}
+
+/** Posted when the bot registers a cancellation from the group. */
+export function cancellationConfirmation(b: BookingLike): string {
+  return [
+    `❌ Noted — *${b.venue}* on ${formatDayShortish(b.date)} is off.`,
+    ...(b.cancelReason ? [`Reason: ${b.cancelReason}`] : []),
+    "",
+    "Post the new court here if you rebook and I'll pick it up.",
+  ].join("\n");
 }
 
 /** Thursday nudge when the coming weekend has nothing on the books. */
@@ -116,7 +141,7 @@ export function noBookingNudge(weekLabel: string): string {
     "",
     "Nothing on the calendar yet. Who's booking?",
     "",
-    "Book it in the app and everyone gets the details automatically.",
+    "Post the court here once it's booked and I'll take care of the reminders.",
   ].join("\n");
 }
 
@@ -138,4 +163,43 @@ export function streakLeaderboard(
 /** Opens WhatsApp with `text` pre-filled for the user to pick a chat/group. */
 export function whatsappShareUrl(text: string): string {
   return `https://wa.me/?text=${encodeURIComponent(text)}`;
+}
+
+/** The Monday morning digest: how the group is actually doing on attendance. */
+export function weeklyStatsMessage(opts: {
+  monthLabel: string;
+  sessionsThisMonth: number;
+  lastWeekSessions: number;
+  avgTurnout: number;
+  topStreaks: { name: string; longestStreak: number }[];
+  currentStreaks: { name: string; streak: number }[];
+  mia: { name: string; sessionsAgo: number }[];
+}): string {
+  const lines = [`📊 *Baddy weekly*`, ""];
+
+  lines.push(
+    `Last week: ${opts.lastWeekSessions} session${opts.lastWeekSessions === 1 ? "" : "s"}`,
+    `${opts.monthLabel}: ${opts.sessionsThisMonth} so far`,
+    `Average turnout: ${opts.avgTurnout} players`
+  );
+
+  if (opts.currentStreaks.length > 0) {
+    lines.push("", "🔥 On a run:");
+    for (const s of opts.currentStreaks.slice(0, 3)) {
+      lines.push(`• ${s.name} — ${s.streak} in a row`);
+    }
+  }
+
+  if (opts.topStreaks.length > 0) {
+    lines.push("", "🏆 Longest ever:");
+    opts.topStreaks.slice(0, 3).forEach((s, i) => {
+      lines.push(`${["🥇", "🥈", "🥉"][i] ?? `${i + 1}.`} ${s.name} — ${s.longestStreak}`);
+    });
+  }
+
+  if (opts.mia.length > 0) {
+    lines.push("", `👻 Missed lately: ${opts.mia.slice(0, 4).map((m) => m.name).join(", ")}`);
+  }
+
+  return lines.join("\n");
 }

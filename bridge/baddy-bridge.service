@@ -1,0 +1,46 @@
+# systemd unit for the Baddy WhatsApp bridge.
+#
+#   sudo cp baddy-bridge.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now baddy-bridge
+#   journalctl -u baddy-bridge -f
+#
+# Assumes the repo is cloned at /home/ubuntu/Baddy. Adjust the paths below if
+# you put it elsewhere.
+
+[Unit]
+Description=Baddy WhatsApp bridge
+Documentation=https://github.com/csarunkarthik/Baddy/blob/main/bridge/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/Baddy/bridge
+ExecStart=/usr/bin/node index.mjs
+
+# Always come back: a free micro VM can OOM or be rebooted by the host, and a
+# dead bridge means bookings silently stop being detected.
+Restart=always
+RestartSec=10
+
+# Don't let a crash-loop hammer WhatsApp's servers — that is exactly the
+# pattern that gets an account flagged.
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=baddy-bridge
+
+# Modest hardening. The process only needs outbound HTTPS and its own auth/
+# directory, so everything else stays read-only.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/home/ubuntu/Baddy/bridge/auth
+
+[Install]
+WantedBy=multi-user.target

@@ -9,12 +9,14 @@ import {
   AskIcon,
   AwardsIcon,
   PlayersIcon,
+  BookingsIcon,
 } from "./NavIcons";
 
 type TabIcon = (props: { className?: string }) => React.ReactElement;
 
 const TABS: { href: string; label: string; Icon: TabIcon; match: (p: string) => boolean }[] = [
   { href: "/", label: "Home", Icon: HomeIcon, match: (p) => p === "/" },
+  { href: "/bookings", label: "Book", Icon: BookingsIcon, match: (p) => p.startsWith("/bookings") },
   { href: "/matches", label: "Matches", Icon: MatchesIcon, match: (p) => p.startsWith("/matches") },
   { href: "/stats", label: "Stats", Icon: StatsIcon, match: (p) => p.startsWith("/stats") },
   { href: "/ask", label: "Ask", Icon: AskIcon, match: (p) => p.startsWith("/ask") },
@@ -29,7 +31,7 @@ export default function BottomNav() {
       className="fixed bottom-0 inset-x-0 z-50 bg-surface/90 backdrop-blur border-t border-border pb-[env(safe-area-inset-bottom)]"
       aria-label="Primary"
     >
-      <div className="max-w-lg mx-auto grid grid-cols-6">
+      <div className="max-w-lg mx-auto grid grid-cols-7">
         {TABS.map((t) => {
           const active = t.match(pathname);
           return (

@@ -10,6 +10,9 @@ model Player {
   id           Int           @id @default(autoincrement())
   name         String        @unique
   avatar       String?
+  /// Digits only, country code included (e.g. "919876543210"). Optional —
+  /// only needed for 1:1 WhatsApp Cloud API reminders.
+  phone        String?
   createdAt    DateTime      @default(now())
   attendance   Attendance[]
   matchPlayers MatchPlayer[]
@@ -92,4 +95,102 @@ model Comment {
   content   String
   author    String
   createdAt DateTime @default(now())
+}
+
+/// A court booking. Deliberately separate from Session (which stays the
+/// "who actually turned up" record, one row per date+sport): a single day can
+/// carry several bookings — e.g. book V Square, it falls through, rebook
+/// TT Sports for the same evening. Cancellations are kept, never deleted, so
+/// the group can see what was called off and why.
+model Booking {
+  id           Int           @id @default(autoincrement())
+  date         DateTime      @db.Date
+  sport        Sport         @default(BADMINTON)
+  venue        String
+  /// "HH:MM" 24h, always IST — the wall-clock time printed on the booking.
+  startTime    String
+  durationMins Int           @default(120)
+  courts       Int           @default(1)
+  status       BookingStatus @default(BOOKED)
+  note         String?
+  bookedBy     String?
+  cancelledAt  DateTime?
+  cancelReason String?
+  /// "app" for a booking typed into the UI, "whatsapp" for one auto-detected
+  /// from the group. Drives the "auto-detected" chip and the audit trail below.
+  source       String        @default("app")
+  /// WhatsApp message id this came from. Unique so a redelivered or replayed
+  /// message can never create a duplicate booking.
+  sourceMsgId  String?       @unique
+  sourceSender String?
+  /// The original group message, kept verbatim so a misparse is diagnosable.
+  sourceText   String?
+  /// Set when this booking replaces a cancelled one (rebooked elsewhere).
+  replaces     Booking?      @relation("Rebook", fields: [replacesId], references: [id], onDelete: SetNull)
+  replacesId   Int?
+  replacedBy   Booking[]     @relation("Rebook")
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([date])
+  @@index([status, date])
+}
+
+enum BookingStatus {
+  BOOKED
+  CANCELLED
+}
+
+/// Every WhatsApp message the bridge forwarded, with what we decided to do
+/// about it. Survives bridge restarts (which reset its in-memory dedupe) and
+/// records the "not a booking" verdicts too, so a chatty group message isn't
+/// re-sent to Groq on every reconnect.
+model ProcessedMessage {
+  msgId     String   @id
+  chatId    String
+  sender    String?
+  text      String
+  /// book | cancel | rebook | none | error
+  action    String
+  bookingId Int?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+/// Single-row liveness record for the WhatsApp bridge, so the app can warn
+/// that auto-detection has gone quiet instead of failing silently.
+model BridgeState {
+  id           Int      @id @default(1)
+  lastSeenAt   DateTime
+  connected    Boolean  @default(false)
+  chatId       String?
+  note         String?
+  messagesSeen Int      @default(0)
+  updatedAt    DateTime @updatedAt
+}
+
+/// Messages the bot owes the WhatsApp group.
+///
+/// The VM has no inbound connectivity, so the server can't push to the bridge;
+/// the bridge polls this queue instead. `dedupeKey` is unique, which is the
+/// whole idempotency story: a retried cron tick or an overlapping run inserts
+/// nothing, so a reminder can never be posted twice.
+model OutboxMessage {
+  id        Int       @id @default(autoincrement())
+  chatId    String?
+  text      String
+  /// e.g. "reminder:booking:42", "nudge:2026-W39", "confirm:booking:42".
+  dedupeKey String    @unique
+  /// pending | sent | failed
+  status    String    @default("pending")
+  attempts  Int       @default(0)
+  lastError String?
+  createdAt DateTime  @default(now())
+  sentAt    DateTime?
+  /// WhatsApp id of the posted message, so the bridge never reads its own
+  /// output back in and mistakes a reminder for a new booking.
+  sentMsgId String?
+
+  @@index([status, createdAt])
 }

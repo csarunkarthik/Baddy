@@ -1,0 +1,37 @@
+# Backup scheduler for match reminders.
+#
+# Why this exists: Vercel's Hobby plan only runs cron jobs about once a day,
+# which is useless for a "3 hours before the game" reminder. This workflow
+# pokes the same endpoint every 15 minutes instead. The endpoint is idempotent
+# (ReminderLog's unique (kind, key)), so having both this and vercel.json's
+# cron running is harmless — whichever fires first sends, the other no-ops.
+#
+# Setup: add two repository secrets under Settings → Secrets and variables →
+# Actions:
+#   BADDY_URL    — https://<your-vercel-domain>
+#   CRON_SECRET  — the same value set in the Vercel project env
+#
+# Caveats worth knowing: GitHub delays scheduled runs under load (often by
+# 5–20 minutes), and it disables schedules on repos with no commits for 60
+# days. If reminders ever need to be punctual to the minute, move this to a
+# dedicated scheduler such as cron-job.org, or upgrade the Vercel plan.
+name: Session reminders
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fire reminder tick
+        run: |
+          code=$(curl -sS -o /tmp/out.json -w '%{http_code}' \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.BADDY_URL }}/api/cron/reminders")
+          echo "HTTP $code"
+          cat /tmp/out.json
+          echo
+          test "$code" = "200"

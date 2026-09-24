@@ -214,3 +214,29 @@ export function resolveDayRef(ref: unknown, now: Date = new Date()): string | nu
 
   return null;
 }
+
+/**
+ * Find a day reference in free text, as a fallback for when the model fails to
+ * report one. It dropped "tmrw" from "booked 2 courts at V Square tmrw 7pm"
+ * and the booking was discarded as incomplete — a silent miss, and the worst
+ * failure mode here, since nobody finds out until the reminder never arrives.
+ *
+ * Ordered longest-first so "day after tomorrow" wins over "tomorrow".
+ */
+export function extractDayRef(text: string): string | null {
+  if (!text) return null;
+  const patterns = [
+    /\bday after tomorrow\b/i,
+    /\b(today|tonight|tonite|tomorrow|tmrw|tmr)\b/i,
+    /\b(next|this|coming)\s+(mon|tues?|wed|thurs?|fri|sat|sun)(day|nesday|rsday|urday)?\b/i,
+    /\b(mon|tues?|wed|thurs?|fri|sat|sun)(day|nesday|rsday|urday)?\b/i,
+    /\b\d{4}-\d{2}-\d{2}\b/,
+    /\b\d{1,2}\s*(?:st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\b/i,
+    /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+\d{1,2}\s*(?:st|nd|rd|th)?\b/i,
+  ];
+  for (const re of patterns) {
+    const m = text.match(re);
+    if (m) return m[0].toLowerCase().trim();
+  }
+  return null;
+}
