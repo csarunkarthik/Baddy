@@ -25,6 +25,8 @@ export type BookingDTO = BookingLike & {
 export type BridgeStatus = {
   configured: boolean;
   online: boolean;
+  /** Connected, but not a member of the configured group — detects nothing. */
+  groupProblem?: boolean;
   connected?: boolean;
   lastSeenAt: string | null;
   ageMinutes?: number;

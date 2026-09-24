@@ -125,9 +125,11 @@ async function start() {
         return;
       }
 
-      console.log(`✓ Connected. Watching ${GROUP_ID || "(no group configured)"}`);
-      heartbeat(true, "connected");
       socket = sock;
+      console.log(`✓ Connected. Watching ${GROUP_ID || "(no group configured)"}`);
+      // Confirm membership before claiming health: being connected proves
+      // nothing if we've been removed from the group.
+      verifyGroup(sock).then((note) => heartbeat(true, note));
     }
 
     if (connection === "close") {
@@ -168,8 +170,31 @@ async function start() {
   });
 
   if (!LOGIN_ONLY) {
-    setInterval(() => heartbeat(true, "alive"), HEARTBEAT_MS);
+    setInterval(async () => heartbeat(true, await verifyGroup(socket)), HEARTBEAT_MS);
     if (!outboxTimer) outboxTimer = setInterval(drainOutbox, OUTBOX_POLL_MS);
+  }
+}
+
+/**
+ * Check we're still a member of GROUP_ID.
+ *
+ * Without this the failure is silent and nasty: someone removes the bot from
+ * the group, the socket stays happily connected, the heartbeat keeps reporting
+ * healthy, and the app shows a green light while detecting nothing at all.
+ * The returned note is surfaced in the app.
+ */
+async function verifyGroup(sock) {
+  if (!GROUP_ID) return "no GROUP_ID configured";
+  if (!sock) return "not connected";
+  try {
+    const meta = await sock.groupMetadata(GROUP_ID);
+    const me = sock.user?.id?.split(":")[0];
+    const member = !me || (meta.participants ?? []).some((p) => (p.id ?? "").startsWith(me));
+    if (!member) return `NOT a member of "${meta.subject}"`;
+    return `watching "${meta.subject}" (${meta.participants?.length ?? "?"} members)`;
+  } catch (err) {
+    // A 403/404 here almost always means removed from the group or a bad id.
+    return `cannot read group: ${err.message}`;
   }
 }
 

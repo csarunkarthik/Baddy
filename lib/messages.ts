@@ -1,9 +1,11 @@
 // WhatsApp message copy, in one place.
 //
-// Deliberately free of any server-only import (no prisma, no web-push) so the
-// same builders run on the client behind a "Share" button and on the server
-// inside the reminder cron — the group then sees identical wording whether a
-// message was posted by hand or fired automatically.
+// Everything here is posted by the bot (via the outbox), so every builder ends
+// with signed() — the bridge is logged in as a real person's account and an
+// unmarked reminder reads as if they typed it. Human-initiated shares from the
+// stats page use app/stats/_share.ts instead, and carry no bot marker.
+//
+// No server-only imports, so these stay cheap to unit-test.
 //
 // Formatting is WhatsApp-flavoured: *bold* with single asterisks, plain
 // newlines, no markdown links. Keep lines short; they wrap badly on phones.
@@ -23,6 +25,20 @@ export type BookingLike = {
 };
 
 const SPORT_EMOJI: Record<string, string> = { BADMINTON: "🏸", PICKLEBALL: "🥒" };
+
+/**
+ * Every message the bot posts carries this.
+ *
+ * The bridge is logged in as a real person's account, so an unmarked reminder
+ * looks like they typed it and people reply to them expecting an answer. One
+ * quiet italic line is enough to set expectations without shouting.
+ */
+const BOT_FOOTER = "🤖 _auto-sent by Baddy_";
+
+/** Append the bot marker. Used by every builder the bridge posts. */
+function signed(lines: string[]): string {
+  return [...lines, "", BOT_FOOTER].join("\n");
+}
 
 function sportLine(b: BookingLike): string {
   return SPORT_EMOJI[b.sport ?? "BADMINTON"] ?? "🏸";
@@ -60,7 +76,7 @@ export function bookingAnnouncement(b: BookingLike): string {
   if (b.bookedBy) lines.push(`👤 Booked by ${b.bookedBy}`);
   if (b.note) lines.push("", b.note);
   lines.push("", "Reply here if you're in 👍");
-  return lines.join("\n");
+  return signed(lines);
 }
 
 /** Posted when a booking falls through. */
@@ -74,12 +90,12 @@ export function cancellationNotice(b: BookingLike): string {
   ];
   if (b.cancelReason) lines.push("", `Reason: ${b.cancelReason}`);
   lines.push("", "Anyone up for rebooking?");
-  return lines.join("\n");
+  return signed(lines);
 }
 
 /** Posted when a cancelled slot is replaced by a different court the same day. */
 export function rebookNotice(next: BookingLike, previous: BookingLike): string {
-  return [
+  return signed([
     `🔄 *Court changed*`,
     "",
     `~${previous.venue}~ is off — we're now at:`,
@@ -88,13 +104,13 @@ export function rebookNotice(next: BookingLike, previous: BookingLike): string {
     `⏰ ${slot(next)}`,
     `📍 *${next.venue}*`,
     ...(next.note ? ["", next.note] : []),
-  ].join("\n");
+  ]);
 }
 
 /** The 3-hours-out nudge. Short on purpose — it lands as a notification. */
 export function reminderMessage(b: BookingLike, hoursOut: number): string {
   const when = hoursOut <= 0 ? "starting now" : `in ~${hoursOut} hour${hoursOut === 1 ? "" : "s"}`;
-  return [
+  return signed([
     `${sportLine(b)} *Game ${when}!*`,
     "",
     `⏰ ${slot(b)} (${relativeDayLabel(b.date)})`,
@@ -102,7 +118,7 @@ export function reminderMessage(b: BookingLike, hoursOut: number): string {
     ...(b.note ? ["", b.note] : []),
     "",
     "See you on court 💪",
-  ].join("\n");
+  ]);
 }
 
 /**
@@ -121,28 +137,28 @@ export function bookingConfirmation(b: BookingLike): string {
   if (b.courts && b.courts > 1) lines.push(`🎫 ${b.courts} courts`);
   if (b.note) lines.push(`📝 ${b.note}`);
   lines.push("", "I'll remind everyone 3 hours before.");
-  return lines.join("\n");
+  return signed(lines);
 }
 
 /** Posted when the bot registers a cancellation from the group. */
 export function cancellationConfirmation(b: BookingLike): string {
-  return [
+  return signed([
     `❌ Noted — *${b.venue}* on ${formatDayShortish(b.date)} is off.`,
     ...(b.cancelReason ? [`Reason: ${b.cancelReason}`] : []),
     "",
     "Post the new court here if you rebook and I'll pick it up.",
-  ].join("\n");
+  ]);
 }
 
 /** Thursday nudge when the coming weekend has nothing on the books. */
 export function noBookingNudge(weekLabel: string): string {
-  return [
+  return signed([
     `🏸 *No court booked ${weekLabel}*`,
     "",
     "Nothing on the calendar yet. Who's booking?",
     "",
     "Post the court here once it's booked and I'll take care of the reminders.",
-  ].join("\n");
+  ]);
 }
 
 /** Top-3 longest streaks, appended to weekly messages and shareable on its own. */
@@ -201,5 +217,5 @@ export function weeklyStatsMessage(opts: {
     lines.push("", `👻 Missed lately: ${opts.mia.slice(0, 4).map((m) => m.name).join(", ")}`);
   }
 
-  return lines.join("\n");
+  return signed(lines);
 }

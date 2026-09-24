@@ -45,16 +45,21 @@ export default function BridgeStatusCard() {
     ? `last seen ${status.ageMinutes} min ago`
     : "never checked in";
 
+  // Two genuinely different failures: the bridge is down, or it's running but
+  // no longer in the group. The second looks fine from the outside, so it's
+  // worth naming explicitly.
+  const title = status.groupProblem ? "Not watching the group" : "Auto-detection is offline";
+  const detail = status.groupProblem
+    ? "The bridge is running but isn't a member of the WhatsApp group, so nothing posted there is being picked up. Re-add it to the group, or check GROUP_ID."
+    : `The WhatsApp bridge isn't reporting in (${stale}). Bookings posted in the group won't be picked up until it's back.`;
+
   return (
     <Card padding="sm" className="border border-warn/40 bg-warn/10">
       <div className="flex items-start gap-2.5">
         <WifiOff size={16} className="text-warn shrink-0 mt-0.5" />
         <div className="min-w-0">
-          <p className="text-sm font-bold text-text">Auto-detection is offline</p>
-          <p className="text-xs text-muted mt-0.5">
-            The WhatsApp bridge isn&apos;t reporting in ({stale}). Bookings posted in the group
-            won&apos;t be picked up until it&apos;s back — add them here instead.
-          </p>
+          <p className="text-sm font-bold text-text">{title}</p>
+          <p className="text-xs text-muted mt-0.5">{detail}</p>
           {status.note && <p className="text-[11px] text-faint mt-1">Last status: {status.note}</p>}
         </div>
       </div>

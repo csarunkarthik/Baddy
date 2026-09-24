@@ -59,9 +59,15 @@ export async function GET() {
     return NextResponse.json({ configured: false, online: false, lastSeenAt: null });
   }
   const ageMinutes = (Date.now() - state.lastSeenAt.getTime()) / 60000;
+
+  // A connected bridge that isn't in the group detects nothing, so it must not
+  // read as healthy — that was a silent failure mode worth closing.
+  const groupProblem = /NOT a member|cannot read group|no GROUP_ID/i.test(state.note ?? "");
+
   return NextResponse.json({
     configured: true,
-    online: state.connected && ageMinutes < STALE_MINUTES,
+    online: state.connected && ageMinutes < STALE_MINUTES && !groupProblem,
+    groupProblem,
     connected: state.connected,
     lastSeenAt: state.lastSeenAt.toISOString(),
     ageMinutes: Math.round(ageMinutes),
