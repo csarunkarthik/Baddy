@@ -155,17 +155,33 @@ curl -s -o /dev/null -w 'with auth: %{http_code}\n' -X POST "$URL" \
 Expect `no auth: 401` then `with auth: 400`. A `404` on either means the app
 isn't deployed yet.
 
-### 3. Create a free always-on VM (Oracle Cloud)
+### 3. Pick somewhere to run it
 
-Oracle's **Always Free** tier is free permanently, not a trial. A card is
-required for identity verification but isn't charged unless you upgrade.
+Anything that can stay online and run Node 22 works. The bridge reads
+`LOOKBACK_HOURS` (default 6) of recent messages on startup, so a host that
+restarts or sleeps briefly catches up rather than losing bookings — but
+anything offline longer than that window misses what was posted meanwhile.
+
+| | Cost | Card needed | Reliability |
+|---|---|---|---|
+| Oracle Cloud Always Free | Free forever | **Yes** — identity check, ~₹100 auth, reversed | Best: always on, survives reboots |
+| An old Android phone (Termux) | Free | No | Very good if left plugged in on wifi |
+| Your own Mac / a Pi | Free | No | Good while awake; needs `caffeinate` on a laptop |
+
+Oracle is the most reliable and costs nothing, but it does require a card for
+verification (you are not charged unless you upgrade to Pay As You Go). If
+you'd rather not, the other two are genuinely fine for a group of friends —
+just raise `LOOKBACK_HOURS` if the host is off for long stretches.
+
+<details>
+<summary>Oracle Cloud setup</summary>
 
 1. Sign up at <https://signup.cloud.oracle.com>, pick a home region near you
-   (Mumbai/Hyderabad for India). The home region can't be changed later.
+   (Mumbai/Hyderabad for India). **The home region cannot be changed later.**
 2. **Compute → Instances → Create instance.**
-3. Shape: **VM.Standard.E2.1.Micro** (AMD, 1 GB) — marked *Always Free
+3. Shape: **VM.Standard.E2.1.Micro** (AMD, 1 GB) — it must say *Always Free
    eligible*. The ARM `A1.Flex` shape has more RAM but is frequently
-   capacity-blocked; the AMD micro is plenty for this.
+   capacity-blocked in Indian regions.
 4. Image: **Canonical Ubuntu 24.04**.
 5. Save the SSH private key it offers — you cannot download it again.
 6. Create, then note the public IP.
@@ -173,21 +189,36 @@ required for identity verification but isn't charged unless you upgrade.
 No inbound ports are needed: the bridge only makes outbound connections, so
 leave the default security list alone.
 
-On your laptop, tighten the key's permissions or SSH will refuse it:
-
 ```bash
-chmod 600 /path/to/key
+chmod 600 /path/to/key        # ssh refuses keys with loose permissions
 ssh -i /path/to/key ubuntu@<public-ip>
 ```
 
 > **Heads-up:** Oracle may reclaim Always Free compute instances that sit idle,
-> and this bridge is idle by nature. If that ever happens the Book tab will say
-> auto-detection is offline. Upgrading the account to Pay As You Go (the Always
-> Free resources stay free) avoids the reclamation policy.
+> and this bridge is idle by nature. If that happens the Book tab will say
+> auto-detection is offline. Upgrading to Pay As You Go (the Always Free
+> resources stay free) avoids the reclamation policy.
+
+</details>
+
+<details>
+<summary>Running it on a Mac instead</summary>
+
+```bash
+cd ~/baddy/bridge && npm install
+cp .env.example .env    # BADDY_URL = your deployed https URL
+npm run doctor
+caffeinate -s npm start  # -s stops the Mac sleeping while this runs
+```
+
+For it to survive logout and reboots, wrap it in a LaunchAgent rather than a
+terminal tab. Raise `LOOKBACK_HOURS` if the machine is regularly off overnight.
+
+</details>
 
 ### 4. Install it
 
-On the VM:
+On the host (commands below assume Ubuntu; on a Mac use `brew install node`):
 
 ```bash
 # Node 22
@@ -203,8 +234,19 @@ cp .env.example .env
 nano .env          # set BADDY_URL and INGEST_SECRET; leave GROUP_ID empty for now
 ```
 
-`BADDY_URL` is your deployed app (`https://…`), not localhost — the VM is a
-different machine.
+`BADDY_URL` is your deployed app (`https://…`), not localhost — the host is a
+different machine from the one serving the app.
+
+Then check everything before going further:
+
+```bash
+npm run doctor
+```
+
+It verifies the app is reachable, the ingest route is deployed, and — the check
+that matters most — that `INGEST_SECRET` actually matches the server. A plain
+`401` can't distinguish a wrong secret from a missing one, so `doctor` sends an
+authenticated empty body and expects a `400`.
 
 A 1 GB box has no swap by default and `npm install` is the most
 memory-hungry moment of the whole setup. Cheap insurance:
@@ -310,6 +352,8 @@ root with `npm test`.
 
 | Symptom | Cause / fix |
 |---|---|
+| Anything at all, before you debug further | Run `npm run doctor` — it catches most misconfiguration in one go. |
+| A booking posted while the host was down was never picked up | It was older than `LOOKBACK_HOURS` on restart. Raise it, or use a host that stays online. |
 | "Logged out of WhatsApp" then exit | Session revoked from the phone. `rm -rf auth && npm run login`. |
 | Nothing detected, logs quiet | `GROUP_ID` wrong or unset. Re-run `npm run list-groups`. |
 | "ingest HTTP 401" | `INGEST_SECRET` doesn't match the Baddy env. |

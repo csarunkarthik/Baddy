@@ -29,7 +29,7 @@
 // ── Why the "seen" bookkeeping is paranoid ────────────────────────────────
 // Baileys replays recent messages after a reconnect, and a free VM reconnects
 // often. Three independent guards stop a replay becoming a duplicate booking:
-//   1. STARTED_AT — ignore anything sent before this process came up.
+//   1. LOOKBACK_SEC — ignore anything older than a few hours.
 //   2. seen Set    — in-memory, catches replays within one run.
 //   3. the server  — ProcessedMessage.msgId + Booking.sourceMsgId are unique.
 // Only the third survives a restart, which is why it exists.
@@ -63,8 +63,21 @@ const OUTBOX_POLL_MS = 60 * 1000;
 const MAX_SENDS_PER_DAY = Number(process.env.MAX_SENDS_PER_DAY ?? 10);
 const MIN_SEND_GAP_MS = 30 * 1000;
 const STARTED_AT = Math.floor(Date.now() / 1000);
-/** Grace window so a message sent seconds before startup isn't lost. */
-const STARTUP_GRACE_SEC = 120;
+/**
+ * How far back to accept messages on startup, in hours.
+ *
+ * Originally this was a 2-minute grace window, which meant any booking posted
+ * while the bridge was down was missed outright rather than picked up late —
+ * fine for a VM that never restarts, bad for a laptop that sleeps. Looking
+ * back is safe because the server dedupes on message id (ProcessedMessage.msgId
+ * is a primary key and Booking.sourceMsgId is uniquely indexed), so a message
+ * seen twice creates nothing twice.
+ *
+ * Keep it modest: the point is to catch up on a short outage, not to re-read
+ * last week and start announcing sessions that already happened.
+ */
+const LOOKBACK_HOURS = Number(process.env.LOOKBACK_HOURS ?? 6);
+const LOOKBACK_SEC = Math.max(120, LOOKBACK_HOURS * 3600);
 
 const seen = new Set();
 /** WhatsApp ids of messages this bot posted — never parse our own output. */
@@ -302,9 +315,11 @@ async function handleMessage(msg) {
   // Never parse our own posts: a reminder reads exactly like a booking.
   if (selfSent.has(msgId)) return;
 
-  // Ignore anything from before this process started (reconnect replays).
+  // Accept a window of recent history so a restart or a sleeping laptop
+  // catches up instead of silently losing bookings. Anything older than the
+  // window is ignored so we never resurrect last week's sessions.
   const ts = Number(msg.messageTimestamp ?? 0);
-  if (ts && ts < STARTED_AT - STARTUP_GRACE_SEC) return;
+  if (ts && ts < STARTED_AT - LOOKBACK_SEC) return;
 
   const text = extractText(msg);
   if (!text) return;
