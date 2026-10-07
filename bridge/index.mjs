@@ -201,8 +201,15 @@ async function verifyGroup(sock) {
   if (!sock) return "not connected";
   try {
     const meta = await sock.groupMetadata(GROUP_ID);
-    const me = sock.user?.id?.split(":")[0];
-    const member = !me || (meta.participants ?? []).some((p) => (p.id ?? "").startsWith(me));
+    // Newer groups (addressingMode "lid") list participants by anonymous
+    // @lid ids, not phone numbers, so match on either of our identities.
+    const userPart = (jid) => (jid ?? "").split("@")[0].split(":")[0];
+    const mine = [sock.user?.id, sock.user?.lid].map(userPart).filter(Boolean);
+    const member =
+      mine.length === 0 ||
+      (meta.participants ?? []).some((p) =>
+        [p.id, p.jid, p.lid].some((jid) => jid && mine.includes(userPart(jid))),
+      );
     if (!member) return `NOT a member of "${meta.subject}"`;
     return `watching "${meta.subject}" (${meta.participants?.length ?? "?"} members)`;
   } catch (err) {
