@@ -136,8 +136,9 @@ has understood.
   reminder, and claiming the dedupeKey would then collide harmlessly while the
   pending row sails on to be posted. `suppress()` upserts it out of `pending`.
   This was a real bug, caught by the end-to-end test.
-- **Scheduling:** `vercel.json` declares a `*/15` cron, but **Vercel's Hobby
-  plan only runs crons about once a day**, which is useless for a 3-hour lead.
+- **Scheduling:** `vercel.json` declares a once-daily cron (09:00 IST) as a
+  backstop only. **Vercel's Hobby plan rejects any cron more frequent than
+  daily — the whole deploy fails**, so never put `*/15` back there.
   `.github/workflows/reminders.yml` pokes the same endpoint every 15 minutes as
   the actual scheduler. Both running at once is harmless.
 - **No web push.** It was built and then removed: with reminders landing in the
