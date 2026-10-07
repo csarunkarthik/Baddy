@@ -17,8 +17,8 @@ Two consequences worth understanding before you run this:
 1. **It logs in as a real WhatsApp account** via Linked Devices, the same
    mechanism as WhatsApp Web. It uses [Baileys](https://github.com/WhiskeySockets/Baileys),
    which is not endorsed by WhatsApp. Automating an account is against their
-   terms and accounts can be banned, which is why this runs on a secondary
-   number (step 1) and rations every message it sends (see below).
+   terms and accounts can be banned, which is why step 1 weighs which number
+   to link and every message it sends is rationed (see below).
 2. **It only needs to be *in* the group**, not the one posting. Whoever books
    the court posts exactly as they do today; the bridge sees every message in
    that group regardless of sender.
