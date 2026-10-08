@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { statsSystemPrompt } from "@/lib/stats-system-prompt";
 import { answerQuestion, type ChatTurn } from "@/lib/ask";
+import { hasLlmKey } from "@/lib/llm";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,9 +16,9 @@ const FRIENDLY: Record<string, string> = {
 };
 
 export async function POST(req: Request) {
-  if (!process.env.GROQ_API_KEY) {
+  if (!hasLlmKey()) {
     return NextResponse.json(
-      { error: "Server is missing GROQ_API_KEY. Add a free key from https://console.groq.com/keys to .env." },
+      { error: "Server is missing GROQ_API_KEY (or CEREBRAS_API_KEY). Add a free key from https://console.groq.com/keys to .env." },
       { status: 500 },
     );
   }

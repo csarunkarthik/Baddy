@@ -18,6 +18,9 @@ import { parseBookingMessage, type BookingIntent } from "@/lib/parse-booking";
 import { parseBookingMessageLC } from "@/lib/lc/parse-booking-lc";
 import { withClock } from "./with-clock";
 
+// Never fall back to the production Cerebras key from a bulk run: it exists to
+// keep the live bot answering when Groq is capped, not to absorb eval traffic.
+delete process.env.CEREBRAS_API_KEY;
 type Row = {
   msgId: string;
   text: string;

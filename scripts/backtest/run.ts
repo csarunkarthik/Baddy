@@ -30,6 +30,9 @@ type Cached = { text: string; intent: BookingIntent };
 
 const args = process.argv.slice(2);
 const PARSE = args.includes("--parse");
+// Never fall back to the production Cerebras key from a bulk run: it exists to
+// keep the live bot answering when Groq is capped, not to absorb eval traffic.
+delete process.env.CEREBRAS_API_KEY;
 const usingEvalKey = Boolean(process.env.GROQ_API_KEY_EVAL);
 if (usingEvalKey) process.env.GROQ_API_KEY = process.env.GROQ_API_KEY_EVAL;
 const MAX = Number(args.find((a) => a.startsWith("--max="))?.split("=")[1] ?? (usingEvalKey ? 1000 : 40));

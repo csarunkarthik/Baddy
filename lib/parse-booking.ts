@@ -10,9 +10,10 @@
 //
 // Model choice follows /api/ai/ask: gpt-oss-120b is the open model on Groq
 // whose structured output is actually trustworthy. Llama 3.3 emitted
-// pseudo-syntax and Llama 4 Scout stringified numbers.
+// pseudo-syntax and Llama 4 Scout stringified numbers. lib/llm.ts falls back
+// to the same model on Cerebras when Groq is capped or down.
 
-import Groq from "groq-sdk";
+import { chatCompletion, hasLlmKey } from "@/lib/llm";
 import { venueAliasPromptLine } from "@/lib/venue-aliases";
 import { addDays, extractDayRef, formatDayShort, resolveDayRef, todayIST, weekdayOf } from "@/lib/ist";
 import { looksLikeBooking } from "@/lib/booking-gate";
@@ -21,8 +22,6 @@ import { looksLikeBooking } from "@/lib/booking-gate";
 // one place; the gate itself lives in an import-free module so plain Node can
 // test it against the bridge's mirrored copy.
 export { looksLikeBooking };
-
-const MODEL = "openai/gpt-oss-120b";
 
 export type BookingIntent =
   | { action: "none"; reason: string }
@@ -142,14 +141,11 @@ export async function parseBookingMessage(
   const resolveDay = (dayRef: unknown): string | null =>
     resolveDayRef(dayRef) ?? resolveDayRef(extractDayRef(text));
 
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) return { action: "none", reason: "GROQ_API_KEY not set" };
+  if (!hasLlmKey()) return { action: "none", reason: "No LLM key set (GROQ_API_KEY / CEREBRAS_API_KEY)" };
 
   let raw: RawIntent;
   try {
-    const groq = new Groq({ apiKey });
-    const completion = await groq.chat.completions.create({
-      model: MODEL,
+    const completion = await chatCompletion({
       temperature: 0,
       response_format: { type: "json_object" },
       messages: [
