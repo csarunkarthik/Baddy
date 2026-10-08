@@ -46,6 +46,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import makeWASocket, {
   DisconnectReason,
+  generateMessageIDV2,
   useMultiFileAuthState,
   fetchLatestBaileysVersion,
 } from "@whiskeysockets/baileys";
@@ -123,6 +124,11 @@ async function start() {
     // See the read-only note at the top of this file.
     markOnlineOnConnect: false,
     syncFullHistory: false,
+    // The post-connect "init queries" (privacy settings, props) kept timing
+    // out and Baileys answered each timeout by dropping the connection — a
+    // reconnect every ~20 minutes, each a window where messages arrived as
+    // offline "append" batches. The bridge needs none of that data.
+    fireInitQueries: false,
     browser: ["Baddy Bridge", "Chrome", "1.0.0"],
   });
 
@@ -181,9 +187,12 @@ async function start() {
   });
 
   sock.ev.on("messages.upsert", async (event) => {
-    // "notify" = live messages. "append"/history batches are replays, which we
-    // never want to act on.
-    if (event.type !== "notify") return;
+    // "notify" = live messages. "append" = messages delivered while we were
+    // offline or reconnecting — real messages, and dropping them is how a
+    // Playo booking posted during a reconnect went unseen. History sync comes
+    // through a different event, so it never lands here. Replays are safe:
+    // LOOKBACK_SEC, the seen-set and the server's unique msgId all dedupe.
+    if (event.type !== "notify" && event.type !== "append") return;
 
     for (const msg of event.messages ?? []) {
       try {
@@ -309,9 +318,14 @@ async function postToGroup(msg) {
     // Quote the question when we still have it; after a restart we don't, and
     // the answer goes out as a plain message instead.
     const quoted = msg.replyToMsgId ? recent.get(msg.replyToMsgId) : undefined;
-    const sent = await socket.sendMessage(target, { text: msg.text }, quoted ? { quoted } : undefined);
-    const sentId = sent?.key?.id ?? null;
-    if (sentId) selfSent.add(sentId);
+    // Choose the id ourselves and remember it BEFORE sending: Baileys echoes
+    // our own send back as an "append" upsert, possibly before sendMessage
+    // resolves, and a reminder read back in looks exactly like a booking.
+    const messageId = generateMessageIDV2(socket.user?.id);
+    selfSent.add(messageId);
+    const sent = await socket.sendMessage(target, { text: msg.text }, { messageId, ...(quoted ? { quoted } : {}) });
+    const sentId = sent?.key?.id ?? messageId;
+    selfSent.add(sentId);
     sendsToday++;
     lastSendAt = Date.now();
     console.log(`← posted ${msg.dedupeKey} (${sendsToday}/${MAX_SENDS_PER_DAY} today)`);
