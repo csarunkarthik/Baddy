@@ -22,8 +22,9 @@ app/                                    Next App Router
   api/
     players/, players/[id]              CRUD players
     bookings/, bookings/[id]            Court bookings: list/create, edit/cancel/delete
-    outbox                              Queue the bridge polls to post group messages (GET/POST)
-    cron/reminders                      Reminder tick (3h-before + empty-week nudge)
+    outbox                              Queue the bridge polls to post group messages (GET/POST);
+                                          GET also runs the reminder tick
+    cron/reminders                      Daily backstop for the reminder tick
     ingest/whatsapp                     Group message → booking (bridge calls this)
     bridge/heartbeat                    Bridge liveness (POST from bridge, GET for the UI)
     sessions/, sessions/[id]            Sessions: GET by date, POST upsert, DELETE
@@ -48,6 +49,7 @@ lib/
   booking-types.ts                      BookingDTO type alone, so clients don't pull in Prisma
   messages.ts                           WhatsApp copy — shared by the share buttons AND the cron
   outbox.ts                             Queue of messages the bot owes the group; dedupeKey = at-most-once
+  reminders.ts                          reminderTick(): 3h reminder, Thursday nudge, Monday digest
   whatsapp.ts                           WhatsApp Cloud API sender (same Meta app as the Vault project)
   parse-booking.ts                      Regex gate + Groq intent extraction for group messages
 bridge/                                 SEPARATE always-on service — reads the WhatsApp group.
@@ -126,7 +128,7 @@ has understood.
   back from Prisma as UTC midnight, so `ymdOf()` reads it **in UTC** — reading
   it in IST would roll the day forward. (Raw `pg`, unlike Prisma, applies the
   local timezone to DATE columns; that's why the two disagree in scripts.)
-- **The cron never sends anything.** `/api/cron/reminders` only *enqueues* text
+- **The tick never sends anything.** `reminderTick()` only *enqueues* text
   into `OutboxMessage`; the bridge is the only thing holding a WhatsApp session.
   It is safe to call as often as you like — `dedupeKey` decides whether a
   message has already been queued, so duplicates are impossible and a *missed*
@@ -136,11 +138,13 @@ has understood.
   reminder, and claiming the dedupeKey would then collide harmlessly while the
   pending row sails on to be posted. `suppress()` upserts it out of `pending`.
   This was a real bug, caught by the end-to-end test.
-- **Scheduling:** `vercel.json` declares a once-daily cron (09:00 IST) as a
-  backstop only. **Vercel's Hobby plan rejects any cron more frequent than
-  daily — the whole deploy fails**, so never put `*/15` back there.
-  `.github/workflows/reminders.yml` pokes the same endpoint every 15 minutes as
-  the actual scheduler. Both running at once is harmless.
+- **Scheduling:** the bridge's 60s `GET /api/outbox` poll runs `reminderTick()`
+  — that is the real scheduler, punctual to the minute. `vercel.json` adds a
+  once-daily cron (09:00 IST, Hobby fires it up to ~an hour late) as a backstop
+  so the morning nudge/digest still queues if the bridge is down. **Hobby
+  rejects any cron more frequent than daily — the whole deploy fails**, so
+  never put `*/15` there. A GitHub Actions `*/15` scheduler was tried and
+  removed: GitHub ran it every 4–6 hours, not every 15 minutes.
 - **No web push.** It was built and then removed: with reminders landing in the
   group, nobody has to install the app or grant notification permission. If it
   ever comes back, the history is in git.

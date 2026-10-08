@@ -151,26 +151,29 @@ export function cancellationConfirmation(b: BookingLike): string {
 }
 
 /** Thursday nudge when the coming weekend has nothing on the books. */
-export function noBookingNudge(weekLabel: string): string {
+export function noBookingNudge(
+  weekLabel: string,
+  currentStreaks: { name: string; currentStreak: number }[] = []
+): string {
+  const leaderboard = currentStreakLeaderboard(currentStreaks);
   return signed([
     `🏸 *No court booked ${weekLabel}*`,
     "",
     "Nothing on the calendar yet. Who's booking?",
     "",
     "Post the court here once it's booked and I'll take care of the reminders.",
+    ...(leaderboard ? ["", leaderboard] : []),
   ]);
 }
 
-/** Top-3 longest streaks, appended to weekly messages and shareable on its own. */
-export function streakLeaderboard(
-  rows: { name: string; longestStreak: number; longestTo?: string | null }[]
-): string {
+/** Who's on a run right now — appended to the Thursday nudge. */
+export function currentStreakLeaderboard(rows: { name: string; currentStreak: number }[]): string {
   if (rows.length === 0) return "";
   const medals = ["🥇", "🥈", "🥉"];
-  const lines = ["🔥 *Longest attendance streaks*", ""];
+  const lines = ["🔥 *Current streaks*", ""];
   rows.forEach((r, i) => {
     lines.push(
-      `${medals[i] ?? `${i + 1}.`} ${r.name} — ${r.longestStreak} session${r.longestStreak === 1 ? "" : "s"} in a row`
+      `${medals[i] ?? `${i + 1}.`} ${r.name} — ${r.currentStreak} session${r.currentStreak === 1 ? "" : "s"} in a row`
     );
   });
   return lines.join("\n");

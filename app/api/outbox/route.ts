@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { ack, pending, recentlySentIds } from "@/lib/outbox";
+import { reminderTick } from "@/lib/reminders";
 
 // The bridge's outbound half.
 //
-// GET  — messages waiting to be posted, plus the ids of messages the bot has
-//        already posted (so the bridge can ignore its own output when it reads
-//        the group back).
+// GET  — runs the reminder tick, then returns messages waiting to be posted,
+//        plus the ids of messages the bot has already posted (so the bridge
+//        can ignore its own output when it reads the group back).
 // POST — the bridge reports what happened to one message.
 //
 // Same shared secret as ingest: this is bridge-only, never called by a browser.
@@ -21,6 +22,14 @@ function authorized(req: Request): boolean {
 export async function GET(req: Request) {
   if (!authorized(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  // The bridge polls every 60s, which makes this poll the reminder scheduler:
+  // anything due is queued here and returned in this same response. A failed
+  // tick must never block posting what is already queued.
+  try {
+    await reminderTick();
+  } catch (err) {
+    console.error("reminder tick failed", err);
   }
   const [messages, selfMsgIds] = await Promise.all([pending(), recentlySentIds()]);
   return NextResponse.json({ messages, selfMsgIds });

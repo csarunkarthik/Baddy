@@ -128,6 +128,14 @@ export function topLongestStreaks(rows: ConsistencyRow[], n = 3): ConsistencyRow
     .slice(0, n);
 }
 
+/** Top N by the streak still running as of the latest session. */
+export function topCurrentStreaks(rows: ConsistencyRow[], n = 5): ConsistencyRow[] {
+  return rows
+    .filter((r) => r.currentStreak > 0)
+    .sort((a, b) => b.currentStreak - a.currentStreak || a.name.localeCompare(b.name))
+    .slice(0, n);
+}
+
 export type ReliabilityRow = {
   id: number;
   name: string;

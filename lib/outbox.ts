@@ -35,6 +35,11 @@ export async function enqueue(dedupeKey: string, text: string, chatId?: string |
   }
 }
 
+/** Whether this dedupeKey has ever been claimed, in any status. */
+export async function isQueued(dedupeKey: string): Promise<boolean> {
+  return (await prisma.outboxMessage.count({ where: { dedupeKey } })) > 0;
+}
+
 /**
  * Stop a message from ever being posted, whether or not it is already queued.
  *
