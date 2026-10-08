@@ -16,6 +16,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { parseBookingMessage, type BookingIntent } from "@/lib/parse-booking";
 import { parseBookingMessageLC } from "@/lib/lc/parse-booking-lc";
+import { withClock } from "./with-clock";
 
 type Row = {
   msgId: string;
@@ -31,31 +32,6 @@ type Parser = { name: string; run: (text: string, venues: string[], now: Date) =
 
 // Venues the group "already knows", fed to both parsers like ingest does.
 const KNOWN_VENUES = ["TT Sports", "Smash Arena", "Dink Hub"];
-
-/**
- * The original parser reads the wall clock, so run it with the clock shifted to
- * when the message was sent. The clock keeps ticking (an offset, not a freeze)
- * so the SDK's own timeouts still behave. Eval-only; never do this in app code.
- */
-async function withClock<T>(now: Date, fn: () => Promise<T>): Promise<T> {
-  const RealDate = Date;
-  const offset = now.getTime() - RealDate.now();
-  class ShiftedDate extends RealDate {
-    constructor(...args: unknown[]) {
-      if (args.length === 0) super(RealDate.now() + offset);
-      else super(...(args as [string | number]));
-    }
-    static now() {
-      return RealDate.now() + offset;
-    }
-  }
-  globalThis.Date = ShiftedDate as DateConstructor;
-  try {
-    return await fn();
-  } finally {
-    globalThis.Date = RealDate;
-  }
-}
 
 const PARSERS: Parser[] = [
   { name: "orig", run: (t, v, now) => withClock(now, () => parseBookingMessage(t, v)) },

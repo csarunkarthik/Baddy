@@ -44,3 +44,6 @@ next-env.d.ts
 
 # RAG docs index (derived — npm run rag:index)
 /.rag/
+
+# WhatsApp exports and anything derived from them — this repo is public.
+/private/

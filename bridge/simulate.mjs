@@ -3,6 +3,9 @@
 //
 //   npm run simulate                       # run the built-in sample set
 //   npm run simulate -- "booked TT 7pm fri"  # try one message
+//   npm run simulate -- --ask "@baddy who's on the longest streak?"
+//                                          # ask a question (dry run: the
+//                                          # answer is printed, never posted)
 //
 // Every simulated message gets a unique msgId, so repeated runs create
 // repeated bookings. Anything it creates is yours to delete in the app — or
@@ -11,7 +14,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { looksLikeBooking } from "./gate.mjs";
+import { looksLikeBooking, looksLikeQuestion } from "./gate.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 loadEnvFile();
@@ -27,7 +30,13 @@ if (!INGEST_SECRET) {
 
 const args = process.argv.slice(2);
 const cleanup = args.includes("--cleanup");
+const ask = args.includes("--ask");
 const custom = args.filter((a) => !a.startsWith("--"));
+
+if (ask) {
+  await askQuestions(custom.length > 0 ? custom : ["@baddy when is the next game?"]);
+  process.exit(0);
+}
 
 // Phrasings chosen to cover the cases that actually matter: bare evening
 // hours, ranges, day names, cancellations with no date, and the near-misses
@@ -93,6 +102,29 @@ if (cleanup && created.length > 0) {
   console.log("Done.");
 } else if (created.length > 0) {
   console.log(`Created bookings: ${created.join(", ")} — delete them in the app, or re-run with --cleanup.`);
+}
+
+/** Dry-run questions: answered by the server, never recorded or posted. */
+async function askQuestions(questions) {
+  console.log(`Asking ${questions.length} question(s) at ${BADDY_URL} (dry run)\n`);
+  for (const raw of questions) {
+    const text = looksLikeQuestion(raw) ? raw : `@baddy ${raw}`;
+    console.log(`"${text}"`);
+    try {
+      const res = await fetch(`${BADDY_URL}/api/ask/whatsapp`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${INGEST_SECRET}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ msgId: `sim-ask-${Date.now()}`, chatId: CHAT_ID, sender: process.env.SIM_SENDER || "simulator", text, dryRun: true }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) console.log(`  HTTP ${res.status}: ${body.error ?? "(no body)"}`);
+      else if (body.preview) console.log(body.preview.split("\n").map((l) => `  │ ${l}`).join("\n"));
+      else console.log(`  – ${body.status}: ${body.reason ?? body.result?.kind ?? ""}`);
+    } catch (err) {
+      console.log(`  ✗ unreachable: ${err.message}`);
+    }
+    console.log();
+  }
 }
 
 function loadEnvFile() {

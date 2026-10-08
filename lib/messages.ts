@@ -31,9 +31,10 @@ const SPORT_EMOJI: Record<string, string> = { BADMINTON: "🏸", PICKLEBALL: "�
  *
  * The bridge is logged in as a real person's account, so an unmarked reminder
  * looks like they typed it and people reply to them expecting an answer. One
- * quiet italic line is enough to set expectations without shouting.
+ * quiet italic line is enough to set expectations without shouting — and it
+ * doubles as the only documentation of how to ask the bot a question.
  */
-const BOT_FOOTER = "🤖 _auto-sent by Baddy_";
+const BOT_FOOTER = "🤖 _Baddy bot · tag @baddy or reply to this to ask me_";
 
 /** Append the bot marker. Used by every builder the bridge posts. */
 function signed(lines: string[]): string {
@@ -177,6 +178,24 @@ export function currentStreakLeaderboard(rows: { name: string; currentStreak: nu
     );
   });
   return lines.join("\n");
+}
+
+/** An answer to an "@baddy" question. The model's text, trimmed to fit a phone screen. */
+export function answerMessage(text: string): string {
+  // Models write Markdown regardless of the prompt; WhatsApp bolds with a
+  // single asterisk and shows "**" literally.
+  const body = text
+    .replace(/\*\*(.+?)\*\*/g, "*$1*")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/[ \t]+$/gm, "")
+    .trim()
+    .replace(/\n{3,}/g, "\n\n");
+  return signed([body.length > 900 ? `${body.slice(0, 897).trimEnd()}…` : body]);
+}
+
+/** Posted (at most hourly) when a question can't be answered right now. */
+export function answerUnavailable(): string {
+  return signed(["🤔 I can't look that up right now — try again in a bit."]);
 }
 
 /** Opens WhatsApp with `text` pre-filled for the user to pick a chat/group. */

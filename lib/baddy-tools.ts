@@ -2,6 +2,17 @@ import { prisma } from "@/lib/prisma";
 import { resolveSessionIds, type StatsScope } from "@/lib/stats-filter";
 import { computeElo, type EloMatch } from "@/lib/elo";
 import { COUPLES } from "@/lib/couples";
+import { listUpcoming, nextBooking, weekSummary } from "@/lib/bookings";
+import { todayIST } from "@/lib/ist";
+import {
+  consistency,
+  missedLately,
+  reliability,
+  toSlots,
+  topCurrentStreaks,
+  topLongestStreaks,
+  turnout,
+} from "@/lib/attendance-stats";
 
 // OpenAI / Groq tool format. The model calls these by name; each handler
 // runs a Prisma query and returns a small JSON object.
@@ -106,6 +117,17 @@ export const TOOL_DECLARATIONS: ToolDecl[] = [
       sport: sportEnum,
     },
   }),
+  tool("get_bookings", "Court BOOKINGS (reservations), not past results. Returns `next` (the next game that hasn't started), `thisWeek` (Mon–Sun booked and cancelled), and `upcoming` (the next 3 weeks, cancelled slots included with status CANCELLED and a cancelReason). Dates are YYYY-MM-DD and times HH:MM, both IST. Use for 'when is the next game', 'is anything booked this week', 'where are we playing saturday', 'was friday cancelled'.", {
+    type: "object",
+    properties: {},
+  }),
+  tool("get_attendance", "ATTENDANCE: who turns up, counted in SESSIONS (days the group played), never matches or wins. A streak is consecutive sessions attended. `currentStreak` = sessions in a row up to and including the latest one; `longestStreak` = best run ever; `missedInARow` = latest sessions skipped; `last5`/`last10` = sessions attended out of the latest 5/10. Without playerId: group view — top current streaks, top longest streaks, `missedLately` (regulars who skipped the latest sessions) and turnout (players per session). With playerId: that player's full attendance record.", {
+    type: "object",
+    properties: {
+      playerId: { type: "number", description: "Optional. Omit for the group view." },
+      sport: sportEnum,
+    },
+  }),
 ];
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -125,6 +147,8 @@ const TOOL_HANDLERS: Record<string, Handler> = {
   get_couple_record,
   list_venues,
   get_venue_stats,
+  get_bookings,
+  get_attendance,
 };
 
 export async function runTool(name: string, args: Args): Promise<unknown> {
@@ -636,5 +660,76 @@ async function get_venue_stats(args: Args) {
       .map((s) => ({ ...s, winPct: s.played ? Math.round((s.wins / s.played) * 1000) / 10 : 0 }))
       .sort((a, b) => b.wins - a.wins || b.winPct - a.winPct)
       .slice(0, 30),
+  };
+}
+
+async function get_bookings(): Promise<unknown> {
+  const now = new Date();
+  const [next, week, upcoming] = await Promise.all([nextBooking(now), weekSummary(todayIST(now)), listUpcoming(now)]);
+  const brief = (b: Awaited<ReturnType<typeof listUpcoming>>[number]) => ({
+    date: b.date,
+    startTime: b.startTime,
+    durationMins: b.durationMins,
+    venue: b.venue,
+    sport: b.sport,
+    courts: b.courts,
+    status: b.status,
+    cancelReason: b.cancelReason,
+    note: b.note,
+  });
+  return {
+    today: todayIST(now),
+    next: next ? brief(next) : null,
+    thisWeek: { start: week.start, end: week.end, booked: week.booked.map(brief), cancelled: week.cancelled.map(brief) },
+    upcoming: upcoming.map(brief),
+  };
+}
+
+async function get_attendance(args: Args): Promise<unknown> {
+  const sport = args.sport === "PICKLEBALL" ? "PICKLEBALL" : "BADMINTON";
+  const [sessions, players] = await Promise.all([
+    prisma.session.findMany({
+      where: { sport },
+      select: { id: true, date: true, venue: true, attendance: { select: { playerId: true } } },
+    }),
+    prisma.player.findMany({ select: { id: true, name: true } }),
+  ]);
+  const slots = toSlots(sessions);
+  const rows = consistency(slots, players);
+  const form = reliability(slots, players);
+  const latestSession = slots.length ? slots[slots.length - 1].ymd : null;
+
+  if (typeof args.playerId === "number") {
+    const r = rows.find((x) => x.id === args.playerId);
+    const f = form.find((x) => x.id === args.playerId);
+    if (!r || !f) return { error: `No player with id ${args.playerId}` };
+    return {
+      sport,
+      latestSession,
+      name: r.name,
+      attended: r.attended,
+      totalSessions: r.totalSessions,
+      percentage: r.percentage,
+      currentStreak: r.currentStreak,
+      longestStreak: r.longestStreak,
+      longestFrom: r.longestFrom,
+      longestTo: r.longestTo,
+      missedInARow: r.missedInARow,
+      lastSeen: r.lastSeen,
+      last5: f.last5,
+      last10: f.last10,
+    };
+  }
+
+  const t = turnout(slots, players);
+  return {
+    sport,
+    totalSessions: slots.length,
+    latestSession,
+    topCurrentStreaks: topCurrentStreaks(rows, 5).map((r) => ({ name: r.name, currentStreak: r.currentStreak })),
+    topLongestStreaks: topLongestStreaks(rows, 5).map((r) => ({ name: r.name, longestStreak: r.longestStreak, from: r.longestFrom, to: r.longestTo })),
+    missedLately: missedLately(form).map((r) => ({ name: r.name, missedInARow: r.sessionsAgo, last10: r.last10 })),
+    mostRegular: [...rows].sort((a, b) => b.percentage - a.percentage).slice(0, 5).map((r) => ({ name: r.name, attended: r.attended, percentage: r.percentage })),
+    turnout: { avgPlayers: t.avgTurnout, last5Avg: t.recentAvg, biggest: t.biggest, smallest: t.smallest },
   };
 }

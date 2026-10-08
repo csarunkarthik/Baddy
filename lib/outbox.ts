@@ -22,11 +22,15 @@ export type EnqueueResult = { queued: boolean; id?: number; reason?: string };
  * dedupeKey has already been queued — which is the normal, expected outcome
  * on a repeat tick, not an error.
  */
-export async function enqueue(dedupeKey: string, text: string, chatId?: string | null): Promise<EnqueueResult> {
+export async function enqueue(
+  dedupeKey: string,
+  text: string,
+  opts: { chatId?: string | null; replyToMsgId?: string | null } = {}
+): Promise<EnqueueResult> {
   if (!text.trim()) return { queued: false, reason: "Empty message" };
   try {
     const row = await prisma.outboxMessage.create({
-      data: { dedupeKey, text, chatId: chatId ?? null },
+      data: { dedupeKey, text, chatId: opts.chatId ?? null, replyToMsgId: opts.replyToMsgId ?? null },
     });
     return { queued: true, id: row.id };
   } catch {
@@ -63,7 +67,7 @@ export async function pending(limit = 5) {
     where: { status: "pending", attempts: { lt: MAX_ATTEMPTS } },
     orderBy: { createdAt: "asc" },
     take: limit,
-    select: { id: true, chatId: true, text: true, dedupeKey: true, attempts: true },
+    select: { id: true, chatId: true, text: true, dedupeKey: true, attempts: true, replyToMsgId: true },
   });
 }
 

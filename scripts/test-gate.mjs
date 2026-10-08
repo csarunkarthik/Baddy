@@ -8,8 +8,8 @@
 // Drift between them is a real hazard — the bridge would stop forwarding
 // messages the server would happily accept — so this asserts they match.
 
-import { looksLikeBooking as serverGate } from "../lib/booking-gate.ts";
-import { looksLikeBooking as bridgeGate } from "../bridge/gate.mjs";
+import { looksLikeBooking as serverGate, looksLikeQuestion as serverAsk } from "../lib/booking-gate.ts";
+import { looksLikeBooking as bridgeGate, looksLikeQuestion as bridgeAsk } from "../bridge/gate.mjs";
 
 const cases = [
   // Should reach the parser
@@ -65,7 +65,31 @@ for (const [text, want] of cases) {
   else failures.push(`  ${JSON.stringify(text)}: expected ${want}, got ${s}`);
 }
 
-console.log(`gate: ${pass}/${cases.length} passed, ${drift} drift`);
+// The question trigger: "@baddy" only, never the bare word.
+const questionCases = [
+  ["@baddy who has the longest streak?", true],
+  ["hey @Baddy when's the next game", true],
+  ["@baddy", true],
+  ["baddy at 7?", false],
+  ["anyone for baddy tomorrow", false],
+  ["mail me at x@baddy.com", false],
+  ["@baddyfan lol", false],
+  ["", false],
+];
+for (const [text, want] of questionCases) {
+  const s = serverAsk(text);
+  const b = bridgeAsk(text);
+  if (s !== b) {
+    drift++;
+    failures.push(`  DRIFT (question) ${JSON.stringify(text)}: server=${s} bridge=${b}`);
+    continue;
+  }
+  if (s === want) pass++;
+  else failures.push(`  (question) ${JSON.stringify(text)}: expected ${want}, got ${s}`);
+}
+
+const total = cases.length + questionCases.length;
+console.log(`gate: ${pass}/${total} passed, ${drift} drift`);
 if (failures.length > 0) {
   console.error("\nFailures:");
   console.error(failures.join("\n"));

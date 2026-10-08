@@ -25,7 +25,7 @@ Two consequences worth understanding before you run this:
 
 ## What it sends, and how it's rationed
 
-The bot posts four kinds of message, all into one group:
+The bot posts five kinds of message, all into one group:
 
 | | When |
 |---|---|
@@ -33,14 +33,15 @@ The bot posts four kinds of message, all into one group:
 | Match reminder | `REMINDER_LEAD_HOURS` (default 3) before start |
 | Empty-week nudge | Thursday 9am IST, if nothing is booked for the rest of the week |
 | Weekly stats | Monday 9am IST — sessions, streaks, turnout |
+| Answer | When someone asks a question (see below) — capped per day and per person |
 
-That is roughly **2–3 messages a week**. Sending is what WhatsApp's anti-spam
+Without questions that is roughly **2–3 messages a week**. Sending is what WhatsApp's anti-spam
 actually looks for (reading is close to invisible by comparison), so every send
 is deliberately constrained:
 
 - **one destination only** — `GROUP_ID`, never a DM, never another group; the
   bridge refuses anything else even if the server asks
-- **`MAX_SENDS_PER_DAY`** hard ceiling (default 10), counted in-process
+- **`MAX_SENDS_PER_DAY`** hard ceiling (default 25), counted in-process
 - **30s minimum gap** between posts, plus random jitter so the timing doesn't
   tick like a metronome
 - **no @-mentions** — a strong spam signal, and unnecessary here
@@ -50,6 +51,32 @@ is deliberately constrained:
 - `syncFullHistory: false`, so linking doesn't pull years of chat
 - reconnects with exponential backoff, capped at 5 minutes — reconnect storms
   are a classic automation signal
+
+### Asking it questions
+
+Anyone in the group can ask about stats or bookings:
+
+- **`@baddy …`** anywhere in a message — typed text, not a real WhatsApp
+  mention, because the bridge is logged in as a person and tagging them can't
+  be told apart from talking to them. The bare word "baddy" is ignored: it's
+  slang for badminton and turns up in normal chat.
+- **swipe-reply to any 🤖 bot message.** The bot gets the replied-to text as
+  context, so "who's coming?" under a reminder works. A reply that reads like
+  a booking change ("cancelled, court flooded") is still treated as one.
+
+Every bot message ends with a one-line footer saying exactly this.
+
+Answers are **read-only** — the bot never books or cancels because someone
+asked it to, and a tagged message never reaches the booking parser, so
+"@baddy is friday's game at 7?" can't create a booking. The answer quotes the
+question when the bridge still has it in memory (not after a restart).
+
+Each answer is a send from a real account, so the server caps them:
+`MAX_ANSWERS_PER_DAY` (default 15) for the group and `MAX_ANSWERS_PER_SENDER`
+(default 4) per person, both per IST day. Over the cap the question is logged
+and skipped silently. Questions older than 30 minutes — replayed after the
+bridge was down — are never answered. If Groq is unavailable the bot says so
+at most once an hour.
 
 ### How sending works
 
@@ -68,7 +95,8 @@ returns recently-sent ids on each poll so a restart can't lose track.
 ## Privacy
 
 A regex gate (`gate.mjs`) runs **on the VM, before anything is sent anywhere**.
-Only messages that mention a court/booking keyword *and* a time or day leave the
+Only messages that mention a court/booking keyword *and* a time or day, or that
+ask the bot a question (`@baddy`, or a reply to a bot message), leave the
 machine. Ordinary group conversation is never uploaded, never parsed and never
 stored. Forwarded messages are kept on the server in `ProcessedMessage` so a
 misparse can be diagnosed.
@@ -340,7 +368,12 @@ group and check what each becomes:
 npm run simulate                              # built-in sample set
 npm run simulate -- "booked TT 7pm fri"       # one message
 npm run simulate -- --cleanup                 # delete what it created
+npm run simulate -- --ask "who's on a streak?"  # ask a question (dry run)
 ```
+
+`--ask` never records or posts anything: the server answers and the simulator
+prints exactly what would be posted. Set `SIM_SENDER="Subashree Arun"` to ask
+as someone, so "my attendance" resolves to them.
 
 It reads `BADDY_URL` from `.env`: point it at `http://localhost:3000` to test a
 local dev server from your laptop, or at the deployed URL to test production.

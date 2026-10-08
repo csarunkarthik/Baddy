@@ -17,7 +17,14 @@
 //       markOnlineOnConnect: false → the phone keeps owning presence
 //       syncFullHistory: false     → don't pull years of chat on login
 //
-// Expected volume is ~2-3 messages a week.
+// Expected volume is ~2-3 messages a week, plus answers to "@baddy"
+// questions, which the server caps per day and per sender.
+//
+// ── Questions ─────────────────────────────────────────────────────────────
+// "@baddy …" or a swipe-reply to a bot message is a question, and goes to
+// /api/ask/whatsapp — never to the booking parser, so "@baddy is friday's game
+// at 7?" can't become a booking. Answers quote the question when the original
+// is still in memory.
 //
 // ── The bot must not read its own output ──────────────────────────────────
 // It writes to the same group it reads. Its own reminder ("Game in 3 hours —
@@ -43,7 +50,7 @@ import makeWASocket, {
   fetchLatestBaileysVersion,
 } from "@whiskeysockets/baileys";
 import qrcode from "qrcode-terminal";
-import { looksLikeBooking } from "./gate.mjs";
+import { looksLikeBooking, looksLikeQuestion } from "./gate.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -60,7 +67,11 @@ const LOGIN_ONLY = process.argv.includes("--login");
 const HEARTBEAT_MS = 5 * 60 * 1000;
 const OUTBOX_POLL_MS = 60 * 1000;
 /** Ceiling on posts per UTC day. Far above real need (~2-3/week). */
-const MAX_SENDS_PER_DAY = Number(process.env.MAX_SENDS_PER_DAY ?? 10);
+const MAX_SENDS_PER_DAY = Number(process.env.MAX_SENDS_PER_DAY ?? 25);
+/** Questions older than this (e.g. replayed after downtime) go unanswered. */
+const MAX_QUESTION_AGE_SEC = 30 * 60;
+/** Recent group messages by id, so an answer can quote its question. */
+const RECENT_LIMIT = 200;
 const MIN_SEND_GAP_MS = 30 * 1000;
 const STARTED_AT = Math.floor(Date.now() / 1000);
 /**
@@ -82,6 +93,7 @@ const LOOKBACK_SEC = Math.max(120, LOOKBACK_HOURS * 3600);
 const seen = new Set();
 /** WhatsApp ids of messages this bot posted — never parse our own output. */
 const selfSent = new Set();
+const recent = new Map();
 let messagesSeen = 0;
 let reconnectDelay = 2000;
 let sendsToday = 0;
@@ -220,6 +232,7 @@ async function verifyGroup(sock) {
 
 let outboxTimer = null;
 let draining = false;
+let drainAgain = false;
 
 /**
  * Poll the server for messages to post, and post them.
@@ -229,8 +242,14 @@ let draining = false;
  * the row waits and goes out on reconnect instead of being lost.
  */
 async function drainOutbox() {
-  if (draining || !socket || !GROUP_ID) return;
+  if (!socket || !GROUP_ID) return;
+  // An answer queued mid-drain shouldn't wait for the next 60s poll.
+  if (draining) {
+    drainAgain = true;
+    return;
+  }
   draining = true;
+  drainAgain = false;
   try {
     const res = await fetch(`${BADDY_URL}/api/outbox`, {
       headers: { Authorization: `Bearer ${INGEST_SECRET}` },
@@ -257,6 +276,7 @@ async function drainOutbox() {
     console.error("[outbox] poll failed:", err.message);
   } finally {
     draining = false;
+    if (drainAgain) setTimeout(drainOutbox, 0);
   }
 }
 
@@ -286,7 +306,10 @@ async function postToGroup(msg) {
   }
 
   try {
-    const sent = await socket.sendMessage(target, { text: msg.text });
+    // Quote the question when we still have it; after a restart we don't, and
+    // the answer goes out as a plain message instead.
+    const quoted = msg.replyToMsgId ? recent.get(msg.replyToMsgId) : undefined;
+    const sent = await socket.sendMessage(target, { text: msg.text }, quoted ? { quoted } : undefined);
     const sentId = sent?.key?.id ?? null;
     if (sentId) selfSent.add(sentId);
     sendsToday++;
@@ -340,6 +363,37 @@ async function handleMessage(msg) {
   // filtered above) are excluded.
   const sender = msg.pushName || msg.key?.participant?.split("@")[0] || null;
 
+  recent.set(msgId, msg);
+  if (recent.size > RECENT_LIMIT) recent.delete(recent.keys().next().value);
+
+  // Questions first, and exclusively: a tagged message never reaches the
+  // booking parser. A reply to the bot is a question too — unless it reads
+  // like a booking change: "cancelled, court flooded" under the bot's
+  // "Got it — TT Sports Friday" must still cancel it.
+  const context = contextInfoOf(msg);
+  const replyToMsgId = context?.stanzaId || null;
+  const replyToBot = !!replyToMsgId && selfSent.has(replyToMsgId);
+  if (looksLikeQuestion(text) || (replyToBot && !looksLikeBooking(text))) {
+    if (ts && ts < Math.floor(Date.now() / 1000) - MAX_QUESTION_AGE_SEC) {
+      console.log(`· stale question from ${sender ?? "unknown"}, not answering: ${truncate(text)}`);
+      return;
+    }
+    console.log(`? question from ${sender ?? "unknown"}: ${truncate(text)}`);
+    const result = await askServer({
+      msgId,
+      chatId,
+      sender,
+      text,
+      replyToMsgId: replyToBot ? replyToMsgId : null,
+      quotedText: replyToBot ? textOf(context?.quotedMessage) : null,
+    });
+    if (result) {
+      console.log(`  ${result.status}${result.reason ? `: ${result.reason}` : ""}`);
+      if (result.queued) drainOutbox();
+    }
+    return;
+  }
+
   if (!looksLikeBooking(text)) {
     if (DEBUG_ALL) console.log(`· ignored: ${truncate(text)}`);
     return;
@@ -355,7 +409,10 @@ async function handleMessage(msg) {
 
 /** Pull plain text out of the various message shapes that carry it. */
 function extractText(msg) {
-  const m = msg.message;
+  return textOf(msg.message);
+}
+
+function textOf(m) {
   if (!m) return "";
   const raw =
     m.conversation ||
@@ -368,6 +425,40 @@ function extractText(msg) {
     m.viewOnceMessage?.message?.extendedTextMessage?.text ||
     "";
   return typeof raw === "string" ? raw.trim() : "";
+}
+
+/** Reply metadata: which message this one quotes, if any. */
+function contextInfoOf(msg) {
+  const m = msg.message;
+  if (!m) return null;
+  const inner = m.ephemeralMessage?.message ?? m.viewOnceMessage?.message ?? m;
+  return (
+    inner.extendedTextMessage?.contextInfo ||
+    inner.imageMessage?.contextInfo ||
+    inner.videoMessage?.contextInfo ||
+    null
+  );
+}
+
+async function askServer(payload) {
+  try {
+    const res = await fetch(`${BADDY_URL}/api/ask/whatsapp`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${INGEST_SECRET}`, "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      console.error(`  ✗ ask HTTP ${res.status}`, body?.error ?? "");
+      seen.delete(payload.msgId);
+      return null;
+    }
+    return body;
+  } catch (err) {
+    console.error("  ✗ ask unreachable:", err.message);
+    seen.delete(payload.msgId);
+    return null;
+  }
 }
 
 async function forward(payload) {

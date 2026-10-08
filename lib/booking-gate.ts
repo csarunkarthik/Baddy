@@ -53,3 +53,19 @@ export function looksLikeBooking(text: string): boolean {
   // today" has no time either), and the parser makes the final call anyway.
   return time && day;
 }
+
+/**
+ * A question for the bot: "@baddy …" anywhere in the message. Typed text, not
+ * a real WhatsApp mention — the bridge is logged in as a person, so tagging
+ * that person can't be told apart from talking to them. The bare word "baddy"
+ * doesn't count: it's slang for badminton and turns up in ordinary chat.
+ *
+ * Replies to a bot message are the other trigger; only the bridge can check
+ * those, since it alone knows which message ids are the bot's.
+ */
+const QUESTION_TAG = /(^|[^\w@])@baddy\b/i;
+
+export function looksLikeQuestion(text: string): boolean {
+  if (!text || text.length > 1000) return false;
+  return QUESTION_TAG.test(text);
+}

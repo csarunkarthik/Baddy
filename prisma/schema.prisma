@@ -150,7 +150,7 @@ model ProcessedMessage {
   chatId    String
   sender    String?
   text      String
-  /// book | cancel | rebook | none | error
+  /// book | cancel | rebook | none | error | question
   action    String
   bookingId Int?
   createdAt DateTime @default(now())
@@ -191,6 +191,9 @@ model OutboxMessage {
   /// WhatsApp id of the posted message, so the bridge never reads its own
   /// output back in and mistakes a reminder for a new booking.
   sentMsgId String?
+  /// WhatsApp id of the message this one answers ("@baddy …" questions), so
+  /// the bridge can post it as a quoted reply. Null for everything else.
+  replyToMsgId String?
 
   @@index([status, createdAt])
 }

@@ -76,7 +76,7 @@ export async function POST(req: Request) {
   const agent = compileStatsAgent(memory ? getCheckpointer() : undefined);
   const config = {
     recursionLimit: RECURSION_LIMIT,
-    configurable: { systemPrompt: await statsSystemPrompt(body.asPlayerId), thread_id: threadId },
+    configurable: { systemPrompt: await statsSystemPrompt({ asPlayerId: body.asPlayerId }), thread_id: threadId },
   };
 
   if (body.stream) {

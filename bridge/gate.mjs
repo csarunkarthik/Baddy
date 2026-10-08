@@ -39,3 +39,11 @@ export function looksLikeBooking(text) {
   // today" has no time either), and the parser makes the final call anyway.
   return time && day;
 }
+
+// KEEP IN SYNC with looksLikeQuestion() in lib/booking-gate.ts.
+const QUESTION_TAG = /(^|[^\w@])@baddy\b/i;
+
+export function looksLikeQuestion(text) {
+  if (!text || text.length > 1000) return false;
+  return QUESTION_TAG.test(text);
+}

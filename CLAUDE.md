@@ -26,6 +26,7 @@ app/                                    Next App Router
                                           GET also runs the reminder tick
     cron/reminders                      Daily backstop for the reminder tick
     ingest/whatsapp                     Group message → booking (bridge calls this)
+    ask/whatsapp                        "@baddy" question / reply-to-bot → queued answer (bridge calls this)
     bridge/heartbeat                    Bridge liveness (POST from bridge, GET for the UI)
     sessions/, sessions/[id]            Sessions: GET by date, POST upsert, DELETE
     sessions/[id]/attendance            Toggle one player's attendance for a session
@@ -49,6 +50,8 @@ lib/
   booking-types.ts                      BookingDTO type alone, so clients don't pull in Prisma
   messages.ts                           WhatsApp copy — shared by the share buttons AND the cron
   outbox.ts                             Queue of messages the bot owes the group; dedupeKey = at-most-once
+  ask.ts                                answerQuestion(): Groq tool loop, shared by the Ask page and @baddy
+  venue-aliases.ts                      Venue nicknames → canonical name; normalizeVenue()
   reminders.ts                          reminderTick(): 3h reminder, Thursday nudge, Monday digest
   whatsapp.ts                           WhatsApp Cloud API sender (same Meta app as the Vault project)
   parse-booking.ts                      Regex gate + Groq intent extraction for group messages
@@ -192,6 +195,18 @@ Read [bridge/README.md](bridge/README.md) before touching any of this.
   bridge restart, which is why they exist.
 - **A booking is only created when venue, date AND time all parse**, with
   confidence ≥ 0.6. A half-parsed booking is worse than none.
+- **Questions (`@baddy …` or a reply to a bot message)** go to
+  `/api/ask/whatsapp`, never to the booking parser — except a reply that
+  passes `looksLikeBooking`, so "cancelled" under the bot's confirmation still
+  cancels. Answers are read-only, use the same tools as the Ask page
+  (`lib/ask.ts` + `lib/baddy-tools.ts`), are capped per day and per sender,
+  and quote the question via `OutboxMessage.replyToMsgId`. `looksLikeQuestion`
+  is mirrored in both gate copies like `looksLikeBooking`.
+- **The chat export is private.** `/private/` (gitignored) holds the WhatsApp
+  export and backtest output; the repo is public. Only reviewed venue
+  nicknames ever leave it. Backtest: `npx tsx --env-file=.env
+  scripts/backtest/run.ts [--parse --max=N]` — read-only, cached, and it eats
+  the shared Groq budget unless `GROQ_API_KEY_EVAL` is set.
 - **Test without WhatsApp:** `cd bridge && npm run simulate`, and `npm test`
   from the repo root for the pure-function suites.
 
