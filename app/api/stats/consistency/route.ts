@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { consistency, toSlots, topLongestStreaks } from "@/lib/attendance-stats";
+import { consistency, toSlots, topCurrentStreaks, topLongestStreaks } from "@/lib/attendance-stats";
 
 // Streaks and consistency. Like /api/stats/attendance this deliberately
 // ignores the stats page's year/month/venue/lastN filter bar: a streak is a
@@ -25,6 +25,7 @@ export async function GET(req: Request) {
   return NextResponse.json({
     totalSessions: slots.length,
     topLongest: topLongestStreaks(rows, 3),
+    topCurrent: topCurrentStreaks(rows, 5),
     players: rows
       .filter((r) => r.attended > 0)
       .sort((a, b) => b.currentStreak - a.currentStreak || b.longestStreak - a.longestStreak || a.name.localeCompare(b.name)),

@@ -20,7 +20,7 @@ import BridgeStatusCard from "./_components/BridgeStatusCard";
 // if a misparse ever needs correcting by hand.
 
 type StreakRow = { id: number; name: string; longestStreak: number; longestTo: string | null; currentStreak: number };
-type ConsistencyResponse = { topLongest: StreakRow[] };
+type ConsistencyResponse = { topLongest: StreakRow[]; topCurrent?: StreakRow[] };
 
 function BookingRow({ booking }: { booking: BookingDTO }) {
   const cancelled = booking.status === "CANCELLED";
@@ -75,6 +75,7 @@ function BookingRow({ booking }: { booking: BookingDTO }) {
 export default function BookingsPage() {
   const [data, setData] = useState<BookingsResponse | null>(null);
   const [streaks, setStreaks] = useState<StreakRow[]>([]);
+  const [current, setCurrent] = useState<StreakRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -90,6 +91,7 @@ export default function BookingsPage() {
     }
     setData(bookingsRes.data);
     setStreaks(streakRes.data?.topLongest ?? []);
+    setCurrent(streakRes.data?.topCurrent ?? []);
     setLoading(false);
   }, []);
 
@@ -203,41 +205,69 @@ export default function BookingsPage() {
               </div>
             )}
 
-            {/* Top 3 longest streaks */}
-            {streaks.length > 0 && (
-              <Card padding="sm" variant="glass" className="space-y-3">
-                <SectionHeader className="px-2 pt-1">
-                  <Flame size={16} className="text-gold" /> Longest streaks
-                </SectionHeader>
-                <div className="space-y-1.5 px-2 pb-1">
-                  {streaks.map((s, i) => (
-                    <div
-                      key={s.id}
-                      className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-surface-hover text-xs"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-base shrink-0">{["🥇", "🥈", "🥉"][i] ?? `${i + 1}.`}</span>
-                        <div className="min-w-0">
-                          <p className="font-bold text-text truncate">{s.name}</p>
-                          {s.longestTo && (
-                            <p className="text-[10px] text-faint">through {formatDayShort(s.longestTo)}</p>
-                          )}
-                        </div>
-                      </div>
-                      <span className="font-bold text-gold shrink-0 whitespace-nowrap flex items-center gap-1">
-                        <Flame size={12} /> {s.longestStreak} in a row
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <p className="text-center text-[10px] text-faint pb-1">
-                  longest unbroken run of sessions attended, all time
-                </p>
-              </Card>
-            )}
+            {/* Who's on a run now, then the all-time records */}
+            <StreakCard
+              title="Current streaks"
+              rows={current}
+              value={(s) => s.currentStreak}
+              footnote="sessions attended in a row, up to the latest one"
+            />
+            <StreakCard
+              title="Longest streaks"
+              rows={streaks}
+              value={(s) => s.longestStreak}
+              detail={(s) => (s.longestTo ? `through ${formatDayShort(s.longestTo)}` : null)}
+              footnote="longest unbroken run of sessions attended, all time"
+            />
           </>
         )}
       </div>
     </div>
+  );
+}
+
+function StreakCard({
+  title,
+  rows,
+  value,
+  detail,
+  footnote,
+}: {
+  title: string;
+  rows: StreakRow[];
+  value: (s: StreakRow) => number;
+  detail?: (s: StreakRow) => string | null;
+  footnote: string;
+}) {
+  if (rows.length === 0) return null;
+  return (
+    <Card padding="sm" variant="glass" className="space-y-3">
+      <SectionHeader className="px-2 pt-1">
+        <Flame size={16} className="text-gold" /> {title}
+      </SectionHeader>
+      <div className="space-y-1.5 px-2 pb-1">
+        {rows.map((s, i) => {
+          const sub = detail?.(s);
+          return (
+            <div
+              key={s.id}
+              className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-surface-hover text-xs"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-base shrink-0">{["🥇", "🥈", "🥉"][i] ?? `${i + 1}.`}</span>
+                <div className="min-w-0">
+                  <p className="font-bold text-text truncate">{s.name}</p>
+                  {sub && <p className="text-[10px] text-faint">{sub}</p>}
+                </div>
+              </div>
+              <span className="font-bold text-gold shrink-0 whitespace-nowrap flex items-center gap-1">
+                <Flame size={12} /> {value(s)} in a row
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-center text-[10px] text-faint pb-1">{footnote}</p>
+    </Card>
   );
 }
