@@ -8,7 +8,11 @@ import { getGender } from "./avatars";
 // constraints (rest eligibility, no forbidden pair, distinct attendees) are
 // validated after; on any failure the caller falls back to the deterministic path.
 
-const MODEL = "llama-3.3-70b-versatile";
+// Was llama-3.3-70b-versatile until Groq retired it: every call then 404'd and,
+// since any failure means "fall back", production silently used the
+// deterministic picker with no error surfaced. Same model as the rest of the app.
+export const AI_FIXTURES_MODEL = "openai/gpt-oss-120b";
+const MODEL = AI_FIXTURES_MODEL;
 const DEFAULT_ELO = 1500;
 // Probability of an all-same-gender match — applied once for all-male and once
 // for all-female, so ~1/8 chance of each (1/4 chance of a same-gender match)
@@ -61,15 +65,26 @@ function pairKey(a: number, b: number) {
   return [a, b].sort((x, y) => x - y).join("-");
 }
 
-/**
- * Ask the model to pick the next match from the rest-eligible pool.
- * Returns a validated Fixture, or null if the AI is unavailable / returns
- * anything that fails the hard constraints (caller should then fall back).
- */
-export async function aiPickNextMatch(input: AiFixtureInput): Promise<Fixture | null> {
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) return null;
+/** Everything computed before the model is called: the prompt, plus the hard constraints to check its answer against. */
+export type AiFixturePrep = {
+  system: string;
+  user: string;
+  pool: number[];
+  mustPlay: number[];
+  mustChooseFrom: number[] | null;
+  genderMode: "all-M" | "all-F" | "normal";
+  genders: Record<number, Gender>;
+  forbiddenPairs: [number, number][];
+  avoidSignatures: string[];
+};
 
+/**
+ * Build the prompt and the constraints for one pick. Null when fewer than four
+ * players are rest-eligible (caller falls back). Pure apart from the random
+ * same-gender roll. Shared by aiPickNextMatch and the LangGraph version
+ * (lib/lg/fixtures-graph.ts).
+ */
+export function prepareAiFixture(input: AiFixtureInput): AiFixturePrep | null {
   const pool = restEligiblePool(input.attendingIds, input.played, input.forbiddenPairs);
   if (pool.length < 4) return null;
 
@@ -192,6 +207,76 @@ export async function aiPickNextMatch(input: AiFixtureInput): Promise<Fixture | 
     (forbiddenLines.length ? `Constraints:\n${forbiddenLines.join("\n")}\n\n` : "") +
     "Pick the 4 players and the 2v2 split now.";
 
+  return {
+    system,
+    user,
+    pool,
+    mustPlay,
+    mustChooseFrom,
+    genderMode,
+    genders,
+    forbiddenPairs: input.forbiddenPairs,
+    avoidSignatures,
+  };
+}
+
+/**
+ * Validate a model's answer against the hard constraints. Returns the fixture,
+ * or the first rule it broke — phrased so it can be fed back to the model as a
+ * correction (the LangGraph version retries with it; aiPickNextMatch just
+ * falls back).
+ */
+export function checkAiFixture(
+  parsed: { teamA?: unknown; teamB?: unknown },
+  prep: AiFixturePrep
+): { ok: true; fixture: Fixture } | { ok: false; violation: string } {
+  const { pool, mustPlay, mustChooseFrom, genderMode, genders, forbiddenPairs, avoidSignatures } = prep;
+  const fail = (violation: string) => ({ ok: false as const, violation });
+
+  const teamA = parsed.teamA;
+  const teamB = parsed.teamB;
+  if (!Array.isArray(teamA) || !Array.isArray(teamB)) return fail("teamA and teamB must both be arrays of player ids.");
+  if (teamA.length !== 2 || teamB.length !== 2) return fail("Each team must have exactly 2 players.");
+
+  const four = [...teamA, ...teamB].map((x) => Number(x));
+  if (four.some((x) => !Number.isInteger(x))) return fail("Use the numeric player ids only.");
+  if (new Set(four).size !== 4) return fail("All four players must be different people.");
+  const notEligible = four.filter((id) => !pool.includes(id));
+  if (notEligible.length) return fail(`Ids ${notEligible.join(", ")} are not in the eligible list.`);
+  if (violatesForbidden(four, forbiddenPairs)) return fail("A forbidden pair is in the same match.");
+  // Rest rotation: every longest-rested player must be seated (or, when there are
+  // more than four of them, all four must come from that group).
+  const benched = mustPlay.filter((id) => !four.includes(id));
+  if (benched.length) return fail(`Must-play players ${benched.join(", ")} were left out.`);
+  if (mustChooseFrom && !four.every((id) => mustChooseFrom.includes(id))) {
+    return fail(`All four must come from the rested group: ${mustChooseFrom.join(", ")}.`);
+  }
+  // Same-gender special: all four must be that gender (else fall back to a normal match).
+  if (genderMode === "all-M" && !four.every((id) => genders[id] === "M")) return fail("This is an all-male match.");
+  if (genderMode === "all-F" && !four.every((id) => genders[id] === "F")) return fail("This is an all-female match.");
+
+  const teamAPair: [number, number] = [four[0], four[1]];
+  const teamBPair: [number, number] = [four[2], four[3]];
+  // Don't reproduce an avoided matchup (e.g. the immediately previous one).
+  if (avoidSignatures.includes(matchupSignature(teamAPair, teamBPair))) {
+    return fail("That exact matchup was just played — choose a different split.");
+  }
+
+  return { ok: true, fixture: { teamA: teamAPair, teamB: teamBPair } };
+}
+
+/**
+ * Ask the model to pick the next match from the rest-eligible pool.
+ * Returns a validated Fixture, or null if the AI is unavailable / returns
+ * anything that fails the hard constraints (caller should then fall back).
+ */
+export async function aiPickNextMatch(input: AiFixtureInput): Promise<Fixture | null> {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) return null;
+
+  const prep = prepareAiFixture(input);
+  if (!prep) return null;
+
   let parsed: { teamA?: unknown; teamB?: unknown };
   try {
     const groq = new Groq({ apiKey });
@@ -200,8 +285,8 @@ export async function aiPickNextMatch(input: AiFixtureInput): Promise<Fixture | 
       temperature: 0.4,
       response_format: { type: "json_object" },
       messages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
+        { role: "system", content: prep.system },
+        { role: "user", content: prep.user },
       ],
     });
     parsed = JSON.parse(res.choices[0]?.message?.content || "{}");
@@ -210,29 +295,7 @@ export async function aiPickNextMatch(input: AiFixtureInput): Promise<Fixture | 
     return null;
   }
 
-  // ---- Validate hard constraints; any failure → null (caller falls back). ----
-  const teamA = parsed.teamA;
-  const teamB = parsed.teamB;
-  if (!Array.isArray(teamA) || !Array.isArray(teamB)) return null;
-  if (teamA.length !== 2 || teamB.length !== 2) return null;
-
-  const four = [...teamA, ...teamB].map((x) => Number(x));
-  if (four.some((x) => !Number.isInteger(x))) return null;
-  if (new Set(four).size !== 4) return null; // all distinct
-  if (four.some((id) => !pool.includes(id))) return null; // rest-eligible only
-  if (violatesForbidden(four, input.forbiddenPairs)) return null;
-  // Rest rotation: every longest-rested player must be seated (or, when there are
-  // more than four of them, all four must come from that group).
-  if (mustPlay.length && !mustPlay.every((id) => four.includes(id))) return null;
-  if (mustChooseFrom && !four.every((id) => mustChooseFrom.includes(id))) return null;
-  // Same-gender special: all four must be that gender (else fall back to a normal match).
-  if (genderMode === "all-M" && !four.every((id) => genders[id] === "M")) return null;
-  if (genderMode === "all-F" && !four.every((id) => genders[id] === "F")) return null;
-
-  const teamAPair: [number, number] = [four[0], four[1]];
-  const teamBPair: [number, number] = [four[2], four[3]];
-  // Don't reproduce an avoided matchup (e.g. the immediately previous one).
-  if (avoidSignatures.includes(matchupSignature(teamAPair, teamBPair))) return null;
-
-  return { teamA: teamAPair, teamB: teamBPair };
+  // Any hard-constraint failure → null (caller falls back).
+  const checked = checkAiFixture(parsed, prep);
+  return checked.ok ? checked.fixture : null;
 }

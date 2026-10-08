@@ -1,0 +1,299 @@
+[
+  {
+    "msgId": "seed-01",
+    "text": "Booked TT Sports for friday 7-9",
+    "sentAt": "2026-09-22T06:00:00Z",
+    "expected": {
+      "action": "book",
+      "date": "2026-09-25",
+      "startTime": "19:00",
+      "venue": "TT Sports"
+    },
+    "reviewed": true
+  },
+  {
+    "msgId": "seed-02",
+    "text": "court booked tmrw 8pm at Smash Arena, 2 courts",
+    "sentAt": "2026-09-22T06:00:00Z",
+    "expected": {
+      "action": "book",
+      "date": "2026-09-23",
+      "startTime": "20:00",
+      "venue": "Smash Arena"
+    },
+    "reviewed": true
+  },
+  {
+    "msgId": "seed-03",
+    "text": "Done! Sunday 6.30am Smash Arena. Bring shuttles",
+    "sentAt": "2026-09-22T06:00:00Z",
+    "expected": {
+      "action": "book",
+      "date": "2026-09-27",
+      "startTime": "06:30",
+      "venue": "Smash Arena"
+    },
+    "reviewed": true
+  },
+  {
+    "msgId": "seed-04",
+    "text": "booked TT sports today 7",
+    "sentAt": "2026-09-22T06:00:00Z",
+    "expected": {
+      "action": "book",
+      "date": "2026-09-22",
+      "startTime": "19:00",
+      "venue": "TT Sports"
+    },
+    "reviewed": true
+  },
+  {
+    "msgId": "seed-05",
+    "text": "Pickleball court booked at Dink Hub saturday 5pm",
+    "sentAt": "2026-09-22T06:00:00Z",
+    "expected": {
+      "action": "book",
+      "date": "2026-09-26",
+      "startTime": "17:00",
+      "venue": "Dink Hub"
+    },
+    "reviewed": true
+  },
+  {
+    "msgId": "seed-06",
+    "text": "Booked for 25 sep 7pm, TT Sports court 3",
+    "sentAt": "2026-09-22T06:00:00Z",
+    "expected": {
+      "action": "book",
+      "date": "2026-09-25",
+      "startTime": "19:00",
+      "venue": "TT Sports"
+    },
+    "reviewed": true
+  },
+  {
+    "msgId": "seed-07",
+    "text": "shall we book friday?",
+    "sentAt": "2026-09-22T06:00:00Z",
+    "expected": {
+      "action": "none"
+    },
+    "reviewed": true
+  },
+  {
+    "msgId": "seed-08",
+    "text": "anyone free sat evening for a game?",
+    "sentAt": "2026-09-22T06:00:00Z",
+    "expected": {
+      "action": "none"
+    },
+    "reviewed": true
+  },
+  {
+    "msgId": "seed-09",
+    "text": "I'll try booking TT sports for thursday, will confirm",
+    "sentAt": "2026-09-22T06:00:00Z",
+    "expected": {
+      "action": "none"
+    },
+    "reviewed": true
+  },
+  {
+    "msgId": "seed-10",
+    "text": "great game yesterday, Arun's smashes were 🔥",
+    "sentAt": "2026-09-22T06:00:00Z",
+    "expected": {
+      "action": "none"
+    },
+    "reviewed": true
+  },
+  {
+    "msgId": "seed-11",
+    "text": "is the court booked for friday?",
+    "sentAt": "2026-09-22T06:00:00Z",
+    "expected": {
+      "action": "none"
+    },
+    "reviewed": true
+  },
+  {
+    "msgId": "seed-12",
+    "text": "Booked a court",
+    "sentAt": "2026-09-22T06:00:00Z",
+    "expected": {
+      "action": "none"
+    },
+    "reviewed": true
+  },
+  {
+    "msgId": "seed-13",
+    "text": "Game in 3 hours — 7pm at TT Sports. See you there 🏸",
+    "sentAt": "2026-09-22T06:00:00Z",
+    "expected": {
+      "action": "none"
+    },
+    "reviewed": true
+  },
+  {
+    "msgId": "seed-14",
+    "text": "Friday's game is cancelled guys, venue closed",
+    "sentAt": "2026-09-22T06:00:00Z",
+    "expected": {
+      "action": "cancel",
+      "date": "2026-09-25"
+    },
+    "reviewed": true
+  },
+  {
+    "msgId": "seed-15",
+    "text": "calling off tmrw, too many people out",
+    "sentAt": "2026-09-22T06:00:00Z",
+    "expected": {
+      "action": "cancel",
+      "date": "2026-09-23"
+    },
+    "reviewed": true
+  },
+  {
+    "msgId": "seed-16",
+    "text": "cancelled",
+    "sentAt": "2026-09-22T06:00:00Z",
+    "expected": {
+      "action": "cancel"
+    },
+    "reviewed": true
+  },
+  {
+    "msgId": "seed-17",
+    "text": "TT Sports cancelled on us for friday, booked Smash Arena instead same time 7pm",
+    "sentAt": "2026-09-22T06:00:00Z",
+    "expected": {
+      "action": "rebook",
+      "date": "2026-09-25",
+      "startTime": "19:00",
+      "venue": "Smash Arena"
+    },
+    "reviewed": true
+  },
+  {
+    "msgId": "seed-18",
+    "text": "monday 8-10 booked @ smash arena",
+    "sentAt": "2026-09-22T06:00:00Z",
+    "expected": {
+      "action": "book",
+      "date": "2026-09-28",
+      "startTime": "20:00",
+      "venue": "Smash Arena"
+    },
+    "reviewed": true
+  },
+  {
+    "msgId": "seed-19",
+    "text": "Can't make it friday, sorry",
+    "sentAt": "2026-09-22T06:00:00Z",
+    "expected": {
+      "action": "none"
+    },
+    "reviewed": true
+  },
+  {
+    "msgId": "seed-20",
+    "text": "Booked day after tomorrow 9pm TT Sports, 1 hour only",
+    "sentAt": "2026-09-22T06:00:00Z",
+    "expected": {
+      "action": "book",
+      "date": "2026-09-24",
+      "startTime": "21:00",
+      "venue": "TT Sports"
+    },
+    "reviewed": true
+  },
+  {
+    "msgId": "absent-01",
+    "text": "I'm out for friday",
+    "sentAt": "2026-09-22T06:00:00Z",
+    "expected": {
+      "action": "none"
+    },
+    "reviewed": true
+  },
+  {
+    "msgId": "absent-02",
+    "text": "count me out tmrw, office stuff",
+    "sentAt": "2026-09-22T06:00:00Z",
+    "expected": {
+      "action": "none"
+    },
+    "reviewed": true
+  },
+  {
+    "msgId": "absent-03",
+    "text": "can't come today, someone take my spot",
+    "sentAt": "2026-09-22T06:00:00Z",
+    "expected": {
+      "action": "none"
+    },
+    "reviewed": true
+  },
+  {
+    "msgId": "absent-04",
+    "text": "skip me for saturday guys",
+    "sentAt": "2026-09-22T06:00:00Z",
+    "expected": {
+      "action": "none"
+    },
+    "reviewed": true
+  },
+  {
+    "msgId": "absent-05",
+    "text": "Can't make it friday, sorry",
+    "sentAt": "2026-09-22T06:00:00Z",
+    "expected": {
+      "action": "none"
+    },
+    "reviewed": true
+  },
+  {
+    "msgId": "absent-c1",
+    "text": "friday is off guys, court not available",
+    "sentAt": "2026-09-22T06:00:00Z",
+    "expected": {
+      "action": "cancel",
+      "date": "2026-09-25"
+    },
+    "reviewed": true
+  },
+  {
+    "msgId": "absent-c2",
+    "text": "we can't play tmrw, cancelled the booking",
+    "sentAt": "2026-09-22T06:00:00Z",
+    "expected": {
+      "action": "cancel",
+      "date": "2026-09-23"
+    },
+    "reviewed": true
+  },
+  {
+    "msgId": "absent-c3",
+    "text": "not enough people for saturday so I've cancelled it",
+    "sentAt": "2026-09-22T06:00:00Z",
+    "expected": {
+      "action": "cancel",
+      "date": "2026-09-26"
+    },
+    "reviewed": true
+  },
+  {
+    "msgId": "amb-01",
+    "text": "friday's off",
+    "sentAt": "2026-09-22T06:00:00Z",
+    "expected": {
+      "action": "cancel",
+      "date": "2026-09-25"
+    },
+    "acceptable": [
+      "none"
+    ],
+    "reviewed": true
+  }
+]

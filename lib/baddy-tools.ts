@@ -98,7 +98,7 @@ export const TOOL_DECLARATIONS: ToolDecl[] = [
       sport: sportEnum,
     },
   }),
-  tool("get_venue_stats", "Stats sliced by venue. With `playerId`: that player's win rate at every venue. Without: overall leaderboard at the given venue.", {
+  tool("get_venue_stats", "Win stats sliced by venue. With `playerId`: that player's win rate at every venue. Without: the win leaderboard at the given venue. `wins`/`played` count MATCHES, not sessions — for who ATTENDS a venue most, use get_leaderboard with metric \"attendance\" and that venue.", {
     type: "object",
     properties: {
       venue: { type: "string", description: "Required when playerId is omitted." },
