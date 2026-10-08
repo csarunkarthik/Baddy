@@ -196,10 +196,12 @@ Read [bridge/README.md](bridge/README.md) before touching any of this.
 - **A booking is only created when venue, date AND time all parse**, with
   confidence ≥ 0.6. A half-parsed booking is worse than none.
 - **LLM fallback:** booking detection and `@baddy` answers call
-  `chatCompletion()` in `lib/llm.ts` — Groq first, then Cerebras
-  (`CEREBRAS_API_KEY`, same gpt-oss-120b model) on any Groq failure. Groq's
-  free 200k tokens/day is easy to exhaust. Bulk scripts (backtest, evals)
-  delete `CEREBRAS_API_KEY` so they can never drain the fallback.
+  `chatCompletion()` in `lib/llm.ts` — Groq gpt-oss-120b, then Qwen on the
+  same Groq key (Groq's daily cap is per model, so it's a separate free
+  allowance), then Cerebras if `CEREBRAS_API_KEY` is set (needs a card).
+  Groq's free 200k tokens/day is easy to exhaust. Bulk scripts set
+  `LLM_ONLY=groq` so they can never drain the fallbacks; `LLM_ONLY=groq-qwen`
+  evaluates the fallback model on purpose.
 - **Questions (`@baddy …` or a reply to a bot message)** go to
   `/api/ask/whatsapp`, never to the booking parser — except a reply that
   passes `looksLikeBooking`, so "cancelled" under the bot's confirmation still

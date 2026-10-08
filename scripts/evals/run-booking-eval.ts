@@ -18,9 +18,10 @@ import { parseBookingMessage, type BookingIntent } from "@/lib/parse-booking";
 import { parseBookingMessageLC } from "@/lib/lc/parse-booking-lc";
 import { withClock } from "./with-clock";
 
-// Never fall back to the production Cerebras key from a bulk run: it exists to
-// keep the live bot answering when Groq is capped, not to absorb eval traffic.
-delete process.env.CEREBRAS_API_KEY;
+// Bulk runs measure one model and must never spill onto the fallbacks the
+// live bot relies on when the primary is capped. Override with LLM_ONLY=…
+// to evaluate a fallback model on purpose.
+process.env.LLM_ONLY ??= "groq";
 type Row = {
   msgId: string;
   text: string;

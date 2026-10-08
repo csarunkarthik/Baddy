@@ -23,6 +23,16 @@ import { looksLikeBooking } from "@/lib/booking-gate";
 // test it against the bridge's mirrored copy.
 export { looksLikeBooking };
 
+/** A reply we can actually parse — anything else goes to the next model. */
+function isJsonReply(res: { choices: { message?: { content?: string | null } }[] }): boolean {
+  try {
+    JSON.parse(res.choices[0]?.message?.content ?? "");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export type BookingIntent =
   | { action: "none"; reason: string }
   | {
@@ -66,7 +76,7 @@ function systemPrompt(knownVenues: string[]): string {
     `For reference, today is ${weekdayOf(today)}, ${today} (IST).`,
     "",
     knownVenues.length > 0
-      ? `Courts this group has played at before (prefer matching one of these exactly, including its spelling): ${knownVenues.join(", ")}.`
+      ? `Courts this group has played at before (if the message names one of these, use its exact spelling): ${knownVenues.join(", ")}. A court NOT on this list is still a court — the group tries new places — so return its name as written.`
       : "No known courts yet.",
     venueAliasPromptLine(),
     "",
@@ -152,7 +162,7 @@ export async function parseBookingMessage(
         { role: "system", content: systemPrompt(knownVenues) },
         { role: "user", content: text },
       ],
-    });
+    }, isJsonReply);
     const content = completion.choices[0]?.message?.content;
     if (!content) return { action: "none", reason: "Empty model response" };
     raw = JSON.parse(content) as RawIntent;

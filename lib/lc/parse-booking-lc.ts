@@ -109,7 +109,7 @@ export async function parseBookingMessageLC(
       weekday: weekdayOf(today),
       venues: [
         knownVenues.length > 0
-          ? `Courts this group has played at before (prefer matching one of these exactly, including its spelling): ${knownVenues.join(", ")}.`
+          ? `Courts this group has played at before (if the message names one of these, use its exact spelling): ${knownVenues.join(", ")}. A court NOT on this list is still a court — the group tries new places — so return its name as written.`
           : "No known courts yet.",
         venueAliasPromptLine(),
       ]
