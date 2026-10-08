@@ -191,6 +191,30 @@ Read [bridge/README.md](bridge/README.md) before touching any of this.
 - **Test without WhatsApp:** `cd bridge && npm run simulate`, and `npm test`
   from the repo root for the pure-function suites.
 
+# AI lab (LangChain / LangGraph)
+
+A learning track; see [AI-LAB.md](AI-LAB.md) for the stage-by-stage map.
+`lib/lc/` (chains), `lib/lg/` (graphs), `lib/rag/` (local embeddings + docs
+retrieval), `scripts/evals/`, `scripts/lg/`, `scripts/rag/`,
+`/api/ai/ask-lg`. None of it is on a production path except the shared
+pieces it reuses (`baddy-tools`, `ai-fixtures`, `parse-booking`).
+
+- **Checkpoint tables live in the `langgraph` Postgres schema**, not `public`.
+  Created by `scripts/lg/setup-checkpointer.ts`; Prisma never sees them.
+- **Groq retires models without warning.** `llama-3.3-70b-versatile` vanished
+  and the fixture picker silently fell back for who knows how long, because
+  every failure means "fall back". If AI output quietly stops, check the model
+  id still exists (`GET https://api.groq.com/openai/v1/models`).
+- **The Groq key's daily token cap (200k) is shared with the live bot** if the
+  same key is used. Long eval/agent sessions can starve the WhatsApp parser.
+- **LangChain doesn't retry Groq per-minute 429s by default** (it matches
+  `/billing/i` in Groq's message as quota exhaustion) — `lib/lc/model.ts`
+  handles it. Use `chatModel()` rather than `new ChatGroq` directly.
+- **RAG is script-only**: local ONNX embeddings (`@xenova/transformers` v2 —
+  v3 has no Intel-mac binary) don't belong in a Vercel function.
+- **Booking eval:** `npm run eval:booking`; label rules in
+  `scripts/evals/LABELING.md`. Change either booking prompt → rerun it.
+
 # Migrations (IMPORTANT — Neon endpoint quirk)
 
 - The Neon hostname has a `c-7` segment (`ep-...c-7.us-east-1.aws.neon.tech`). The `pg` driver connects fine; Prisma's Rust migration engine fails with `P1001` against it. Don't waste time retrying `prisma migrate dev` / `prisma db push`.

@@ -79,6 +79,8 @@ function systemPrompt(knownVenues: string[]): string {
     "Rules:",
     "- Be conservative. If it is not clearly stating a booking that EXISTS, answer \"none\".",
     '- A question ("shall we book friday?", "anyone free sat?") is "none", not "book".',
+    "- One person dropping out (\"can't make it friday\", \"count me out\", \"I'm out tmrw\", \"can't come, take my spot\") is \"none\".",
+    '  "cancel" means the WHOLE group\'s session or court booking is off.',
     "",
     "- day_ref: copy the day the message refers to, VERBATIM and lowercased, as one of:",
     '    "today", "tonight", "tomorrow", "day after tomorrow",',
@@ -111,7 +113,7 @@ function validDate(raw: unknown): string | null {
   return raw;
 }
 
-function validTime(raw: unknown): string | null {
+export function validTime(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
   const m = raw.trim().match(/^(\d{1,2}):(\d{2})$/);
   if (!m) return null;
