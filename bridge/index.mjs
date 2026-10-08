@@ -397,6 +397,7 @@ async function handleMessage(msg) {
       msgId,
       chatId,
       sender,
+      fromMe: !!msg.key?.fromMe,
       text,
       replyToMsgId: replyToBot ? replyToMsgId : null,
       quotedText: replyToBot ? textOf(context?.quotedMessage) : null,
@@ -415,7 +416,16 @@ async function handleMessage(msg) {
 
   console.log(`→ candidate from ${sender ?? "unknown"}: ${truncate(text)}`);
 
-  const result = await forward({ msgId, chatId, sender, text, sentAt: ts ? new Date(ts * 1000).toISOString() : null });
+  const result = await forward({
+    msgId,
+    chatId,
+    sender,
+    // The owner's own messages carry no usable name; the server maps them to
+    // the owner's roster player.
+    fromMe: !!msg.key?.fromMe,
+    text,
+    sentAt: ts ? new Date(ts * 1000).toISOString() : null,
+  });
   if (result) {
     console.log(`  ${result.status}${result.reason ? `: ${result.reason}` : ""}${result.booking ? ` → booking #${result.booking.id} ${result.booking.venue} ${result.booking.startTime}` : ""}`);
   }

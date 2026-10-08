@@ -6,6 +6,7 @@ import { bookingConfirmation, cancellationConfirmation, rebookNotice } from "@/l
 import { enqueue, suppress } from "@/lib/outbox";
 import { describeIntent, looksLikeBooking, parseBookingMessage } from "@/lib/parse-booking";
 import { normalizeVenue } from "@/lib/venue-aliases";
+import { resolveSender } from "@/lib/whatsapp-senders";
 
 // Where WhatsApp group messages become bookings.
 //
@@ -35,7 +36,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let body: { msgId?: string; chatId?: string; sender?: string; text?: string; sentAt?: string };
+  let body: { msgId?: string; chatId?: string; sender?: string; fromMe?: boolean; text?: string; sentAt?: string };
   try {
     body = await req.json();
   } catch {
@@ -46,6 +47,7 @@ export async function POST(req: Request) {
   const chatId = typeof body.chatId === "string" ? body.chatId.slice(0, 200) : "";
   const text = typeof body.text === "string" ? body.text.trim() : "";
   const sender = typeof body.sender === "string" ? body.sender.slice(0, 120) : null;
+  const fromMe = body.fromMe === true;
 
   if (!msgId || !chatId || !text) {
     return NextResponse.json({ error: "msgId, chatId and text are required" }, { status: 400 });
@@ -95,12 +97,20 @@ export async function POST(req: Request) {
 
   // 4. Act.
   if (intent.action === "cancel") {
-    return handleCancel({ msgId, chatId, sender, text, intent });
+    return handleCancel({ msgId, chatId, sender, player: await senderName(sender, fromMe), text, intent });
   }
-  return handleBook({ msgId, chatId, sender, text, intent });
+  return handleBook({ msgId, chatId, sender, player: await senderName(sender, fromMe), text, intent });
 }
 
-type Ctx = { msgId: string; chatId: string; sender: string | null; text: string };
+/**
+ * `sender` is the raw WhatsApp name, kept as the record of who wrote the
+ * message; `player` is the roster name shown as "booked by".
+ */
+type Ctx = { msgId: string; chatId: string; sender: string | null; player: string | null; text: string };
+
+async function senderName(sender: string | null, fromMe: boolean): Promise<string | null> {
+  return (await resolveSender({ sender, fromMe })).name;
+}
 
 async function handleBook(
   ctx: Ctx & { intent: Extract<Awaited<ReturnType<typeof parseBookingMessage>>, { action: "book" | "rebook" }> }
@@ -142,7 +152,7 @@ async function handleBook(
       ...(intent.durationMins !== null ? { durationMins: intent.durationMins } : {}),
       ...(intent.courts !== null ? { courts: intent.courts } : {}),
       note: intent.note,
-      bookedBy: ctx.sender,
+      bookedBy: ctx.player,
       replacesId,
       source: "whatsapp",
       sourceMsgId: ctx.msgId,
@@ -198,7 +208,7 @@ async function handleCancel(
       data: {
         status: "CANCELLED",
         cancelledAt: new Date(),
-        cancelReason: intent.reason ?? `Cancelled in WhatsApp${ctx.sender ? ` by ${ctx.sender}` : ""}`,
+        cancelReason: intent.reason ?? `Cancelled in WhatsApp${ctx.player ? ` by ${ctx.player}` : ""}`,
       },
     })
   );

@@ -6,6 +6,7 @@ import { istInstant, todayIST } from "@/lib/ist";
 import { answerMessage, answerUnavailable } from "@/lib/messages";
 import { enqueue } from "@/lib/outbox";
 import { statsSystemPrompt } from "@/lib/stats-system-prompt";
+import { resolveSender } from "@/lib/whatsapp-senders";
 
 // "@baddy …" questions from the WhatsApp group, and replies to a bot message.
 //
@@ -34,6 +35,8 @@ type Body = {
   msgId?: string;
   chatId?: string;
   sender?: string;
+  /** The bridge owner's own message — WhatsApp gives it no usable name. */
+  fromMe?: boolean;
   text?: string;
   /** Set when the question is a swipe-reply: the id of the message replied to. */
   replyToMsgId?: string;
@@ -83,7 +86,13 @@ export async function POST(req: Request) {
       content: replyToBot && quotedText ? `(Replying to your earlier message: "${quotedText}")\n\n${question}` : question,
     },
   ];
-  const systemPrompt = await statsSystemPrompt({ askerName: sender, whatsapp: true });
+  // "my attendance" needs the roster player, not the WhatsApp name.
+  const asker = await resolveSender({ sender, fromMe: body.fromMe === true });
+  const systemPrompt = await statsSystemPrompt({
+    asPlayerId: asker.playerId ?? undefined,
+    askerName: asker.playerId ? null : asker.name,
+    whatsapp: true,
+  });
 
   if (dryRun) {
     const result = await answerQuestion(turns, systemPrompt);
