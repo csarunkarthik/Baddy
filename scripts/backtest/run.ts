@@ -108,6 +108,13 @@ async function main() {
     if (calls >= MAX) break;
     calls++;
     const intent = await withClock(m.sentAt, () => parseBookingMessage(m.text, knownVenues));
+    // The parser swallows API failures into "none / Parse failed". Never cache
+    // those — and stop: it's almost always the daily token cap, and every
+    // further call would just fail (and starve the live parser) too.
+    if (intent.action === "none" && intent.reason === "Parse failed") {
+      console.error("Groq call failed (likely the daily token cap) — stopping. Rerun later to continue.");
+      break;
+    }
     cache[m.id] = { text: m.text, intent };
     fs.writeFileSync(CACHE, JSON.stringify(cache, null, 1));
     // Stay well under Groq's 8k tokens/minute.

@@ -9,7 +9,22 @@
 // Import-free so scripts and the parser prompt can both use it.
 
 /** Canonical venue → nicknames people use for it. */
-export const VENUE_ALIASES: Record<string, string[]> = {};
+export const VENUE_ALIASES: Record<string, string[]> = {
+  "TT Sports": ["TT", "TT Sports Academy"],
+  Lara: ["Lara Sports", "Lara Sports Academy"],
+  "V Square": ["VSquare", "V Square Badminton Club"],
+  "Super Kings": ["SK", "Superkings", "Super Kings Academy", "Super Kings Badminton Academy"],
+  "M square": ["MSquare", "M Sq"],
+  Smashers: ["Smasher", "Smasher 5.0", "Smasher 5.0 Sports Academy"],
+  PitchnPlay: ["Pitch n Play", "Pitch and Play"],
+  Picklepad: ["Pickle Pad"],
+  Meeyazh: ["Meeyazh Sports Academy"],
+  Shuttler: ["Shuttlers"],
+  Space: ["Space Badminton Academy"],
+  Blaze: ["Blaze Badminton Academy"],
+  laska: ["Laska Badminton"],
+  Gcube: ["G Cube"],
+};
 
 const key = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 

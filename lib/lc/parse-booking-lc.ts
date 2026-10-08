@@ -17,6 +17,7 @@
 // was actually sent.
 
 import { z } from "zod";
+import { venueAliasPromptLine } from "@/lib/venue-aliases";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { chatModel } from "@/lib/lc/model";
 import { addDays, extractDayRef, resolveDayRef, todayIST, weekdayOf } from "@/lib/ist";
@@ -106,10 +107,14 @@ export async function parseBookingMessageLC(
       message: text,
       today,
       weekday: weekdayOf(today),
-      venues:
+      venues: [
         knownVenues.length > 0
           ? `Courts this group has played at before (prefer matching one of these exactly, including its spelling): ${knownVenues.join(", ")}.`
           : "No known courts yet.",
+        venueAliasPromptLine(),
+      ]
+        .filter(Boolean)
+        .join("\n"),
     });
   } catch (err) {
     // Same contract as the original: never throw, a misunderstood message is a no-op.

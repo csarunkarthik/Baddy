@@ -13,6 +13,7 @@
 // pseudo-syntax and Llama 4 Scout stringified numbers.
 
 import Groq from "groq-sdk";
+import { venueAliasPromptLine } from "@/lib/venue-aliases";
 import { addDays, extractDayRef, formatDayShort, resolveDayRef, todayIST, weekdayOf } from "@/lib/ist";
 import { looksLikeBooking } from "@/lib/booking-gate";
 
@@ -68,6 +69,7 @@ function systemPrompt(knownVenues: string[]): string {
     knownVenues.length > 0
       ? `Courts this group has played at before (prefer matching one of these exactly, including its spelling): ${knownVenues.join(", ")}.`
       : "No known courts yet.",
+    venueAliasPromptLine(),
     "",
     "Classify the message into one action:",
     '  "book"   — a new court has been booked/reserved.',

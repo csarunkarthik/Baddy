@@ -5,6 +5,7 @@ import { serializeBooking } from "@/lib/bookings";
 import { bookingConfirmation, cancellationConfirmation, rebookNotice } from "@/lib/messages";
 import { enqueue, suppress } from "@/lib/outbox";
 import { describeIntent, looksLikeBooking, parseBookingMessage } from "@/lib/parse-booking";
+import { normalizeVenue } from "@/lib/venue-aliases";
 
 // Where WhatsApp group messages become bookings.
 //
@@ -71,7 +72,13 @@ export async function POST(req: Request) {
     orderBy: { _count: { venue: "desc" } },
     take: 15,
   });
-  const intent = await parseBookingMessage(text, venueRows.map((v) => v.venue));
+  const knownVenues = venueRows.map((v) => v.venue);
+  const intent = await parseBookingMessage(text, knownVenues);
+
+  // One name per court: "TT", "TT Sports Academy" and "tt sports" all become
+  // "TT Sports", so the Book tab and stats don't split, and "cancel TT friday"
+  // finds the "TT Sports" booking it means.
+  if (intent.action !== "none" && intent.venue) intent.venue = normalizeVenue(intent.venue, knownVenues);
 
   if (intent.action === "none") {
     await record(msgId, chatId, sender, text, "none", null);
