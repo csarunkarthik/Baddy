@@ -28,6 +28,7 @@ import { noBookingNudge, reminderMessage, weeklyStatsMessage } from "@/lib/messa
 import { enqueue, isQueued } from "@/lib/outbox";
 import {
   consistency,
+  missedLately,
   reliability,
   toSlots,
   topCurrentStreaks,
@@ -169,9 +170,6 @@ async function buildWeeklyStats(today: string): Promise<string> {
     avgTurnout: turnout(slots, players).avgTurnout,
     topStreaks: topLongestStreaks(rows, 3),
     currentStreaks: topCurrentStreaks(rows, 3).map((r) => ({ name: r.name, streak: r.currentStreak })),
-    mia: reliability(slots, players)
-      .filter((r) => r.lastSeen !== null && (r.sessionsAgo ?? 0) >= 3)
-      .sort((a, b) => (b.sessionsAgo ?? 0) - (a.sessionsAgo ?? 0))
-      .map((r) => ({ name: r.name, sessionsAgo: r.sessionsAgo ?? 0 })),
+    mia: missedLately(reliability(slots, players)).map((r) => ({ name: r.name, sessionsAgo: r.sessionsAgo ?? 0 })),
   });
 }

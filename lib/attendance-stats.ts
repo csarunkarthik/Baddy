@@ -128,6 +128,17 @@ export function topLongestStreaks(rows: ConsistencyRow[], n = 3): ConsistencyRow
     .slice(0, n);
 }
 
+/**
+ * Regulars who skipped the latest session(s) — the Monday "missed lately"
+ * line. Deliberately not the MIA list: someone gone for months isn't news,
+ * a 4-of-5 regular sitting out last weekend is. Most recent absence first.
+ */
+export function missedLately(rows: ReliabilityRow[], minLast10Pct = 50): ReliabilityRow[] {
+  return rows
+    .filter((r) => (r.sessionsAgo ?? 0) >= 1 && r.last10Pct >= minLast10Pct)
+    .sort((a, b) => (a.sessionsAgo ?? 0) - (b.sessionsAgo ?? 0) || b.last10Pct - a.last10Pct);
+}
+
 /** Top N by the streak still running as of the latest session. */
 export function topCurrentStreaks(rows: ConsistencyRow[], n = 5): ConsistencyRow[] {
   return rows

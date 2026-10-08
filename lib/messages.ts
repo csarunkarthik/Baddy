@@ -217,7 +217,7 @@ export function weeklyStatsMessage(opts: {
   }
 
   if (opts.mia.length > 0) {
-    lines.push("", `👻 Missed lately: ${opts.mia.slice(0, 4).map((m) => m.name).join(", ")}`);
+    lines.push("", `👀 Missed lately: ${opts.mia.slice(0, 5).map((m) => m.name).join(", ")}`);
   }
 
   return signed(lines);
