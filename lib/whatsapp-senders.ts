@@ -25,6 +25,7 @@ export const SENDER_ALIASES: Record<string, number> = {
   "Hariharan Bamini": 9, // Hari
   Bamini: 8, // Bams 💣
   Dexter: 19, // Dex
+  "Arun U": 3, // Thalapathy
 };
 
 /** Lowercase letters/digits only, so emoji and punctuation don't matter. */
