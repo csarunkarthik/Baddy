@@ -13,6 +13,11 @@ Description=Baddy WhatsApp bridge
 Documentation=https://github.com/csarunkarthik/Baddy/blob/main/bridge/README.md
 After=network-online.target
 Wants=network-online.target
+# Don't let a crash-loop hammer WhatsApp's servers — that is exactly the
+# pattern that gets an account flagged. (These belong in [Unit]; under
+# [Service] modern systemd ignores them.)
+StartLimitIntervalSec=300
+StartLimitBurst=5
 
 [Service]
 Type=simple
@@ -24,11 +29,6 @@ ExecStart=/usr/bin/node index.mjs
 # dead bridge means bookings silently stop being detected.
 Restart=always
 RestartSec=10
-
-# Don't let a crash-loop hammer WhatsApp's servers — that is exactly the
-# pattern that gets an account flagged.
-StartLimitIntervalSec=300
-StartLimitBurst=5
 
 StandardOutput=journal
 StandardError=journal
