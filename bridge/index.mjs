@@ -231,14 +231,20 @@ async function verifyGroup(sock) {
       (meta.participants ?? []).some((p) =>
         [p.id, p.jid, p.lid].some((jid) => jid && mine.includes(userPart(jid))),
       );
-    if (!member) return `NOT a member of "${meta.subject}"`;
-    return `watching "${meta.subject}" (${meta.participants?.length ?? "?"} members)`;
+    if (!member) return (lastGroupNote = `NOT a member of "${meta.subject}"`);
+    return (lastGroupNote = `watching "${meta.subject}" (${meta.participants?.length ?? "?"} members)`);
   } catch (err) {
+    // A timeout is the network blinking (it coincides with 408 disconnects
+    // and failed outbox polls), not a group problem — keep the last answer
+    // rather than showing "offline" until the next heartbeat.
+    if (/timed? ?out/i.test(err.message ?? "") && lastGroupNote) return lastGroupNote;
     // A 403/404 here almost always means removed from the group or a bad id.
     return `cannot read group: ${err.message}`;
   }
 }
 
+/** Last definite answer from verifyGroup, reused when a check times out. */
+let lastGroupNote = null;
 let outboxTimer = null;
 let draining = false;
 let drainAgain = false;
