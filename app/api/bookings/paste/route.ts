@@ -31,8 +31,13 @@ export async function POST(req: Request) {
   // and case aside) into the msgId, and ingest's dedupe does the rest.
   const digest = createHash("sha256").update(text.toLowerCase().replace(/\s+/g, " ")).digest("hex").slice(0, 24);
 
+  const msgId = `paste:${digest}`;
+  // Only a paste that DID something should block a repeat. One the parser
+  // turned down must be retryable — after a parser fix, or with more detail.
+  await prisma.processedMessage.deleteMany({ where: { msgId, action: "none" } });
+
   const result = await ingestMessage({
-    msgId: `paste:${digest}`,
+    msgId,
     chatId: "app-paste",
     sender: player,
     player,
