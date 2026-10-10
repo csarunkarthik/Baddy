@@ -161,7 +161,10 @@
     "expected": {
       "action": "cancel"
     },
-    "reviewed": true
+    "reviewed": true,
+    "acceptable": [
+      "none"
+    ]
   },
   {
     "msgId": "seed-17",
@@ -294,6 +297,39 @@
     "acceptable": [
       "none"
     ],
+    "reviewed": true
+  },
+  {
+    "msgId": "app-01",
+    "text": "Join karthik's badminton game\n🔗 https://open.turftown.in/game/000000000000\n\n⏳ 6 pm – 9 pm\n🗓️ Sat, 26 Sep\n📍 Ruckus Herkley AC Court, Ekkatuthangal",
+    "sentAt": "2026-09-22T06:00:00Z",
+    "expected": {
+      "action": "book",
+      "date": "2026-09-26",
+      "startTime": "18:00",
+      "venue": "Ruckus Herkley AC Court"
+    },
+    "reviewed": true
+  },
+  {
+    "msgId": "app-02",
+    "text": "Badminton activity confirmed on 25th September, 6:00 - 8:00 PM. Hosted at Court 3, V Square Badminton Club,  V Square Badminton Club. Are you game? RSVP @ http://go.playo.app/PLAYOO/000000",
+    "sentAt": "2026-09-22T06:00:00Z",
+    "expected": {
+      "action": "book",
+      "date": "2026-09-25",
+      "startTime": "18:00",
+      "venue": "V Square"
+    },
+    "reviewed": true
+  },
+  {
+    "msgId": "app-03",
+    "text": "should I create a turftown game for sat 6pm?",
+    "sentAt": "2026-09-22T06:00:00Z",
+    "expected": {
+      "action": "none"
+    },
     "reviewed": true
   }
 ]

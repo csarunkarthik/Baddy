@@ -17,6 +17,7 @@ import path from "node:path";
 import { parseBookingMessage, type BookingIntent } from "@/lib/parse-booking";
 import { parseBookingMessageLC } from "@/lib/lc/parse-booking-lc";
 import { withClock } from "./with-clock";
+import { normalizeVenue } from "@/lib/venue-aliases";
 
 // Bulk runs measure one model and must never spill onto the fallbacks the
 // live bot relies on when the primary is capped. Override with LLM_ONLY=…
@@ -63,7 +64,11 @@ function judge(exp: Row["expected"], got: BookingIntent, acceptable: string[] = 
     const wrong: string[] = [];
     if (exp.date && got.date !== exp.date) wrong.push(`date ${got.date}≠${exp.date}`);
     if (exp.startTime && got.startTime !== exp.startTime) wrong.push(`time ${got.startTime}≠${exp.startTime}`);
-    if (exp.venue && norm(got.venue) !== norm(exp.venue)) wrong.push(`venue ${got.venue}≠${exp.venue}`);
+    // Compare as production stores them: ingest maps nicknames to one name
+    // ("V Square Badminton Club" → "V Square") before creating the booking.
+    if (exp.venue && norm(normalizeVenue(got.venue)) !== norm(normalizeVenue(exp.venue))) {
+      wrong.push(`venue ${got.venue}≠${exp.venue}`);
+    }
     // Right action, wrong details = a real booking row with bad data. Counts as false.
     if (wrong.length) return { ok: false, falseBooking: true, error: false, why: wrong.join(", ") };
   }

@@ -26,6 +26,9 @@ Hand-written rows use a fixed `sentAt` of Tue 22 Sep 2026 (same as
 |---|---|
 | States a court booking that exists, with date, time and venue | `book` (all three fields filled) |
 | Booking missing any of date / time / venue ("Booked a court") | `none` — a half-parsed booking is worse than none |
+| A booking-app game post — "Join X's badminton game" + TurfTown/Playo/Hudle link, "Badminton activity confirmed on …" | `book`: hosting a game on a booking app means the court is booked. Venue is the court name without the area. Strip real link ids from rows (the repo is public). |
+| Only *considering* a booking-app game ("should I create a turftown game for sat?") | `none` |
+| A bare "cancelled" with no subject, day or venue | `cancel`, with `none` acceptable — on its own it may not even be about the court, and missing a cancel is safer than a false one |
 | The original slot fell through **and** a replacement is named | `rebook` with the replacement's fields |
 | The whole group's session or court is off | `cancel`, with `date` if the message says which day |
 | A cancel with no day ("cancelled") | `cancel`, no `date` — ingest takes it to mean the next booking |
