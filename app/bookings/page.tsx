@@ -12,12 +12,13 @@ import EmptyState from "../components/ui/EmptyState";
 import SectionHeader from "../components/ui/SectionHeader";
 import Skeleton from "../components/ui/Skeleton";
 import BridgeStatusCard from "./_components/BridgeStatusCard";
+import PasteBookingCard from "./_components/PasteBookingCard";
 
 // Read-only by design. Bookings are created, cancelled and rebooked entirely
 // from the WhatsApp group — this page exists so anyone can check where and when
-// they're playing without scrolling back through the chat. There are
-// deliberately no forms or buttons here; the API still supports manual edits
-// if a misparse ever needs correcting by hand.
+// they're playing without scrolling back through the chat. The one exception
+// is a collapsed "paste a missed booking" box, for when the bridge was asleep:
+// it runs the pasted message through the same pipeline as the bot.
 
 type StreakRow = { id: number; name: string; longestStreak: number; longestTo: string | null; currentStreak: number };
 type ConsistencyResponse = { topLongest: StreakRow[]; topCurrent?: StreakRow[] };
@@ -144,6 +145,7 @@ export default function BookingsPage() {
         ) : (
           <>
             <BridgeStatusCard />
+            <PasteBookingCard onAdded={load} />
 
             {/* This week — the "is Friday booked?" answer */}
             <Card variant="glass" className="space-y-3">
