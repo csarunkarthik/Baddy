@@ -168,8 +168,8 @@ async function buildWeeklyStats(today: string): Promise<string> {
     sessionsThisMonth,
     lastWeekSessions,
     avgTurnout: turnout(slots, players).avgTurnout,
-    topStreaks: topLongestStreaks(rows, 3),
-    currentStreaks: topCurrentStreaks(rows, 3).map((r) => ({ name: r.name, streak: r.currentStreak })),
+    topStreaks: topLongestStreaks(rows, 5),
+    currentStreaks: topCurrentStreaks(rows, 5).map((r) => ({ name: r.name, streak: r.currentStreak })),
     mia: missedLately(reliability(slots, players)).map((r) => ({ name: r.name, sessionsAgo: r.sessionsAgo ?? 0 })),
   });
 }

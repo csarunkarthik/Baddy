@@ -223,14 +223,14 @@ export function weeklyStatsMessage(opts: {
 
   if (opts.currentStreaks.length > 0) {
     lines.push("", "🔥 On a run:");
-    for (const s of opts.currentStreaks.slice(0, 3)) {
+    for (const s of opts.currentStreaks.slice(0, 5)) {
       lines.push(`• ${s.name} — ${s.streak} in a row`);
     }
   }
 
   if (opts.topStreaks.length > 0) {
     lines.push("", "🏆 Longest ever:");
-    opts.topStreaks.slice(0, 3).forEach((s, i) => {
+    opts.topStreaks.slice(0, 5).forEach((s, i) => {
       lines.push(`${["🥇", "🥈", "🥉"][i] ?? `${i + 1}.`} ${s.name} — ${s.longestStreak}`);
     });
   }
