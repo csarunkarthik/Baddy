@@ -348,9 +348,12 @@ async function postToGroup(msg) {
     const sent = await socket.sendMessage(target, { text: msg.text }, { messageId, ...(quoted ? { quoted } : {}) });
     const sentId = sent?.key?.id ?? messageId;
     selfSent.add(sentId);
-    sendsToday++;
-    lastSendAt = Date.now();
-    console.log(`← posted ${msg.dedupeKey} (${sendsToday}/${MAX_SENDS_PER_DAY} today)`);
+    // Only group posts are rationed; the self-chat reaches nobody else.
+    if (target === GROUP_ID) {
+      sendsToday++;
+      lastSendAt = Date.now();
+    }
+    console.log(`← posted ${msg.dedupeKey}${target === GROUP_ID ? ` (${sendsToday}/${MAX_SENDS_PER_DAY} today)` : " (self-chat)"}`);
     await ackOutbox(msg.id, true, sentId, null);
   } catch (err) {
     console.error(`[outbox] send failed for ${msg.dedupeKey}:`, err.message);
