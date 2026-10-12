@@ -220,6 +220,24 @@ Read [bridge/README.md](bridge/README.md) before touching any of this.
   nicknames ever leave it. Backtest: `npx tsx --env-file=.env
   scripts/backtest/run.ts [--parse --max=N]` — read-only, cached, and it eats
   the shared Groq budget unless `GROQ_API_KEY_EVAL` is set.
+- **Where it runs (since 2026-10-12):** Oracle Always Free VM, **Oracle Linux 9
+  on VM.Standard.E2.1.Micro** (x86, ~500 MB RAM), Hyderabad, `opc@129.225.97.149`,
+  key `~/.ssh/oracle-baddy.key`. Code lives in `~/baddy-bridge` (just the
+  `bridge/` folder, pulled as a GitHub tarball — no git on the box), service
+  `baddy-bridge` (unit edited for `User=opc`, `/usr/local/bin/node`). Node 22 is
+  installed from the nodejs.org tarball, **not dnf**: `dnf` metadata refreshes
+  thrash this box until SSH times out, so `dnf-makecache.timer` is masked.
+  Deploy a bridge change:
+  ```
+  ssh -i ~/.ssh/oracle-baddy.key opc@129.225.97.149 'cd ~/baddy-bridge &&
+    curl -fsSL https://codeload.github.com/csarunkarthik/Baddy/tar.gz/refs/heads/main |
+    tar -xz --strip-components=2 Baddy-main/bridge && npm ci --omit=dev --no-audit --no-fund &&
+    sudo systemctl restart baddy-bridge'
+  ```
+  The tarball never contains `.env` or `auth/`, so a deploy can't disturb them.
+  Logs: `sudo journalctl -u baddy-bridge -f`. The old Mac LaunchAgent is parked
+  as `~/Library/LaunchAgents/com.baddy.bridge.plist.disabled` — never run both:
+  two bridges post every outbox message twice.
 - **Test without WhatsApp:** `cd bridge && npm run simulate`, and `npm test`
   from the repo root for the pure-function suites.
 
