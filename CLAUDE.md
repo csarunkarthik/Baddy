@@ -209,6 +209,12 @@ Read [bridge/README.md](bridge/README.md) before touching any of this.
   (`lib/ask.ts` + `lib/baddy-tools.ts`), are capped per day and per sender,
   and quote the question via `OutboxMessage.replyToMsgId`. `looksLikeQuestion`
   is mirrored in both gate copies like `looksLikeBooking`.
+- **Self-chat (`WATCH_SELF_CHAT=true`):** the owner's "message yourself" chat
+  (matched by PN *and* LID jid) takes `@baddy` questions too — questions only,
+  answers go back there via `OutboxMessage.chatId`, exempt from the caps,
+  recorded as action `question-self`. Every bot post carries `🤖 _Baddy bot`;
+  the bridge drops any message containing it, because in the self-chat every
+  message is fromMe and the footer itself says "tag @baddy".
 - **The chat export is private.** `/private/` (gitignored) holds the WhatsApp
   export and backtest output; the repo is public. Only reviewed venue
   nicknames ever leave it. Backtest: `npx tsx --env-file=.env

@@ -66,6 +66,11 @@ Anyone in the group can ask about stats or bookings:
 
 Every bot message ends with a one-line footer saying exactly this.
 
+**Privately, in your own chat.** With `WATCH_SELF_CHAT=true` the bridge also
+answers `@baddy` questions in the account owner's "message yourself" chat, and
+replies there. Nothing else in that chat is read, it's never parsed for
+bookings, and those answers aren't rationed — nobody else receives them.
+
 Answers are **read-only** — the bot never books or cancels because someone
 asked it to, and a tagged message never reaches the booking parser, so
 "@baddy is friday's game at 7?" can't create a booking. The answer quotes the

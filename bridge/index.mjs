@@ -8,7 +8,8 @@
 // Sending is what WhatsApp's anti-spam actually looks for, so every send is
 // deliberately rationed:
 //
-//   * one destination only — GROUP_ID, never a DM, never another group
+//   * two destinations only — GROUP_ID, plus (if WATCH_SELF_CHAT) the
+//     owner's own "message yourself" chat. Never a DM, never another group.
 //   * MAX_SENDS_PER_DAY hard ceiling, counted in-process
 //   * MIN_SEND_GAP_MS between posts, plus random jitter so it doesn't tick
 //     like a metronome
@@ -60,6 +61,14 @@ loadEnvFile();
 const BADDY_URL = (process.env.BADDY_URL || "").replace(/\/$/, "");
 const INGEST_SECRET = process.env.INGEST_SECRET || "";
 const GROUP_ID = process.env.GROUP_ID || "";
+/**
+ * Also watch the owner's "message yourself" chat, for private "@baddy"
+ * questions. Questions only — nothing there is ever parsed as a booking — and
+ * nobody else can see the answers, so they don't count toward the send cap.
+ */
+const WATCH_SELF_CHAT = process.env.WATCH_SELF_CHAT === "true";
+/** Every bot post ends with this; a message carrying it is never input. */
+const BOT_MARK = "🤖 _Baddy bot";
 const DEBUG_ALL = process.env.DEBUG_ALL_MESSAGES === "true";
 
 /** `npm run login` — pair the device, confirm it worked, and exit. */
@@ -280,6 +289,12 @@ async function drainOutbox() {
     for (const id of selfMsgIds) selfSent.add(id);
 
     for (const msg of messages) {
+      // Answers in the owner's own chat reach nobody else — no spam signal,
+      // so no ration.
+      if (msg.chatId && isSelfChat(msg.chatId)) {
+        await postToGroup(msg);
+        continue;
+      }
       if (!withinSendBudget()) {
         console.warn(`[outbox] daily send cap (${MAX_SENDS_PER_DAY}) reached — holding ${messages.length} message(s)`);
         break;
@@ -314,9 +329,10 @@ async function waitForSendGap() {
 
 async function postToGroup(msg) {
   const target = msg.chatId || GROUP_ID;
-  // Belt and braces: this bot only ever posts to its one configured group.
-  if (target !== GROUP_ID) {
-    await ackOutbox(msg.id, false, null, `refused: target ${target} is not GROUP_ID`);
+  // Belt and braces: this bot only ever posts to its group, or the owner's
+  // own chat when that's enabled.
+  if (target !== GROUP_ID && !isSelfChat(target)) {
+    await ackOutbox(msg.id, false, null, `refused: target ${target} is neither GROUP_ID nor the self-chat`);
     return;
   }
 
@@ -360,7 +376,8 @@ async function handleMessage(msg) {
   const chatId = msg.key?.remoteJid;
   const msgId = msg.key?.id;
   if (!chatId || !msgId) return;
-  if (GROUP_ID && chatId !== GROUP_ID) return;
+  const selfChat = isSelfChat(chatId);
+  if (chatId !== GROUP_ID && !selfChat) return;
   if (seen.has(msgId)) return;
   // Never parse our own posts: a reminder reads exactly like a booking.
   if (selfSent.has(msgId)) return;
@@ -373,6 +390,10 @@ async function handleMessage(msg) {
 
   const text = extractText(msg);
   if (!text) return;
+  // Second guard against reading our own output, on top of selfSent: in the
+  // self-chat every message is fromMe, and each bot answer ends with "tag
+  // @baddy…" — read back in, it would answer itself forever.
+  if (text.includes(BOT_MARK)) return;
 
   seen.add(msgId);
   messagesSeen++;
@@ -402,6 +423,7 @@ async function handleMessage(msg) {
     const result = await askServer({
       msgId,
       chatId,
+      selfChat,
       sender,
       fromMe: !!msg.key?.fromMe,
       text,
@@ -414,6 +436,9 @@ async function handleMessage(msg) {
     }
     return;
   }
+
+  // The self-chat is for questions only; bookings come from the group.
+  if (selfChat) return;
 
   if (!looksLikeBooking(text)) {
     if (DEBUG_ALL) console.log(`· ignored: ${truncate(text)}`);
@@ -455,6 +480,19 @@ function textOf(m) {
     m.viewOnceMessage?.message?.extendedTextMessage?.text ||
     "";
   return typeof raw === "string" ? raw.trim() : "";
+}
+
+/** "919840403402:31@s.whatsapp.net" → "919840403402@s.whatsapp.net". */
+const bareJid = (jid) => (jid ?? "").replace(/:\d+(?=@)/, "");
+
+/**
+ * The owner's "message yourself" chat. WhatsApp addresses it by phone-number
+ * jid or by LID depending on the device, so accept both.
+ */
+function isSelfChat(chatId) {
+  if (!WATCH_SELF_CHAT || !socket?.user) return false;
+  const mine = [socket.user.id, socket.user.lid].filter(Boolean).map(bareJid);
+  return mine.includes(bareJid(chatId));
 }
 
 /** Reply metadata: which message this one quotes, if any. */

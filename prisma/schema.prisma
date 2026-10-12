@@ -150,7 +150,7 @@ model ProcessedMessage {
   chatId    String
   sender    String?
   text      String
-  /// book | cancel | rebook | none | error | question
+  /// book | cancel | rebook | none | error | question | question-self
   action    String
   bookingId Int?
   createdAt DateTime @default(now())

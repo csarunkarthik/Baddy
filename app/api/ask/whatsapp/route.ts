@@ -44,6 +44,11 @@ type Body = {
   quotedText?: string;
   /** Answer without recording or queuing anything — for simulate and testing. */
   dryRun?: boolean;
+  /**
+   * Asked in the owner's own "message yourself" chat. The answer goes back
+   * there, and doesn't count toward the group's caps: nobody else sees it.
+   */
+  selfChat?: boolean;
 };
 
 export async function POST(req: Request) {
@@ -65,6 +70,10 @@ export async function POST(req: Request) {
   const replyToMsgId = typeof body.replyToMsgId === "string" ? body.replyToMsgId.slice(0, 200) : null;
   const quotedText = typeof body.quotedText === "string" ? body.quotedText.slice(0, 1500) : null;
   const dryRun = body.dryRun === true;
+  const selfChat = body.selfChat === true;
+  // Where the answer goes. Group answers keep chatId null, so the bridge's
+  // default (GROUP_ID) applies exactly as before.
+  const replyChat = selfChat ? chatId : null;
 
   if (!msgId || !chatId || !text) {
     return NextResponse.json({ error: "msgId, chatId and text are required" }, { status: 400 });
@@ -115,13 +124,15 @@ export async function POST(req: Request) {
 
   try {
     await prisma.processedMessage.create({
-      data: { msgId, chatId, sender, text: text.slice(0, 2000), action: "question" },
+      // Self-chat questions get their own label so they never eat into the
+      // group's daily answer count.
+      data: { msgId, chatId, sender, text: text.slice(0, 2000), action: selfChat ? "question-self" : "question" },
     });
   } catch {
     return NextResponse.json({ status: "duplicate" });
   }
 
-  if (today >= MAX_ANSWERS_PER_DAY || fromSender >= MAX_ANSWERS_PER_SENDER) {
+  if (!selfChat && (today >= MAX_ANSWERS_PER_DAY || fromSender >= MAX_ANSWERS_PER_SENDER)) {
     return NextResponse.json({
       status: "limited",
       reason: today >= MAX_ANSWERS_PER_DAY ? `daily cap (${MAX_ANSWERS_PER_DAY})` : `per-sender cap (${MAX_ANSWERS_PER_SENDER})`,
@@ -134,10 +145,13 @@ export async function POST(req: Request) {
     // One "can't answer" per hour at most — a Groq outage must not turn every
     // question into a post.
     const hour = new Date().toISOString().slice(0, 13);
-    const queued = await enqueue(`answer-unavailable:${hour}`, answerUnavailable(), { replyToMsgId: msgId });
+    const queued = await enqueue(`answer-unavailable:${selfChat ? "self:" : ""}${hour}`, answerUnavailable(), {
+      replyToMsgId: msgId,
+      chatId: replyChat,
+    });
     return NextResponse.json({ status: "error", kind: result.kind, queued: queued.queued });
   }
 
-  const queued = await enqueue(`answer:${msgId}`, answerMessage(result.text), { replyToMsgId: msgId });
+  const queued = await enqueue(`answer:${msgId}`, answerMessage(result.text), { replyToMsgId: msgId, chatId: replyChat });
   return NextResponse.json({ status: "answered", queued: queued.queued, answer: result.text });
 }
