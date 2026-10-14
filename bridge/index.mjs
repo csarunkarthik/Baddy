@@ -101,6 +101,8 @@ const STARTED_AT = Math.floor(Date.now() / 1000);
 const LOOKBACK_HOURS = Number(process.env.LOOKBACK_HOURS ?? 6);
 const LOOKBACK_SEC = Math.max(120, LOOKBACK_HOURS * 3600);
 
+/** Shared WhatsApp session keys; see loadAuth(). Declared before start() runs. */
+let authPromise = null;
 const seen = new Set();
 /** WhatsApp ids of messages this bot posted — never parse our own output. */
 const selfSent = new Set();
@@ -134,7 +136,6 @@ let socket = null;
  * were silently costing us the owner's own group messages. One copy, behind
  * Baileys' recommended in-memory cache, removes the race.
  */
-let authPromise = null;
 function loadAuth() {
   authPromise ??= useMultiFileAuthState(path.join(here, "auth")).then(({ state, saveCreds }) => ({
     saveCreds,
