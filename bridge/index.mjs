@@ -48,6 +48,7 @@ import { fileURLToPath } from "node:url";
 import makeWASocket, {
   DisconnectReason,
   generateMessageIDV2,
+  makeCacheableSignalKeyStore,
   useMultiFileAuthState,
   fetchLatestBaileysVersion,
 } from "@whiskeysockets/baileys";
@@ -123,8 +124,27 @@ start();
 /** The live socket, so the outbox loop can post without re-connecting. */
 let socket = null;
 
+/**
+ * The WhatsApp session keys, loaded ONCE and shared by every reconnect.
+ *
+ * This used to be re-read from disk inside start(), i.e. on every reconnect
+ * (~20 a day). Each reconnect then held its own copy of the Signal keys while
+ * the previous socket could still be writing its copy — the classic route to
+ * "Key used already or never filled" / "No matching sessions found", which
+ * were silently costing us the owner's own group messages. One copy, behind
+ * Baileys' recommended in-memory cache, removes the race.
+ */
+let authPromise = null;
+function loadAuth() {
+  authPromise ??= useMultiFileAuthState(path.join(here, "auth")).then(({ state, saveCreds }) => ({
+    saveCreds,
+    state: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys) },
+  }));
+  return authPromise;
+}
+
 async function start() {
-  const { state, saveCreds } = await useMultiFileAuthState(path.join(here, "auth"));
+  const { state, saveCreds } = await loadAuth();
   const { version } = await fetchLatestBaileysVersion().catch(() => ({ version: undefined }));
 
   const sock = makeWASocket({
